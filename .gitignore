@@ -1,0 +1,4 @@
+.idea
+.run.conf
+*.pyc
+__pycache__
