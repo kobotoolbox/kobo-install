@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 import os
-import sys
+import stat
 
 from helpers.cli import CLI
 
@@ -27,10 +27,7 @@ class Config:
             with open(cls.CONFIG_FILE, "w") as f:
                 f.write(json.dumps(config))
 
-            if sys.version_info.major < 3:
-                os.chmod(cls.CONFIG_FILE, 0600)
-            else:
-                os.chmod(cls.CONFIG_FILE, 0o600)
+            os.chmod(cls.CONFIG_FILE, stat.S_IWRITE | stat.S_IREAD)
 
         except Exception as e:
             print(str(e))

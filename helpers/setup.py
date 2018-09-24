@@ -115,7 +115,6 @@ class Setup:
         config["default_from_email"] = CLI.colored_input("From email address", CLI.COLOR_SUCCESS,
                                                             config.get("default_from_email"))
 
-
         # DB
         config["postgres_db"] = CLI.colored_input("Postgres database", CLI.COLOR_SUCCESS, config.get("postgres_db"))
         config["postgres_user"] = CLI.colored_input("Postgres user", CLI.COLOR_SUCCESS, config.get("postgres_user"))
@@ -125,13 +124,13 @@ class Setup:
         CLI.colored_print("Use AWS?", CLI.COLOR_SUCCESS)
         CLI.colored_print("\t1) Yes")
         CLI.colored_print("\t2) No")
-        config["USE_AWS"] = CLI.get_response(["1", "2"], config.get("use_aws", "2"))
+        config["use_aws"] = CLI.get_response(["1", "2"], config.get("use_aws", "2"))
         if config["use_aws"] == "1":
             config["aws_access_key"] = CLI.colored_input("AWS Access Key", CLI.COLOR_SUCCESS,
                                                             config.get("aws_access_key"))
             config["aws_secret_key"] = CLI.colored_input("AWS Secret Key", CLI.COLOR_SUCCESS,
                                                             config.get("aws_secret_key"))
-            config["aws_bucket_name"] = CLI.colored_input("AWS Secret Key", CLI.COLOR_SUCCESS,
+            config["aws_bucket_name"] = CLI.colored_input("AWS Bucket name", CLI.COLOR_SUCCESS,
                                                          config.get("aws_bucket_name"))
 
 

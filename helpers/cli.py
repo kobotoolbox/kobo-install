@@ -13,7 +13,7 @@ class CLI(object):
     COLOR_ERROR = "\033[91m"
     COLOR_SUCCESS = "\033[92m"
     COLOR_INFO = "\033[94m"
-    COLOR_WARNING = "\033[93m"
+    COLOR_WARNING = "\033[95m"
 
     @classmethod
     def get_response(cls, validators=None, default=""):
@@ -51,10 +51,10 @@ class CLI(object):
     def colorize(cls, message, color=NO_COLOR):
         return "{}{}{}".format(color, message, cls.NO_COLOR)
 
-    @staticmethod
-    def get_message_with_default(message, default):
+    @classmethod
+    def get_message_with_default(cls, message, default):
         message = "{} ".format(message) if message else ""
-        default = "[{}]: ".format(default) if default else ""
+        default = "{}[{}]{}: ".format(cls.COLOR_WARNING, default, cls.NO_COLOR) if default else ""
 
         if message:
             message = "{}: ".format(message.strip()) if not default else message
