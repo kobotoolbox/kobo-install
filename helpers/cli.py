@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import re
+import subprocess
 import sys
-
 
 if sys.version_info.major < 3:
     input = raw_input
@@ -60,3 +60,12 @@ class CLI(object):
             message = "{}: ".format(message.strip()) if not default else message
 
         return "{}{}".format(message, default)
+
+    @classmethod
+    def run_command(cls, command, cwd=None):
+        try:
+            subprocess.check_output(command, universal_newlines=True, cwd=cwd)
+        except subprocess.CalledProcessError as cpe:
+            cls.colored_print(cpe.output, CLI.COLOR_ERROR)
+            return False
+        return True
