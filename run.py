@@ -27,7 +27,8 @@ def run(force_setup=False):
             current_config = config.build()
             Setup.run(current_config)
 
-        Template.render(config.get_config())
+        Template.render(current_config)
+        Setup.update_hosts(current_config)
 
 if __name__ == "__main__":
 

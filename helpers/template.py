@@ -10,8 +10,8 @@ from helpers.config import Config
 
 class Template:
 
-    @staticmethod
-    def render(config):
+    @classmethod
+    def render(cls, config):
 
         template_variables = {
             "PROTOCOL": "https" if config.get("https") == Config.TRUE else "http",
@@ -52,20 +52,29 @@ class Template:
             "WORKERS_START": config.get("workers_start", ""),
         }
 
-        environment_directory = os.path.realpath("{}/../kobo-deployments".format(config["kobodocker_path"]))
-        if not os.path.isdir(environment_directory):
-            try:
-                os.makedirs(environment_directory)
-            except Exception as e:
-                CLI.colored_print("Please verify permissions.", CLI.COLOR_ERROR)
-                raise Exception("Could not create environment directory!")
-
         matches = []
         for root, dirnames, filenames in os.walk("./templates"):
+            destination_directory = cls.__create_directory(root, config)
             for filename in fnmatch.filter(filenames, '*.tpl'):
                 with open(os.path.join(root, filename), "r") as template:
                     t = PyTemplate(template.read())
-                    print("RENDER {}".format(os.path.join(root, filename)))
-                    print(t.substitute(template_variables))
-                    print("           ")
-                    print("           ")
+                    with open(os.path.join(destination_directory, filename[:-4]), "w") as f:
+                        f.write(t.substitute(template_variables))
+
+    @staticmethod
+    def __create_directory(path, config):
+        environment_directory = os.path.realpath("{}/../kobo-deployments".format(config["kobodocker_path"]))
+        if "docker-compose" in path:
+            destination_directory = config["kobodocker_path"]
+        else:
+            destination_directory = path.replace("./templates", environment_directory)
+            if not os.path.isdir(destination_directory):
+                try:
+                    os.makedirs(destination_directory)
+                except Exception as e:
+                    CLI.colored_print("Please verify permissions.", CLI.COLOR_ERROR)
+                    raise Exception("Could not create environment directory!")
+
+        return destination_directory
+
+

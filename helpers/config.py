@@ -10,7 +10,6 @@ from helpers.singleton import Singleton
 
 
 class Config:
-
     CONFIG_FILE = ".run.conf"
     TRUE = "1"
     FALSE = "2"
@@ -55,20 +54,20 @@ class Config:
         CLI.colored_print("\t1) On your workstation")
         CLI.colored_print("\t2) On a server")
         self.__config["local_installation"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                        config.get("local_installation", Config.FALSE))
+                                                               config.get("local_installation", Config.FALSE))
         self.__config["local_interface_ip"] = Network.get_primary_ip()
         self.__config["master_backend_ip"] = Network.get_primary_ip()
 
         if config.get("local_installation") == Config.FALSE:
 
             self.__config["public_domain_name"] = CLI.colored_input("Public domain name", CLI.COLOR_SUCCESS,
-                                                             config.get("public_domain_name", ""))
+                                                                    config.get("public_domain_name", ""))
             self.__config["kpi_subdomain"] = CLI.colored_input("KPI sub domain", CLI.COLOR_SUCCESS,
-                                                        config.get("kpi_subdomain", ""))
+                                                               config.get("kpi_subdomain", ""))
             self.__config["kc_subdomain"] = CLI.colored_input("KoBoCat sub domain", CLI.COLOR_SUCCESS,
-                                                       config.get("kc_subdomain", ""))
+                                                              config.get("kc_subdomain", ""))
             self.__config["ee_subdomain"] = CLI.colored_input("Enketo Express sub domain name", CLI.COLOR_SUCCESS,
-                                                       config.get("ee_subdomain", ""))
+                                                              config.get("ee_subdomain", ""))
 
             CLI.colored_print("Use HTTPS?", CLI.COLOR_SUCCESS)
             CLI.colored_print("Please note that certificate has to be installed on a load balancer!",
@@ -82,20 +81,25 @@ class Config:
                                   CLI.COLOR_SUCCESS)
                 CLI.colored_print("\t1) Yes")
                 CLI.colored_print("\t2) No")
-                self.__config["multi"] = CLI.get_response([Config.TRUE, Config.FALSE], config.get("multi", Config.FALSE))
+                self.__config["multi"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                          config.get("multi", Config.FALSE))
 
                 if config.get("multi") == Config.TRUE:
                     CLI.colored_print("Do you use a DNS for private routes?", CLI.COLOR_SUCCESS)
                     CLI.colored_print("\t1) Yes")
                     CLI.colored_print("\t2) No")
                     self.__config["use_private_dns"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                                 config.get("use_private_dns", Config.FALSE))
+                                                                        config.get("use_private_dns", Config.FALSE))
 
                     if self.__config["use_private_dns"] == Config.FALSE:
                         CLI.colored_print("IP address (IPv4) of backend server?", CLI.COLOR_SUCCESS)
                         self.__config["master_backend_ip"] = CLI.get_response(
                             "~\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}",
                             config.get("master_backend_ip"))
+                    else:
+                        self.__config["private_domain_name"] = CLI.colored_input("Private domain name",
+                                                                                 CLI.COLOR_SUCCESS,
+                                                                                 config.get("private_domain_name", ""))
 
         elif config.get("advanced") == Config.TRUE:
             CLI.colored_print("Please choose which network interface you want to use?", CLI.COLOR_SUCCESS)
@@ -116,14 +120,14 @@ class Config:
         self.__config["smtp_user"] = CLI.colored_input("SMTP user", CLI.COLOR_SUCCESS, config.get("smtp_user"))
         if config.get("smtp_user"):
             self.__config["smtp_password"] = CLI.colored_input("SMTP password", CLI.COLOR_SUCCESS,
-                                                        config.get("smtp_password"))
+                                                               config.get("smtp_password"))
             CLI.colored_print("Use TLS?", CLI.COLOR_SUCCESS)
             CLI.colored_print("\t1) True")
             CLI.colored_print("\t2) False")
             self.__config["smtp_use_tls"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                      config.get("smtp_use_tls", Config.TRUE))
+                                                             config.get("smtp_use_tls", Config.TRUE))
         self.__config["default_from_email"] = CLI.colored_input("From email address", CLI.COLOR_SUCCESS,
-                                                         config.get("default_from_email"))
+                                                                config.get("default_from_email"))
 
         # Super user. Only ask for credentials the first time.
         # Super user is created if db doesn't exists.
@@ -147,23 +151,24 @@ class Config:
         if config.get("advanced") == Config.TRUE:
             # DB
             self.__config["postgres_db"] = CLI.colored_input("Postgres database", CLI.COLOR_SUCCESS,
-                                                      config.get("postgres_db"))
+                                                             config.get("postgres_db"))
             self.__config["postgres_user"] = CLI.colored_input("Postgres user", CLI.COLOR_SUCCESS,
-                                                        config.get("postgres_user"))
+                                                               config.get("postgres_user"))
             self.__config["postgres_password"] = CLI.colored_input("Postgres password", CLI.COLOR_SUCCESS,
-                                                            config.get("postgres_password"))
+                                                                   config.get("postgres_password"))
             # AWS
             CLI.colored_print("Use AWS?", CLI.COLOR_SUCCESS)
             CLI.colored_print("\t1) Yes")
             CLI.colored_print("\t2) No")
-            self.__config["use_aws"] = CLI.get_response([Config.TRUE, Config.FALSE], config.get("use_aws", Config.FALSE))
+            self.__config["use_aws"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                        config.get("use_aws", Config.FALSE))
             if self.__config["use_aws"] == Config.TRUE:
                 self.__config["aws_access_key"] = CLI.colored_input("AWS Access Key", CLI.COLOR_SUCCESS,
-                                                             config.get("aws_access_key"))
+                                                                    config.get("aws_access_key"))
                 self.__config["aws_secret_key"] = CLI.colored_input("AWS Secret Key", CLI.COLOR_SUCCESS,
-                                                             config.get("aws_secret_key"))
+                                                                    config.get("aws_secret_key"))
                 self.__config["aws_bucket_name"] = CLI.colored_input("AWS Bucket name", CLI.COLOR_SUCCESS,
-                                                              config.get("aws_bucket_name"))
+                                                                     config.get("aws_bucket_name"))
 
             CLI.colored_print("Number of uWSGi workers to start?", CLI.COLOR_SUCCESS)
             self.__config["workers_start"] = CLI.get_response(
@@ -176,21 +181,22 @@ class Config:
 
             # Google Analytics
             self.__config["google_ua"] = CLI.colored_input("Google Analytics Identifier", CLI.COLOR_SUCCESS,
-                                                    config.get("google_ua"))
+                                                           config.get("google_ua"))
 
             # Google API Key
             self.__config["google_api_key"] = CLI.colored_input("Google API Key", CLI.COLOR_SUCCESS,
-                                                         config.get("google_api_key"))
+                                                                config.get("google_api_key"))
 
             # Intercom
             self.__config["intercom"] = CLI.colored_input("Intercom", CLI.COLOR_SUCCESS, config.get("intercom"))
 
             # Raven
-            self.__config["kpi_raven"] = CLI.colored_input("KPI Raven token", CLI.COLOR_SUCCESS, config.get("kpi_raven"))
+            self.__config["kpi_raven"] = CLI.colored_input("KPI Raven token", CLI.COLOR_SUCCESS,
+                                                           config.get("kpi_raven"))
             self.__config["kobocat_raven"] = CLI.colored_input("KoBoCat Raven token", CLI.COLOR_SUCCESS,
-                                                        config.get("kobocat_raven"))
+                                                               config.get("kobocat_raven"))
             self.__config["kpi_raven_js"] = CLI.colored_input("KPI Raven JS token", CLI.COLOR_SUCCESS,
-                                                       config.get("kpi_raven_js"))
+                                                              config.get("kpi_raven_js"))
 
             # Debug
             CLI.colored_print("Enable DEBUG?", CLI.COLOR_SUCCESS)
@@ -241,7 +247,8 @@ class Config:
         # Installation directory
         CLI.colored_print("Where do you want to install?", CLI.COLOR_SUCCESS)
         while True:
-            self.__config["kobodocker_path"] = CLI.colored_input("", CLI.COLOR_SUCCESS, self.__config.get("kobodocker_path"))
+            self.__config["kobodocker_path"] = CLI.colored_input("", CLI.COLOR_SUCCESS,
+                                                                 self.__config.get("kobodocker_path"))
             if os.path.isdir(self.__config["kobodocker_path"]):
                 break
             else:
