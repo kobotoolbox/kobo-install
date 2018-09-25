@@ -94,3 +94,17 @@ class Network:
         finally:
             s.close()
         return ip_address
+
+    @classmethod
+    def get_primary_interface(cls):
+        """
+        :return: string
+        """
+        primary_ip = cls.get_primary_ip()
+        local_interfaces = cls.get_local_interfaces()
+
+        for interface, ip_address in local_interfaces.items():
+            if ip_address == primary_ip:
+                return interface
+
+        return "eth0"

@@ -56,7 +56,7 @@ class Config:
         self.__config["local_installation"] = CLI.get_response([Config.TRUE, Config.FALSE],
                                                                config.get("local_installation", Config.FALSE))
         self.__config["local_interface_ip"] = Network.get_primary_ip()
-        self.__config["master_backend_ip"] = Network.get_primary_ip()
+        self.__config["master_backend_ip"] = self.__config["local_interface_ip"]
 
         if config.get("local_installation") == Config.FALSE:
 
@@ -109,7 +109,7 @@ class Config:
 
             self.__config["local_interface"] = CLI.get_response(
                 [str(interface) for interface in interfaces.keys()],
-                config.get("local_interface"))
+                config.get("local_interface", Network.get_primary_interface()))
 
             self.__config["local_interface_ip"] = interfaces[config.get("local_interface")]
             self.__config["master_backend_ip"] = config.get("local_interface_ip")

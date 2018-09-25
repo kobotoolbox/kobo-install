@@ -18,7 +18,7 @@ It can be run with simple command
 [ ] Autodetect network changes in local env
 [x] Automatically start env
 [ ] Tests
-[ ] Advanced options on macOS
+[ ] Advanced network on macOS. Use `netiface`?
 [ ] Fix postgres replication user creation
 [ ] Local configuration with ip address (is it necessary?)
 [ ] Support existing configurations
