@@ -164,11 +164,11 @@ class Config:
                                                         config.get("use_aws", Config.FALSE))
             if self.__config["use_aws"] == Config.TRUE:
                 self.__config["aws_access_key"] = CLI.colored_input("AWS Access Key", CLI.COLOR_SUCCESS,
-                                                                    config.get("aws_access_key"))
+                                                                    config.get("aws_access_key", ""))
                 self.__config["aws_secret_key"] = CLI.colored_input("AWS Secret Key", CLI.COLOR_SUCCESS,
-                                                                    config.get("aws_secret_key"))
+                                                                    config.get("aws_secret_key", ""))
                 self.__config["aws_bucket_name"] = CLI.colored_input("AWS Bucket name", CLI.COLOR_SUCCESS,
-                                                                     config.get("aws_bucket_name"))
+                                                                     config.get("aws_bucket_name", ""))
 
             CLI.colored_print("Number of uWSGi workers to start?", CLI.COLOR_SUCCESS)
             self.__config["workers_start"] = CLI.get_response(
@@ -181,22 +181,22 @@ class Config:
 
             # Google Analytics
             self.__config["google_ua"] = CLI.colored_input("Google Analytics Identifier", CLI.COLOR_SUCCESS,
-                                                           config.get("google_ua"))
+                                                           config.get("google_ua", ""))
 
             # Google API Key
             self.__config["google_api_key"] = CLI.colored_input("Google API Key", CLI.COLOR_SUCCESS,
-                                                                config.get("google_api_key"))
+                                                                config.get("google_api_key", ""))
 
             # Intercom
-            self.__config["intercom"] = CLI.colored_input("Intercom", CLI.COLOR_SUCCESS, config.get("intercom"))
+            self.__config["intercom"] = CLI.colored_input("Intercom", CLI.COLOR_SUCCESS, config.get("intercom", ""))
 
             # Raven
             self.__config["kpi_raven"] = CLI.colored_input("KPI Raven token", CLI.COLOR_SUCCESS,
-                                                           config.get("kpi_raven"))
+                                                           config.get("kpi_raven", ""))
             self.__config["kobocat_raven"] = CLI.colored_input("KoBoCat Raven token", CLI.COLOR_SUCCESS,
-                                                               config.get("kobocat_raven"))
+                                                               config.get("kobocat_raven", ""))
             self.__config["kpi_raven_js"] = CLI.colored_input("KPI Raven JS token", CLI.COLOR_SUCCESS,
-                                                              config.get("kpi_raven_js"))
+                                                              config.get("kpi_raven_js", ""))
 
             # Debug
             CLI.colored_print("Enable DEBUG?", CLI.COLOR_SUCCESS)

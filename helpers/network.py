@@ -15,6 +15,8 @@ class Network:
             Linux Only!
             Source: https://gist.github.com/bubthegreat/24c0c43ad159d8dfed1a5d3f6ca99f9b
         """
+        ip_dict = {}
+
         if platform.system() == "Linux":
             # Max possible bytes for interface result.  Will truncate if more than 4096 characters to describe interfaces.
             MAX_BYTES = 4096
@@ -59,7 +61,7 @@ class Network:
             # Each entry is 40 bytes long.  The first 16 bytes are the name string.
             # the 20-24th bytes are IP address octet strings in byte form - one for each byte.
             # Don't know what 17-19 are, or bytes 25:40.
-            ip_dict = {}
+
             for i in range(0, max_bytes_out, 40):
                 name = namestr[i: i + 16].split(FILL_CHAR, 1)[0]
                 name = name.decode('utf-8')
@@ -70,13 +72,19 @@ class Network:
                         full_addr.append(str(netaddr))
                     elif isinstance(netaddr, str):
                         full_addr.append(str(ord(netaddr)))
-                if not (name == "lo" or name.startswith(("docker", "br-", "veth"))):
+                if not (name == "lo" or name.startswith(("docker", "br-", "veth", "vmnet"))):
                     ip_dict[name] = '.'.join(full_addr)
 
-            return ip_dict
         else:
-            # TODO use netifaces with venv on MacOS
-            raise Exception("Only available for linux!")
+            import netifaces
+
+            for interface in netifaces.interfaces():
+                if not (interface == "lo" or interface.startswith(("docker", "br-", "veth" , "vmnet"))):
+                    ifaddresses = netifaces.ifaddresses(interface)
+                    if ifaddresses.get(netifaces.AF_INET) and ifaddresses.get(netifaces.AF_INET)[0].get("addr"):
+                        ip_dict[interface] = ifaddresses.get(netifaces.AF_INET)[0].get("addr")
+        return ip_dict
+
 
     @staticmethod
     def get_primary_ip():

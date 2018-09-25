@@ -18,11 +18,12 @@ It can be run with simple command
 [ ] Autodetect network changes in local env
 [x] Automatically start env
 [ ] Tests
-[ ] Advanced network on macOS. Use `netiface`?
+[x] Advanced network on macOS. Use `netiface`?
 [ ] Fix postgres replication user creation
 [ ] Local configuration with ip address (is it necessary?)
 [ ] Support existing configurations
 [ ] Handle backend and frontend env
+[ ] Better input validations
 
 ### Known issues
 
