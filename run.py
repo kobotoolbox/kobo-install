@@ -6,9 +6,11 @@ import sys
 from helpers.cli import CLI
 from helpers.config import Config
 from helpers.setup import Setup
+from helpers.template import Template
 
 
 def help():
+    # TODO
     pass
 
 def run(force_setup=False):
@@ -16,14 +18,16 @@ def run(force_setup=False):
     if not platform.system() in ["Linux", "Darwin"]:
         CLI.colored_print("Not compatible with this OS", CLI.COLOR_ERROR)
     else:
-        current_config = Config.read_config()
+        config = Config()
+        current_config = config.get_config()
         if not current_config:
             force_setup = True
 
         if force_setup:
-            setup = Setup(current_config)
-            setup.run()
+            current_config = config.build()
+            Setup.run(current_config)
 
+        Template.render(config.get_config())
 
 if __name__ == "__main__":
 
