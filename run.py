@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import os
+import platform
 import sys
 
 from helpers.cli import CLI
@@ -13,13 +13,16 @@ def help():
 
 def run(force_setup=False):
 
-    current_config = Config.read_config()
-    if not current_config:
-        force_setup = True
+    if not platform.system() in ["Linux", "Darwin"]:
+        CLI.colored_print("Not compatible with this OS", CLI.COLOR_ERROR)
+    else:
+        current_config = Config.read_config()
+        if not current_config:
+            force_setup = True
 
-    if force_setup:
-        setup = Setup(current_config)
-        setup.run()
+        if force_setup:
+            setup = Setup(current_config)
+            setup.run()
 
 
 if __name__ == "__main__":

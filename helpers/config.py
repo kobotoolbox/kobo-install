@@ -2,6 +2,7 @@
 import json
 import os
 import stat
+import time
 
 from helpers.cli import CLI
 
@@ -23,6 +24,11 @@ class Config:
 
     @classmethod
     def write_config(cls, config):
+        if config.get("date_created") is None:
+            config["date_created"] = int(time.time())
+
+        config["date_modified"] = int(time.time())
+
         try:
             with open(cls.CONFIG_FILE, "w") as f:
                 f.write(json.dumps(config))

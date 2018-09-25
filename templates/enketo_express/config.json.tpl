@@ -25,7 +25,7 @@
         "api key": "${GOOGLE_API_KEY}",
         "analytics": {
             "ua": "${GOOGLE_UA}",
-            "domain": "${ENKETO_EXPRESS_PUBLIC_SUBDOMAIN}.${PUBLIC_DOMAIN_NAME}"
+            "domain": "${ENKETO_SUBDOMAIN}.${PUBLIC_DOMAIN_NAME}"
         }
     }
 }
