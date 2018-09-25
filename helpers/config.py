@@ -116,9 +116,9 @@ class Config:
 
         # SMTP.
         self.__config["smtp_host"] = CLI.colored_input("SMTP server", CLI.COLOR_SUCCESS, config.get("smtp_host"))
-        self.__config["smtp_port"] = CLI.colored_input("SMTP port", CLI.COLOR_SUCCESS, config.get("smtp_port"))
-        self.__config["smtp_user"] = CLI.colored_input("SMTP user", CLI.COLOR_SUCCESS, config.get("smtp_user"))
-        if config.get("smtp_user"):
+        self.__config["smtp_port"] = CLI.colored_input("SMTP port", CLI.COLOR_SUCCESS, config.get("smtp_port", "25"))
+        self.__config["smtp_user"] = CLI.colored_input("SMTP user", CLI.COLOR_SUCCESS, config.get("smtp_user", ""))
+        if self.__config.get("smtp_user"):
             self.__config["smtp_password"] = CLI.colored_input("SMTP password", CLI.COLOR_SUCCESS,
                                                                config.get("smtp_password"))
             CLI.colored_print("Use TLS?", CLI.COLOR_SUCCESS)

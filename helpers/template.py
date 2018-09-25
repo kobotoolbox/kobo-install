@@ -52,7 +52,6 @@ class Template:
             "WORKERS_START": config.get("workers_start", ""),
         }
 
-        matches = []
         for root, dirnames, filenames in os.walk("./templates"):
             destination_directory = cls.__create_directory(root, config)
             for filename in fnmatch.filter(filenames, '*.tpl'):
