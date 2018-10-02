@@ -167,12 +167,14 @@ class Config:
                     self.__config["kpi_path"] = CLI.colored_input("KPI files location", CLI.COLOR_SUCCESS,
                                                                         config.get("kpi_path"))
                 else:
-                    self.__config["kc_path"] = Config.FALSE
-                    self.__config["kpi_path"] = Config.FALSE
+                    # Force reset paths
+                    self.__config["kc_path"] = ""
+                    self.__config["kpi_path"] = ""
             else:
+                # Force reset paths
                 self.__config["dev_mode"] = Config.FALSE
-                self.__config["kc_path"] = Config.FALSE
-                self.__config["kpi_path"] = Config.FALSE
+                self.__config["kc_path"] = ""
+                self.__config["kpi_path"] = ""
 
 
             # DB
