@@ -72,16 +72,22 @@ class Setup:
             with open("/tmp/etchosts", "w") as f:
                 f.write(tmp_host)
 
-            CLI.colored_print("#####################################################################", CLI.COLOR_WARNING)
-            CLI.colored_print("# Administrative privileges are required to update your /etc/hosts. #", CLI.COLOR_WARNING)
-            CLI.colored_print("# to update your /etc/hosts.                                        #", CLI.COLOR_WARNING)
-            CLI.colored_print("#####################################################################", CLI.COLOR_WARNING)
-            CLI.colored_print("Do you want to review your /etc/hosts before overwriting it?", CLI.COLOR_SUCCESS)
-            CLI.colored_print("\t1) Yes")
-            CLI.colored_print("\t2) No")
-            response = CLI.get_response([Config.TRUE, Config.FALSE], Config.FALSE)
-            if response == Config.TRUE:
-                print(tmp_host)
-                CLI.colored_input("Press any keys when ready")
+            print(config.get("review_host"))
+
+            if config.get("review_host") != Config.FALSE:
+                CLI.colored_print("╔═══════════════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
+                CLI.colored_print("║ Administrative privileges are required to update your /etc/hosts. ║", CLI.COLOR_WARNING)
+                CLI.colored_print("╚═══════════════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
+                CLI.colored_print("Do you want to review your /etc/hosts file before overwriting it?", CLI.COLOR_SUCCESS)
+                CLI.colored_print("\t1) Yes")
+                CLI.colored_print("\t2) No")
+                config["review_host"] = CLI.get_response([Config.TRUE, Config.FALSE], config.get("review_host", Config.FALSE))
+                if config["review_host"] == Config.TRUE:
+                    print(tmp_host)
+                    CLI.colored_input("Press any keys when ready")
+
+                # Save 'review_host'
+                config_ = Config()
+                config_.write_config()
 
             os.system("sudo mv /etc/hosts /etc/hosts.old && sudo mv /tmp/etchosts /etc/hosts")

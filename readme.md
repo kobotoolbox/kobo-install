@@ -18,12 +18,14 @@ It can be run with simple command
 [ ] Autodetect network changes in local env
 [x] Automatically start env
 [ ] Tests
+[ ] Developer mode. Add paths to kobocat and kpi in override composer file
 [x] Advanced network on macOS. Use `netiface`?
 [ ] Fix postgres replication user creation
-[ ] Local configuration with ip address (is it necessary?)
-[ ] Support existing configurations
-[ ] Handle backend and frontend env
+[ ] Handle multi environments (frontend on one server and backend on another)
 [ ] Better input validations
+[ ] Stop docker containers with command
+[ ] Support existing configurations
+[ ] Local configuration with ip address (is it necessary?)
 
 ### Known issues
 

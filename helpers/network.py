@@ -1,12 +1,18 @@
 # -*- coding: utf-8 -*-
 import array
 import fcntl
+import httplib
+import platform
 import socket
 import struct
-import platform
+import sys
+
+from helpers.cli import CLI
 
 
 class Network:
+
+    STATUS_OK_200 = 200
 
     @staticmethod
     def get_local_interfaces():
@@ -76,15 +82,18 @@ class Network:
                     ip_dict[name] = '.'.join(full_addr)
 
         else:
-            import netifaces
+            try:
+                import netifaces
+            except ImportError:
+                CLI.colored_print("You must install netinfaces first! Please type `pip install netifaces`", CLI.COLOR_ERROR)
+                sys.exit()
 
             for interface in netifaces.interfaces():
-                if not (interface == "lo" or interface.startswith(("docker", "br-", "veth" , "vmnet"))):
+                if not (interface.startswith(("docker", "br-", "veth" , "vmnet", "lo"))):
                     ifaddresses = netifaces.ifaddresses(interface)
                     if ifaddresses.get(netifaces.AF_INET) and ifaddresses.get(netifaces.AF_INET)[0].get("addr"):
                         ip_dict[interface] = ifaddresses.get(netifaces.AF_INET)[0].get("addr")
         return ip_dict
-
 
     @staticmethod
     def get_primary_ip():
@@ -116,3 +125,15 @@ class Network:
                 return interface
 
         return "eth0"
+
+    @classmethod
+    def status_check(cls, hostname, endpoint):
+        try:
+            conn = httplib.HTTPConnection("{}:80".format(hostname), timeout=10)
+            conn.request("GET", endpoint)
+            response = conn.getresponse()
+            return response.status
+        except:
+            pass
+
+        return

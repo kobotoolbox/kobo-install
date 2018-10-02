@@ -2,6 +2,7 @@
 import json
 import os
 import stat
+import sys
 import time
 
 from helpers.cli import CLI
@@ -16,11 +17,20 @@ class Config:
 
     # Maybe overkill. Use this class as a singleton to get the same configuration
     # for each instantiation.
-
     __metaclass__ = Singleton
 
     def __init__(self):
         self.__config = self.read_config()
+
+    def auto_detect_network(self):
+        changed = False
+        if self.__config.get("local_installation") == Config.TRUE:
+            local_interfaces = Network.get_local_interfaces()
+            if self.__config.get("local_interface_ip") not in local_interfaces.values():
+                self.__detect_network()
+                self.write_config()
+                changed = True
+        return changed
 
     def build(self):
         config = {
@@ -55,9 +65,6 @@ class Config:
         CLI.colored_print("\t2) On a server")
         self.__config["local_installation"] = CLI.get_response([Config.TRUE, Config.FALSE],
                                                                config.get("local_installation", Config.FALSE))
-        self.__config["local_interface_ip"] = Network.get_primary_ip()
-        self.__config["master_backend_ip"] = self.__config["local_interface_ip"]
-
         if config.get("local_installation") == Config.FALSE:
 
             self.__config["public_domain_name"] = CLI.colored_input("Public domain name", CLI.COLOR_SUCCESS,
@@ -95,24 +102,14 @@ class Config:
                         CLI.colored_print("IP address (IPv4) of backend server?", CLI.COLOR_SUCCESS)
                         self.__config["master_backend_ip"] = CLI.get_response(
                             "~\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}",
-                            config.get("master_backend_ip"))
+                            config.get("master_backend_ip", Network.get_primary_ip()))
                     else:
                         self.__config["private_domain_name"] = CLI.colored_input("Private domain name",
                                                                                  CLI.COLOR_SUCCESS,
                                                                                  config.get("private_domain_name", ""))
 
-        elif config.get("advanced") == Config.TRUE:
-            CLI.colored_print("Please choose which network interface you want to use?", CLI.COLOR_SUCCESS)
-            interfaces = Network.get_local_interfaces()
-            for interface, ip_address in interfaces.items():
-                CLI.colored_print("\t{}) {}".format(interface, ip_address))
-
-            self.__config["local_interface"] = CLI.get_response(
-                [str(interface) for interface in interfaces.keys()],
-                config.get("local_interface", Network.get_primary_interface()))
-
-            self.__config["local_interface_ip"] = interfaces[config.get("local_interface")]
-            self.__config["master_backend_ip"] = config.get("local_interface_ip")
+        else:
+            self.__detect_network()
 
         # SMTP.
         self.__config["smtp_host"] = CLI.colored_input("SMTP server", CLI.COLOR_SUCCESS, config.get("smtp_host"))
@@ -138,12 +135,12 @@ class Config:
 
         if (username != config.get("super_user_username") or password != config.get("super_user_password")) and \
                 not first_time:
-            CLI.colored_print("########################################################", CLI.COLOR_WARNING)
-            CLI.colored_print("# Username or password have been changed!              #", CLI.COLOR_WARNING)
-            CLI.colored_print("# Don't forget to apply these changes in Postgres too. #", CLI.COLOR_WARNING)
-            CLI.colored_print("# Super user's credentials won't be updated if the     #", CLI.COLOR_WARNING)
-            CLI.colored_print("# database already exists.                             #", CLI.COLOR_WARNING)
-            CLI.colored_print("########################################################", CLI.COLOR_WARNING)
+            CLI.colored_print("╔══════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
+            CLI.colored_print("║ Username or password have been changed!              ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║ Don't forget to apply these changes in Postgres too. ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║ Super user's credentials won't be updated if the     ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║ database already exists.                             ║", CLI.COLOR_WARNING)
+            CLI.colored_print("╚══════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
 
         self.__config["super_user_username"] = username
         self.__config["super_user_password"] = password
@@ -257,4 +254,23 @@ class Config:
                     break
                 except Exception as e:
                     CLI.colored_print("Please verify permissions.", CLI.COLOR_ERROR)
-                    raise Exception("Could not create kobo-docker directory!")
+                    CLI.colored_print("Could not create kobo-docker directory!", CLI.COLOR_ERROR)
+                    sys.exit()
+
+    def __detect_network(self):
+
+        self.__config["local_interface_ip"] = Network.get_primary_ip()
+        self.__config["master_backend_ip"] = self.__config["local_interface_ip"]
+
+        if self.__config.get("advanced") == Config.TRUE:
+            CLI.colored_print("Please choose which network interface you want to use?", CLI.COLOR_SUCCESS)
+            interfaces = Network.get_local_interfaces()
+            for interface, ip_address in interfaces.items():
+                CLI.colored_print("\t{}) {}".format(interface, ip_address))
+
+            self.__config["local_interface"] = CLI.get_response(
+                [str(interface) for interface in interfaces.keys()],
+                self.__config.get("local_interface", Network.get_primary_interface()))
+
+            self.__config["local_interface_ip"] = interfaces[self.__config.get("local_interface")]
+            self.__config["master_backend_ip"] = self.__config.get("local_interface_ip")

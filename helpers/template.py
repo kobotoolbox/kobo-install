@@ -3,6 +3,7 @@ import binascii
 import fnmatch
 import os
 from string import Template as PyTemplate
+import sys
 
 from helpers.cli import CLI
 from helpers.config import Config
@@ -72,7 +73,7 @@ class Template:
                     os.makedirs(destination_directory)
                 except Exception as e:
                     CLI.colored_print("Please verify permissions.", CLI.COLOR_ERROR)
-                    raise Exception("Could not create environment directory!")
+                    sys.exit()
 
         return destination_directory
 
