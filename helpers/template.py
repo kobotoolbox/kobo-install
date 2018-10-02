@@ -38,7 +38,7 @@ class Template:
             "POSTGRES_DB": config.get("postgres_db", ""),
             "POSTGRES_USER": config.get("postgres_user", ""),
             "POSTGRES_PASSWORD": config.get("postgres_password", ""),
-            "DEBUG": config.get("debug", False) == "Y",
+            "DEBUG": config.get("debug", False) == Config.TRUE,
             "SMTP_HOST": config.get("smtp_host", ""),
             "SMTP_PORT": config.get("smtp_port", ""),
             "SMTP_USER": config.get("smtp_user", ""),
@@ -51,6 +51,10 @@ class Template:
             "USE_PRIVATE_DNS": "#" if config.get("use_private_dns") == Config.TRUE else "",
             "WORKERS_MAX": config.get("workers_max", ""),
             "WORKERS_START": config.get("workers_start", ""),
+            "KC_PATH": config.get("kc_path", ""),
+            "KPI_PATH": config.get("kpi_path", ""),
+            "USE_KPI_DEV_MODE": "#" if config.get("kpi_path", "") == "" else "",
+            "USE_KC_DEV_MODE": "#" if config.get("kc_path", "") == "" else ""
         }
 
         for root, dirnames, filenames in os.walk("./templates"):

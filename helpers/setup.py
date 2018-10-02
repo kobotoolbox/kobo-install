@@ -72,8 +72,6 @@ class Setup:
             with open("/tmp/etchosts", "w") as f:
                 f.write(tmp_host)
 
-            print(config.get("review_host"))
-
             if config.get("review_host") != Config.FALSE:
                 CLI.colored_print("╔═══════════════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
                 CLI.colored_print("║ Administrative privileges are required to update your /etc/hosts. ║", CLI.COLOR_WARNING)

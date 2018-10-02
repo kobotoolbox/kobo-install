@@ -3,6 +3,9 @@ version: '3'
 
 services:
   kobocat:
+    ${USE_KC_DEV_MODE}build: ${KC_PATH}
+    ${USE_KC_DEV_MODE}volumes:
+    ${USE_KC_DEV_MODE}  - ${KC_PATH}:/srv/src/kobocat
     environment:
       - KPI_UWSGI_WORKERS_COUNT=${WORKERS_MAX}
       - KPI_UWSGI_CHEAPER_WORKERS_COUNT=${WORKERS_START}
@@ -17,6 +20,9 @@ services:
       ${USE_PRIVATE_DNS}- redis-cache.${PRIVATE_DOMAIN_NAME}:${MASTER_BACKEND_IP}
 
   kpi:
+    ${USE_KPI_DEV_MODE}build: ${KPI_PATH}
+    ${USE_KPI_DEV_MODE}volumes:
+    ${USE_KPI_DEV_MODE}  - ${KPI_PATH}:/srv/src/kpi
     environment:
       - KPI_UWSGI_WORKERS_COUNT=${WORKERS_MAX}
       - KPI_UWSGI_CHEAPER_WORKERS_COUNT=${WORKERS_START}

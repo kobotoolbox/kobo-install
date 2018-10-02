@@ -47,7 +47,9 @@ class Config:
             "postgres_db": "kobotoolbox",
             "postgres_user": "kobo",
             "postgres_password": "kobo",
-            "private_domain_name": "docker.internal"
+            "private_domain_name": "docker.internal",
+            "kc_path": "",
+            "kpi_path": ""
         }
 
         first_time = self.__config.get("date_created") is None
@@ -146,6 +148,33 @@ class Config:
         self.__config["super_user_password"] = password
 
         if config.get("advanced") == Config.TRUE:
+
+            # Dev Mode
+            if config.get("local_installation") == Config.TRUE:
+                CLI.colored_print("Developer mode?", CLI.COLOR_SUCCESS)
+                CLI.colored_print("\t1) Yes")
+                CLI.colored_print("\t2) No")
+                self.__config["dev_mode"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                            config.get("dev_mode", Config.FALSE))
+                if self.__config["dev_mode"] == Config.TRUE:
+                    CLI.colored_print("╔═══════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
+                    CLI.colored_print("║ Where are the files located locally? It can be absolute   ║", CLI.COLOR_WARNING)
+                    CLI.colored_print("║ or relative to the directory of the installation.         ║", CLI.COLOR_WARNING)
+                    CLI.colored_print("║ Leave empty if you don't need to overload the repository. ║", CLI.COLOR_WARNING)
+                    CLI.colored_print("╚═══════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
+                    self.__config["kc_path"] = CLI.colored_input("KoBoCat files location", CLI.COLOR_SUCCESS,
+                                                                        config.get("kc_path"))
+                    self.__config["kpi_path"] = CLI.colored_input("KPI files location", CLI.COLOR_SUCCESS,
+                                                                        config.get("kpi_path"))
+                else:
+                    self.__config["kc_path"] = Config.FALSE
+                    self.__config["kpi_path"] = Config.FALSE
+            else:
+                self.__config["dev_mode"] = Config.FALSE
+                self.__config["kc_path"] = Config.FALSE
+                self.__config["kpi_path"] = Config.FALSE
+
+
             # DB
             self.__config["postgres_db"] = CLI.colored_input("Postgres database", CLI.COLOR_SUCCESS,
                                                              config.get("postgres_db"))
