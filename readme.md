@@ -30,6 +30,5 @@ It can be run with simple command
 
 ### Known issues
 
-- SMTP user is "None" in envfiles when empty
 - replication in postgres failed
 - script does not work when it's not launched from `kobo-install` repository
