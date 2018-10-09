@@ -46,53 +46,70 @@ def __start_env(config):
     )
     char_count = len(main_url)
     CLI.colored_print("Launching environment", CLI.COLOR_SUCCESS)
+
     # Stop containers first
-    backend_command = ["docker-compose", "-f", "docker-compose.backend.master.yml", "down"]
-    CLI.run_command(backend_command, config.get("kobodocker_path"))
-    frontend_command = ["docker-compose",
-                        "-f",
-                        "docker-compose.frontend.yml",
-                        "-f",
-                        "docker-compose.frontend.override.yml",
-                        "down"]
-    CLI.run_command(frontend_command, config.get("kobodocker_path"))
+    if (config.get("multi") == Config.TRUE and config.get("server_role") == "backend") or \
+            config.get("multi") != Config.TRUE:
+        backend_command = ["docker-compose", "-f", "docker-compose.backend.master.yml", "down"]
+        CLI.run_command(backend_command, config.get("kobodocker_path"))
+
+    if (config.get("multi") == Config.TRUE and config.get("server_role") == "frontend") or \
+            config.get("multi") != Config.TRUE:
+        frontend_command = ["docker-compose",
+                            "-f",
+                            "docker-compose.frontend.yml",
+                            "-f",
+                            "docker-compose.frontend.override.yml",
+                            "down"]
+        CLI.run_command(frontend_command, config.get("kobodocker_path"))
 
     # Make them up
-    backend_command = ["docker-compose", "-f", "docker-compose.backend.master.yml", "up", "-d"]
-    CLI.run_command(backend_command, config.get("kobodocker_path"))
-    frontend_command = ["docker-compose",
-                       "-f",
-                       "docker-compose.frontend.yml",
-                       "-f",
-                       "docker-compose.frontend.override.yml",
-                       "up", "-d"]
-    CLI.run_command(frontend_command, config.get("kobodocker_path"))
-    CLI.colored_print("Waiting for environment to be ready", CLI.COLOR_SUCCESS)
-    stop = False
-    start = int(time.time())
-    success = False
-    hostname = "{}.{}".format(config.get("kpi_subdomain"), config.get("public_domain_name"))
-    while not stop:
-        if Network.status_check(hostname, "/service_health/") == Network.STATUS_OK_200:
-            stop = True
-            success = True
-        elif int(time.time()) - start >= 5 * 60:
-            stop = True
+    if (config.get("multi") == Config.TRUE and config.get("server_role") == "backend") or \
+            config.get("multi") != Config.TRUE:
+        backend_command = ["docker-compose", "-f", "docker-compose.backend.master.yml", "up", "-d"]
+        CLI.run_command(backend_command, config.get("kobodocker_path"))
+
+    if (config.get("multi") == Config.TRUE and config.get("server_role") == "frontend") or \
+            config.get("multi") != Config.TRUE:
+        frontend_command = ["docker-compose",
+                           "-f",
+                           "docker-compose.frontend.yml",
+                           "-f",
+                           "docker-compose.frontend.override.yml",
+                           "up", "-d"]
+        CLI.run_command(frontend_command, config.get("kobodocker_path"))
+
+    if (config.get("multi") == Config.TRUE and config.get("server_role") == "frontend") or \
+            config.get("multi") != Config.TRUE:
+        CLI.colored_print("Waiting for environment to be ready", CLI.COLOR_SUCCESS)
+        stop = False
+        start = int(time.time())
+        success = False
+        hostname = "{}.{}".format(config.get("kpi_subdomain"), config.get("public_domain_name"))
+        while not stop:
+            if Network.status_check(hostname, "/service_health/") == Network.STATUS_OK_200:
+                stop = True
+                success = True
+            elif int(time.time()) - start >= 5 * 60:
+                stop = True
+            else:
+                sys.stdout.write(".")
+                sys.stdout.flush()
+                time.sleep(10)
+
+        # Create a new line
+        print("")
+
+        if success:
+            CLI.colored_print("╔══════{}══╗".format("═" * char_count), CLI.COLOR_WARNING)
+            CLI.colored_print("║ Ready {} ║".format(" " * char_count), CLI.COLOR_WARNING)
+            CLI.colored_print("║ URL: {}/ ║".format(main_url), CLI.COLOR_WARNING)
+            CLI.colored_print("╚══════{}══╝".format("═" * char_count), CLI.COLOR_WARNING)
         else:
-            sys.stdout.write(".")
-            sys.stdout.flush()
-            time.sleep(10)
-
-    # Create a new line
-    print("")
-
-    if success:
-        CLI.colored_print("╔══════{}══╗".format("═" * char_count), CLI.COLOR_WARNING)
-        CLI.colored_print("║ Ready {} ║".format(" " * char_count), CLI.COLOR_WARNING)
-        CLI.colored_print("║ URL: {}/ ║".format(main_url), CLI.COLOR_WARNING)
-        CLI.colored_print("╚══════{}══╝".format("═" * char_count), CLI.COLOR_WARNING)
+            CLI.colored_print("Something went wrong! Please look at docker logs", CLI.COLOR_ERROR)
     else:
-        CLI.colored_print("Something went wrong! Please look at docker logs", CLI.COLOR_ERROR)
+        CLI.colored_print(("Backend server should be up & running! "
+                          "Please look at docker logs for further information"), CLI.COLOR_WARNING)
 
 if __name__ == "__main__":
 

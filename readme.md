@@ -5,12 +5,13 @@ It can be run with simple command
 
 `$kobo-install> python run.py`
 
-**This utility is an alpha release**
+**This utility is an beta release**
 
 ## Requirements
 
-- Linux/macOS
+- Linux / macOS
 - Python 2.7+
+- [Docker](https://www.docker.com/get-started "") & [Docker Compose](https://docs.docker.com/compose/install/ "")
 
 ### To-Do
 
@@ -21,7 +22,7 @@ It can be run with simple command
 [x] Developer mode. Add paths to kobocat and kpi in override composer file  
 [x] Advanced network on macOS. Use `netiface`?  
 [ ] Fix postgres replication user creation  
-[ ] Handle multi environments (frontend on one server and backend on another)  
+[x] Handle multi environments (frontend on one server and backend on another)  
 [ ] Better input validations  
 [ ] Stop docker containers with command  
 [ ] Support existing configurations  

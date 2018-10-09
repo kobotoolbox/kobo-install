@@ -49,6 +49,8 @@ class Template:
             "LOCAL_INTERFACE_IP": config.get("local_interface_ip"),
             "USE_PUBLIC_DNS": "" if config.get("local_installation") == Config.TRUE else "#",
             "USE_PRIVATE_DNS": "#" if config.get("use_private_dns") == Config.TRUE else "",
+            "USE_DNS": "" if config.get("local_installation") == Config.TRUE or
+                              config.get("use_private_dns") == Config.FALSE else "#",
             "WORKERS_MAX": config.get("workers_max", ""),
             "WORKERS_START": config.get("workers_start", ""),
             "KC_PATH": config.get("kc_path", ""),
