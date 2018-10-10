@@ -44,7 +44,6 @@ def __start_env(config):
         config.get("kpi_subdomain"),
         config.get("public_domain_name")
     )
-    char_count = len(main_url)
     CLI.colored_print("Launching environment", CLI.COLOR_SUCCESS)
 
     # Stop containers first
@@ -62,6 +61,14 @@ def __start_env(config):
                             "docker-compose.frontend.override.yml",
                             "down"]
         CLI.run_command(frontend_command, config.get("kobodocker_path"))
+
+    # Test if ports are available
+    ports = [80, 6379, 5672, 27000, 5432]
+    for port in ports:
+        if Network.is_port_open(port):
+            CLI.colored_print("Port {} is already open. KoboToolbox can't start".format(port),
+                              CLI.COLOR_ERROR)
+            sys.exit()
 
     # Make them up
     if (config.get("multi") == Config.TRUE and config.get("server_role") == "backend") or \
@@ -101,10 +108,23 @@ def __start_env(config):
         print("")
 
         if success:
-            CLI.colored_print("╔══════{}══╗".format("═" * char_count), CLI.COLOR_WARNING)
-            CLI.colored_print("║ Ready {} ║".format(" " * char_count), CLI.COLOR_WARNING)
-            CLI.colored_print("║ URL: {}/ ║".format(main_url), CLI.COLOR_WARNING)
-            CLI.colored_print("╚══════{}══╝".format("═" * char_count), CLI.COLOR_WARNING)
+            username = config.get("super_user_username")
+            password = config.get("super_user_password")
+            username_chars_count = len(username) + 6
+            password_chars_count = len(password) + 10
+            url_chars_count = len(main_url) + 6
+            max_chars_count = max(username_chars_count, password_chars_count, url_chars_count)
+
+            CLI.colored_print("╔═{}═╗".format("═" * max_chars_count), CLI.COLOR_WARNING)
+            CLI.colored_print("║ Ready {} ║".format(
+                " " * (max_chars_count - len("Ready "))), CLI.COLOR_WARNING)
+            CLI.colored_print("║ URL: {}/{} ║".format(
+                main_url, " " * (max_chars_count - url_chars_count)), CLI.COLOR_WARNING)
+            CLI.colored_print("║ User: {}{} ║".format(
+                username, " " * (max_chars_count - username_chars_count)), CLI.COLOR_WARNING)
+            CLI.colored_print("║ Password: {}{} ║".format(
+                password, " " * (max_chars_count - password_chars_count)), CLI.COLOR_WARNING)
+            CLI.colored_print("╚═{}═╝".format("═" * max_chars_count), CLI.COLOR_WARNING)
         else:
             CLI.colored_print("Something went wrong! Please look at docker logs", CLI.COLOR_ERROR)
     else:

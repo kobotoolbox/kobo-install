@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 import array
 import fcntl
-import httplib
+try:
+    import httplib
+except:
+    from http import client as httplib
 import platform
 import socket
 import struct
@@ -137,3 +140,9 @@ class Network:
             pass
 
         return
+
+    @staticmethod
+    def is_port_open(port):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        result = sock.connect_ex(("127.0.0.1", port))
+        return result == 0
