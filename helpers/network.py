@@ -130,9 +130,9 @@ class Network:
         return "eth0"
 
     @classmethod
-    def status_check(cls, hostname, endpoint):
+    def status_check(cls, hostname, endpoint, port=80):
         try:
-            conn = httplib.HTTPConnection("{}:80".format(hostname), timeout=10)
+            conn = httplib.HTTPConnection("{}:{}".format(hostname, port), timeout=10)
             conn.request("GET", endpoint)
             response = conn.getresponse()
             return response.status
@@ -144,5 +144,5 @@ class Network:
     @staticmethod
     def is_port_open(port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        result = sock.connect_ex(("127.0.0.1", port))
+        result = sock.connect_ex(("127.0.0.1", int(port)))
         return result == 0

@@ -128,7 +128,11 @@ class Config:
                 self.__config["https"] = CLI.get_response([Config.TRUE, Config.FALSE],
                                                           config.get("https", Config.TRUE))
         else:
+            # Reset previous choices, in case server role is not the same.
+            self.__config["multi"] = Config.FALSE
+            self.__config["use_private_dns"] = Config.FALSE
             frontend_questions = True
+
             self.__detect_network()
 
         if frontend_questions:
@@ -170,6 +174,11 @@ class Config:
 
             # Dev Mode
             if frontend_questions and config.get("local_installation") == Config.TRUE:
+                #NGinX different port
+                CLI.colored_print("Web server port?", CLI.COLOR_SUCCESS)
+                self.__config["nginx_port"] = CLI.get_response("~\d+",
+                                                            config.get("nginx_port", 80))
+
                 CLI.colored_print("Developer mode?", CLI.COLOR_SUCCESS)
                 CLI.colored_print("\t1) Yes")
                 CLI.colored_print("\t2) No")

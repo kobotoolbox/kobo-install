@@ -39,10 +39,12 @@ def run(force_setup=False):
         __start_env(current_config)
 
 def __start_env(config):
-    main_url = "{}://{}.{}".format(
+    main_url = "{}://{}.{}{}".format(
         "https" if config.get("https") == Config.TRUE else "http",
         config.get("kpi_subdomain"),
-        config.get("public_domain_name")
+        config.get("public_domain_name"),
+        ":{}".format(config.get("nginx_port")) if config.get("nginx_port")
+                                                  and str(config.get("nginx_port")) != "80" else ""
     )
     CLI.colored_print("Launching environment", CLI.COLOR_SUCCESS)
 
@@ -63,12 +65,16 @@ def __start_env(config):
         CLI.run_command(frontend_command, config.get("kobodocker_path"))
 
     # Test if ports are available
-    ports = [80, 6379, 5672, 27000, 5432]
+    nginx_port = int(config.get("nginx_port", 80))
+    ports = [nginx_port, 6379, 5672, 27000, 5432]
     for port in ports:
         if Network.is_port_open(port):
             CLI.colored_print("Port {} is already open. KoboToolbox can't start".format(port),
                               CLI.COLOR_ERROR)
             sys.exit()
+
+    # Give docker some time to clean everything correctly
+    time.sleep(5)
 
     # Make them up
     if (config.get("multi") == Config.TRUE and config.get("server_role") == "backend") or \
@@ -94,7 +100,7 @@ def __start_env(config):
         success = False
         hostname = "{}.{}".format(config.get("kpi_subdomain"), config.get("public_domain_name"))
         while not stop:
-            if Network.status_check(hostname, "/service_health/") == Network.STATUS_OK_200:
+            if Network.status_check(hostname, "/service_health/", nginx_port) == Network.STATUS_OK_200:
                 stop = True
                 success = True
             elif int(time.time()) - start >= 5 * 60:
