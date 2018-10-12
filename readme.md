@@ -17,16 +17,16 @@ e.g. `$kobo-install> python run.py -s`
 
 **Be aware, this utility is a beta release and still needs improvements**
 
-##Build the configuration
+## Build the configuration
 User can choose between 2 types of installations:
 
 - `Workstation`: KoBoToolbox doesn't need to be accessible from anywhere except the computer where it's installed. No DNS needed 
 - `Server`: KoBoToolbox needs to be accessible from the local network or from the Internet. DNS are needed
 
-###Options
+### Options
 
 |Option|Default|Workstation|Server
-|---|---|---|---|---|
+|---|---|---|---|
 |Installation directory| **../kobo-docker**  | ✓ |  |
 |SMTP information|  | ✓ | ✓ (frontend only) |
 |Public domain name|  |  | ✓ (frontend only) |
@@ -35,10 +35,10 @@ User can choose between 2 types of installations:
 |Super user's username| **super_admin** | ✓ | ✓ (frontend only) |
 |Super user's password| **Random string**  | ✓ | ✓ (frontend only) |
 
-###Advanced Options
+### Advanced Options
 
 |Option|Default|Workstation|Server
-|---|---|---|---|---|
+|---|---|---|---|
 |Webserver port| **80**  | ✓ |  |
 |Network interface|  **Autodetected**  | ✓ | ✓ (frontend only) |
 |Use separate servers| **No**  |  | ✓ |
@@ -56,13 +56,13 @@ User can choose between 2 types of installations:
 |Debug|  **False**  | ✓ | ✓ (frontend only) |
 |Developer mode|  **False**  | ✓ | |
 
-##Requirements
+## Requirements
 
 - Linux / macOS
 - Python 2.7+
 - [Docker](https://www.docker.com/get-started "") & [Docker Compose](https://docs.docker.com/compose/install/ "")
 
-##To-Do
+## To-Do
 
 - Handle postgres replication
 - Add better input validations
@@ -70,7 +70,7 @@ User can choose between 2 types of installations:
 - Support existing configurations
 - Tests
 
-##Known issues
+## Known issues
 
 - SMTP user is "None" in envfiles when empty
 - replication in postgres failed
