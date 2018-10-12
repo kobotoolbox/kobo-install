@@ -41,7 +41,7 @@ class Config:
             "kobodocker_path": os.path.realpath("{}/../../kobo-docker".format(
                 os.path.dirname(os.path.realpath(__file__)))
             ),
-            "public_domain_name": "kobotoolbox.local",
+            "public_domain_name": "kobo.local",
             "kpi_subdomain": "kpi",
             "kc_subdomain": "kc",
             "ee_subdomain": "ee",
