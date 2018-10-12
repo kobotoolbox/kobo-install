@@ -10,7 +10,7 @@ It can be run with simple command
 ## Requirements
 
 - Linux / macOS
-- Python 2.7+
+- Python 2.7+/3.4+
 - [Docker](https://www.docker.com/get-started "") & [Docker Compose](https://docs.docker.com/compose/install/ "")
 
 ### To-Do
@@ -29,9 +29,12 @@ It can be run with simple command
 [ ] Stop docker containers with command  
 [ ] Support existing configurations  
 [ ] Local configuration with ip address (is it necessary?)
+[ ] Developer mode: Add watcher to reload uWSGI
 
 ### Known issues
 
 - replication in postgres failed
 - script does not work when it's not launched from `kobo-install` repository
 - sometimes frontend containers can not communicate with backend containers. Restarting all containers fixes it.
+- Using same NginX port crashes
+- Re-use existing folder gives permission denied

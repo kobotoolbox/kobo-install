@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from __future__ import print_function, unicode_literals
+
 import re
 import subprocess
 import sys
@@ -19,21 +21,18 @@ class CLI(object):
     def get_response(cls, validators=None, default=""):
     
         response = None
-    
         while True:
             try:
                 response = cls.colored_input("", cls.COLOR_WARNING, default)
+
                 if response.lower() in map(lambda x:x.lower(), validators) or validators is None or \
-                    (isinstance(validators, str) and validators.startswith("~") and re.match(validators[1:], response)):
+                    ((isinstance(validators, str) or isinstance(validators, unicode)) and
+                        validators.startswith("~") and re.match(validators[1:], response)):
                     break
                 else:
                     cls.colored_print("Sorry, I didn't understand that!", cls.COLOR_ERROR)
-                    continue
             except ValueError:
                 cls.colored_print("Sorry, I didn't understand that.", cls.COLOR_ERROR)
-                continue
-            else:
-                break
     
         return response.lower()
 

@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from __future__ import print_function, unicode_literals
+
 import binascii
 import fnmatch
 import os
@@ -57,7 +59,7 @@ class Template:
             "KPI_PATH": config.get("kpi_path", ""),
             "USE_KPI_DEV_MODE": "#" if config.get("kpi_path", "") == "" else "",
             "USE_KC_DEV_MODE": "#" if config.get("kc_path", "") == "" else "",
-            "NGINX_PORT": config.get("nginx_port", 80)
+            "NGINX_PORT": config.get("nginx_port", "80")
         }
 
         for root, dirnames, filenames in os.walk("./templates"):

@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
+from __future__ import print_function, unicode_literals
+
 import json
 import os
+from random import choice, randint
 import stat
+import string
 import sys
 import time
 
@@ -34,31 +38,40 @@ class Config:
 
     def build(self):
 
-        config = {
-            "workers_max": "4",
-            "workers_start": "2",
-            "debug": Config.FALSE,
-            "kobodocker_path": os.path.realpath("{}/../../kobo-docker".format(
-                os.path.dirname(os.path.realpath(__file__)))
-            ),
-            "public_domain_name": "kobo.local",
-            "kpi_subdomain": "kpi",
-            "kc_subdomain": "kc",
-            "ee_subdomain": "ee",
-            "postgres_db": "kobotoolbox",
-            "postgres_user": "kobo",
-            "postgres_password": "kobo",
-            "private_domain_name": "docker.internal",
-            "kc_path": "",
-            "kpi_path": ""
-        }
-        if not Network.get_primary_ip():
+        primary_ip = Network.get_primary_ip()
+
+        if not primary_ip:
             CLI.colored_print("╔══════════════════════════════════════════════════════╗", CLI.COLOR_ERROR)
             CLI.colored_print("║ No valid networks detected. Can not continue!        ║", CLI.COLOR_ERROR)
             CLI.colored_print("║ Please connect to a network and re-run the command.  ║", CLI.COLOR_ERROR)
             CLI.colored_print("╚══════════════════════════════════════════════════════╝", CLI.COLOR_ERROR)
             sys.exit()
         else:
+            config = {
+                "workers_max": "4",
+                "workers_start": "2",
+                "debug": Config.FALSE,
+                "kobodocker_path": os.path.realpath("{}/../../kobo-docker".format(
+                    os.path.dirname(os.path.realpath(__file__)))
+                ),
+                "public_domain_name": "kobo.local",
+                "kpi_subdomain": "kpi",
+                "kc_subdomain": "kc",
+                "ee_subdomain": "ee",
+                "postgres_db": "kobotoolbox",
+                "postgres_user": "kobo",
+                "postgres_password": "kobo",
+                "private_domain_name": "docker.internal",
+                "kc_path": "",
+                "kpi_path": "",
+                "super_user_username": "super_admin",
+                "super_user_password": self.__generate_password(),
+                "use_aws": Config.FALSE,
+                "use_private_dns": Config.FALSE,
+                "master_backend_ip": primary_ip,
+                "local_interface_ip": primary_ip
+            }
+
             first_time = self.__config.get("date_created") is None
             config.update(self.__config)
             # Avoid asking questions related to frontend, if role is only for backend
@@ -107,7 +120,7 @@ class Config:
                                 CLI.colored_print("IP address (IPv4) of backend server?", CLI.COLOR_SUCCESS)
                                 self.__config["master_backend_ip"] = CLI.get_response(
                                     "~\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}",
-                                    config.get("master_backend_ip", Network.get_primary_ip()))
+                                    config.get("master_backend_ip", primary_ip))
                             else:
                                 self.__config["private_domain_name"] = CLI.colored_input("Private domain name",
                                                                                          CLI.COLOR_SUCCESS,
@@ -155,7 +168,8 @@ class Config:
                     self.__config["smtp_use_tls"] = CLI.get_response([Config.TRUE, Config.FALSE],
                                                                      config.get("smtp_use_tls", Config.TRUE))
                 self.__config["default_from_email"] = CLI.colored_input("From email address", CLI.COLOR_SUCCESS,
-                                                                        config.get("default_from_email"))
+                                                                        "support@{}".format(
+                                                                            self.__config.get("public_domain_name")))
 
                 # Super user. Only ask for credentials the first time.
                 # Super user is created if db doesn't exists.
@@ -183,7 +197,7 @@ class Config:
                     #NGinX different port
                     CLI.colored_print("Web server port?", CLI.COLOR_SUCCESS)
                     self.__config["nginx_port"] = CLI.get_response("~\d+",
-                                                                config.get("nginx_port", 80))
+                                                                config.get("nginx_port", "80"))
 
                     CLI.colored_print("Developer mode?", CLI.COLOR_SUCCESS)
                     CLI.colored_print("\t1) Yes")
@@ -236,7 +250,7 @@ class Config:
                     CLI.colored_print("Number of uWSGi workers to start?", CLI.COLOR_SUCCESS)
                     self.__config["workers_start"] = CLI.get_response(
                         "~\d+",
-                        config.get("workers_start", Config.TRUE))
+                        config.get("workers_start", "4"))
                     CLI.colored_print("Max uWSGi workers?", CLI.COLOR_SUCCESS)
                     self.__config["workers_max"] = CLI.get_response(
                         "~\d+",
@@ -310,23 +324,26 @@ class Config:
         # Installation directory
         CLI.colored_print("Where do you want to install?", CLI.COLOR_SUCCESS)
         while True:
-            self.__config["kobodocker_path"] = CLI.colored_input("", CLI.COLOR_SUCCESS,
-                                                                 self.__config.get("kobodocker_path"))
-            if os.path.isdir(self.__config["kobodocker_path"]):
+            kobodocker_path = CLI.colored_input("", CLI.COLOR_SUCCESS,
+                                                self.__config.get("kobodocker_path"))
+            if os.path.isdir(kobodocker_path):
                 break
             else:
                 try:
-                    os.makedirs(self.__config["kobodocker_path"])
+                    os.makedirs(kobodocker_path)
                     break
                 except Exception as e:
-                    CLI.colored_print("Please verify permissions.", CLI.COLOR_ERROR)
-                    CLI.colored_print("Could not create kobo-docker directory!", CLI.COLOR_ERROR)
-                    sys.exit()
+                    CLI.colored_print("Could not create directory {}!".format(kobodocker_path), CLI.COLOR_ERROR)
+                    CLI.colored_print("Please make sure you have permissions and path is correct", CLI.COLOR_ERROR)
+
+        self.__config["kobodocker_path"] = kobodocker_path
 
     def __detect_network(self):
 
         self.__config["local_interface_ip"] = Network.get_primary_ip()
         self.__config["master_backend_ip"] = self.__config["local_interface_ip"]
+        print("ON EST LA ")
+
 
         if self.__config.get("advanced") == Config.TRUE:
             CLI.colored_print("Please choose which network interface you want to use?", CLI.COLOR_SUCCESS)
@@ -355,3 +372,7 @@ class Config:
 
             self.__config["local_interface_ip"] = interfaces[self.__config.get("local_interface")]
             self.__config["master_backend_ip"] = self.__config.get("local_interface_ip")
+
+    def __generate_password(self):
+        characters = string.ascii_letters + "!#$%&*+-?@^~" + string.digits
+        return "".join(choice(characters) for x in range(randint(10, 16)))
