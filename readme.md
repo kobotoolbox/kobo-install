@@ -15,7 +15,9 @@ It can be run with simple command
 
 ### To-Do
 
-[x] Add summary before starting env  
+[ ] Add better documentation
+[x] Block start when user is not connected to network
+[x] Add summary before starting env
 [x] Autodetect network changes in local env  
 [x] Automatically start env  
 [ ] Tests  
@@ -32,3 +34,4 @@ It can be run with simple command
 
 - replication in postgres failed
 - script does not work when it's not launched from `kobo-install` repository
+- sometimes frontend containers can not communicate with backend containers. Restarting all containers fixes it.

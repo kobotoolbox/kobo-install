@@ -14,6 +14,7 @@ class Setup:
         """
         :param config: dict
         """
+
         if not os.path.isdir("{}/.git".format(config["kobodocker_path"])):
             # clone project
             git_command = [

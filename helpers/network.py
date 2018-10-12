@@ -18,13 +18,17 @@ class Network:
     STATUS_OK_200 = 200
 
     @staticmethod
-    def get_local_interfaces():
+    def get_local_interfaces(all=False):
         """
             Returns a dictionary of name:ip key value pairs.
             Linux Only!
             Source: https://gist.github.com/bubthegreat/24c0c43ad159d8dfed1a5d3f6ca99f9b
+
+        :param all: bool If False, filter virtual interfaces such VMWare, Docker etc...
+        :return: dict
         """
         ip_dict = {}
+        excluded_interfaces = ("lo", "docker", "br-", "veth", "vmnet")
 
         if platform.system() == "Linux":
             # Max possible bytes for interface result.  Will truncate if more than 4096 characters to describe interfaces.
@@ -81,18 +85,17 @@ class Network:
                         full_addr.append(str(netaddr))
                     elif isinstance(netaddr, str):
                         full_addr.append(str(ord(netaddr)))
-                if not (name == "lo" or name.startswith(("docker", "br-", "veth", "vmnet"))):
+                if not name.startswith(excluded_interfaces) or all:
                     ip_dict[name] = '.'.join(full_addr)
-
         else:
             try:
                 import netifaces
             except ImportError:
-                CLI.colored_print("You must install netinfaces first! Please type `pip install netifaces`", CLI.COLOR_ERROR)
+                CLI.colored_print("You must install netinfaces first! Please type `pip install netifaces --user`", CLI.COLOR_ERROR)
                 sys.exit()
 
             for interface in netifaces.interfaces():
-                if not (interface.startswith(("docker", "br-", "veth" , "vmnet", "lo"))):
+                if not interface.startswith(excluded_interfaces) or all:
                     ifaddresses = netifaces.ifaddresses(interface)
                     if ifaddresses.get(netifaces.AF_INET) and ifaddresses.get(netifaces.AF_INET)[0].get("addr"):
                         ip_dict[interface] = ifaddresses.get(netifaces.AF_INET)[0].get("addr")
@@ -110,7 +113,7 @@ class Network:
             s.connect(("10.255.255.255", 1))
             ip_address = s.getsockname()[0]
         except:
-            ip_address = "127.0.0.1"
+            ip_address = None
         finally:
             s.close()
         return ip_address
