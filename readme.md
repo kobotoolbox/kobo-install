@@ -15,7 +15,7 @@ If configuration needs to be changed, please use option `-s`.
 e.g. `$kobo-install> python run.py -s`
 
 
-**Be aware, this utility is still in a beta release**
+**Be aware, this utility is a beta release and still needs improvements**
 
 ##Build the configuration
 User can choose between 2 types of installations:
