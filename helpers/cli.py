@@ -7,6 +7,9 @@ import sys
 
 if sys.version_info.major < 3:
     input = raw_input
+    string_type = unicode
+else:
+    string_type = str
 
 
 class CLI(object):
@@ -26,7 +29,7 @@ class CLI(object):
                 response = cls.colored_input("", cls.COLOR_WARNING, default)
 
                 if response.lower() in map(lambda x:x.lower(), validators) or validators is None or \
-                    ((isinstance(validators, str) or isinstance(validators, unicode)) and
+                    (isinstance(validators, string_type) and
                         validators.startswith("~") and re.match(validators[1:], response)):
                     break
                 else:

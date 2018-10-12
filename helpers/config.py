@@ -342,8 +342,6 @@ class Config:
 
         self.__config["local_interface_ip"] = Network.get_primary_ip()
         self.__config["master_backend_ip"] = self.__config["local_interface_ip"]
-        print("ON EST LA ")
-
 
         if self.__config.get("advanced") == Config.TRUE:
             CLI.colored_print("Please choose which network interface you want to use?", CLI.COLOR_SUCCESS)
