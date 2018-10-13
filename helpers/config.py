@@ -294,31 +294,26 @@ class Config:
                 postgres_data_exists = os.path.exists(postgres_dir_path) and os.path.isdir(postgres_dir_path)
 
                 if mongo_data_exists or postgres_data_exists:
-                    unknown_mongo_version = self.__is_db_image_version_unknown(
-                        "mongo", "kobotoolbox/mongo:latest")
-                    unknown_postgres_version = self.__is_db_image_version_unknown(
-                        "postgres", "kobotoolbox/postgres:latest")
-
-                    if unknown_mongo_version or unknown_postgres_version:
-                        self.__config["overload_backend"] = False
-                        CLI.colored_print("╔═══════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
-                        CLI.colored_print("║ Existing data detected, but could not detect docker   ║", CLI.COLOR_WARNING)
-                        CLI.colored_print("║ images.                                               ║", CLI.COLOR_WARNING)
-                        CLI.colored_print("║                                                       ║", CLI.COLOR_WARNING)
-                        CLI.colored_print("║ MongoDB and PostgresSQL images must be:               ║", CLI.COLOR_WARNING)
-                        CLI.colored_print("║    - mongo:3.4                                        ║", CLI.COLOR_WARNING)
-                        CLI.colored_print("║    - mdillon/postgis:9.5                              ║", CLI.COLOR_WARNING)
-                        CLI.colored_print("║                                                       ║", CLI.COLOR_WARNING)
-                        CLI.colored_print("║ Be sure to match these versions before going further! ║", CLI.COLOR_WARNING)
-                        CLI.colored_print("╚═══════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
+                    docker_composer_file_path = "{}/docker-compose.backend.template.yml".format(self.__config["kobodocker_path"])
+                    if os.path.exists(docker_composer_file_path):
+                        CLI.colored_print("╔═════════════════════════════════════════════╗", CLI.COLOR_WARNING)
+                        CLI.colored_print("║ WARNING !!!                                 ║", CLI.COLOR_WARNING)
+                        CLI.colored_print("║                                             ║", CLI.COLOR_WARNING)
+                        CLI.colored_print("║ You are installing over existing data.      ║", CLI.COLOR_WARNING)
+                        CLI.colored_print("║                                             ║", CLI.COLOR_WARNING)
+                        CLI.colored_print("║ MongoDB and PostgresSQL images must be:     ║", CLI.COLOR_WARNING)
+                        CLI.colored_print("║    - mongo:3.4                              ║", CLI.COLOR_WARNING)
+                        CLI.colored_print("║    - mdillon/postgis:9.5                    ║", CLI.COLOR_WARNING)
+                        CLI.colored_print("║                                             ║", CLI.COLOR_WARNING)
+                        CLI.colored_print("║ Be sure to upgrade to these versions before ║", CLI.COLOR_WARNING)
+                        CLI.colored_print("║ going further!                              ║", CLI.COLOR_WARNING)
+                        CLI.colored_print("╚═════════════════════════════════════════════╝", CLI.COLOR_WARNING)
                         CLI.colored_print("Do you want to continue?", CLI.COLOR_SUCCESS)
                         CLI.colored_print("\tyes")
                         CLI.colored_print("\tno")
                         response = CLI.get_response(["yes", "no"], "no")
                         if response == "no":
                             sys.exit()
-                    else:
-                        self.__config["overload_backend"] = True
 
             self.__config = config
             self.write_config()
