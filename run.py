@@ -13,7 +13,7 @@ from helpers.template import Template
 
 
 def help():
-    # TODO
+    # TODO - Display help in console
     pass
 
 def run(force_setup=False):
@@ -38,6 +38,10 @@ def run(force_setup=False):
 
         __start_env(current_config)
 
+def upgrade():
+    # TODO - upgrade kobo-install && kobo-docker repo
+    pass
+
 def __start_env(config):
     main_url = "{}://{}.{}{}".format(
         "https" if config.get("https") == Config.TRUE else "http",
@@ -51,22 +55,23 @@ def __start_env(config):
     # Stop containers first
     if (config.get("multi") == Config.TRUE and config.get("server_role") == "backend") or \
             config.get("multi") != Config.TRUE:
-        backend_command = ["docker-compose", "-f", "docker-compose.backend.master.yml", "down"]
+        backend_command = ["docker-compose",
+                           "-f", "docker-compose.backend.master.yml",
+                           "-f", "docker-compose.backend.master.override.yml",
+                           "down"]
         CLI.run_command(backend_command, config.get("kobodocker_path"))
 
     if (config.get("multi") == Config.TRUE and config.get("server_role") == "frontend") or \
             config.get("multi") != Config.TRUE:
         frontend_command = ["docker-compose",
-                            "-f",
-                            "docker-compose.frontend.yml",
-                            "-f",
-                            "docker-compose.frontend.override.yml",
+                            "-f", "docker-compose.frontend.yml",
+                            "-f", "docker-compose.frontend.override.yml",
                             "down"]
         CLI.run_command(frontend_command, config.get("kobodocker_path"))
 
     # Test if ports are available
     nginx_port = int(config.get("nginx_port", 80))
-    ports = [nginx_port, 6379, 5672, 27000, 5432]
+    ports = [nginx_port, 6379, 6380, 5672, 27000, 5432]
     for port in ports:
         if Network.is_port_open(port):
             CLI.colored_print("Port {} is already open. KoboToolbox can't start".format(port),
@@ -79,7 +84,10 @@ def __start_env(config):
     # Make them up
     if (config.get("multi") == Config.TRUE and config.get("server_role") == "backend") or \
             config.get("multi") != Config.TRUE:
-        backend_command = ["docker-compose", "-f", "docker-compose.backend.master.yml", "up", "-d"]
+        backend_command = ["docker-compose",
+                           "-f", "docker-compose.backend.master.yml",
+                           "-f", "docker-compose.backend.master.override.yml",
+                           "up", "-d"]
         CLI.run_command(backend_command, config.get("kobodocker_path"))
         # Give docker some time to start containers
         time.sleep(2)
@@ -87,10 +95,8 @@ def __start_env(config):
     if (config.get("multi") == Config.TRUE and config.get("server_role") == "frontend") or \
             config.get("multi") != Config.TRUE:
         frontend_command = ["docker-compose",
-                           "-f",
-                           "docker-compose.frontend.yml",
-                           "-f",
-                           "docker-compose.frontend.override.yml",
+                           "-f", "docker-compose.frontend.yml",
+                           "-f", "docker-compose.frontend.override.yml",
                            "up", "-d"]
         CLI.run_command(frontend_command, config.get("kobodocker_path"))
 
@@ -146,6 +152,8 @@ if __name__ == "__main__":
     elif len(sys.argv) == 2:
         if sys.argv[1] == "-h" or sys.argv[1] == "--help":
             help()
+        if sys.argv[1] == "-u" or sys.argv[1] == "--upgrade":
+            upgrade()
         elif sys.argv[1] == "-s" or sys.argv[1] == "--setup":
             run(force_setup=True)
         else:

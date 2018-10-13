@@ -61,13 +61,23 @@ User can choose between 2 types of installations:
 - Linux / macOS
 - Python 2.7+
 - [Docker](https://www.docker.com/get-started "") & [Docker Compose](https://docs.docker.com/compose/install/ "")
+- Available TCP Ports:
+
+    1. 80 NginX (or chosen custom port in advanced options)
+    2. 5432 PostgreSQL
+    3. 5672 RabbitMQ
+    4. 6379-6380 redis
+    5. 27000 MongoDB
 
 ## To-Do
 
 - Handle postgres replication
 - Add better input validations
-- Stop docker containers with command  
+- Stop docker containers with command
+- Add option to force update `kobo-docker` repo without rebuilding the config
 - Support existing configurations
+- Adds comments in the code
+- Create command line help
 - Tests
 
 ## Known issues

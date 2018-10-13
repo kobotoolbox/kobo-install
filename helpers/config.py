@@ -4,6 +4,7 @@ from __future__ import print_function, unicode_literals
 import json
 import os
 from random import choice, randint
+import re
 import stat
 import string
 import sys
@@ -15,6 +16,7 @@ from helpers.singleton import Singleton
 
 
 class Config:
+
     CONFIG_FILE = ".run.conf"
     TRUE = "1"
     FALSE = "2"
@@ -48,8 +50,8 @@ class Config:
             sys.exit()
         else:
             config = {
-                "workers_max": "4",
-                "workers_start": "2",
+                "workers_max": "2",
+                "workers_start": "1",
                 "debug": Config.FALSE,
                 "kobodocker_path": os.path.realpath("{}/../../kobo-docker".format(
                     os.path.dirname(os.path.realpath(__file__)))
@@ -69,7 +71,8 @@ class Config:
                 "use_aws": Config.FALSE,
                 "use_private_dns": Config.FALSE,
                 "master_backend_ip": primary_ip,
-                "local_interface_ip": primary_ip
+                "local_interface_ip": primary_ip,
+                "multi": Config.FALSE
             }
 
             first_time = self.__config.get("date_created") is None
@@ -224,7 +227,6 @@ class Config:
                     self.__config["kc_path"] = ""
                     self.__config["kpi_path"] = ""
 
-
                 # DB
                 self.__config["postgres_db"] = CLI.colored_input("Postgres database", CLI.COLOR_SUCCESS,
                                                                  config.get("postgres_db"))
@@ -282,12 +284,45 @@ class Config:
                     CLI.colored_print("\t2) False")
                     self.__config["debug"] = CLI.get_response([Config.TRUE, Config.FALSE], config.get("debug", Config.FALSE))
 
+            # If first time
+            backend_questions = config.get("multi") != Config.TRUE or config.get("server_role") != "frontend"
+            if first_time and backend_questions:
+                mongo_dir_path = "{}/.vols/mongo".format(self.__config["kobodocker_path"])
+                postgres_dir_path = "{}/.vols/db".format(self.__config["kobodocker_path"])
+                mongo_data_exists = (os.path.exists(mongo_dir_path) and os.path.isdir(mongo_dir_path) and
+                    os.listdir(mongo_dir_path))
+                postgres_data_exists = os.path.exists(postgres_dir_path) and os.path.isdir(postgres_dir_path)
+
+                if mongo_data_exists or postgres_data_exists:
+                    unknown_mongo_version = self.__is_db_image_version_unknown(
+                        "mongo", "kobotoolbox/mongo:latest")
+                    unknown_postgres_version = self.__is_db_image_version_unknown(
+                        "postgres", "kobotoolbox/postgres:latest")
+
+                    if unknown_mongo_version or unknown_postgres_version:
+                        self.__config["overload_backend"] = False
+                        CLI.colored_print("╔═══════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
+                        CLI.colored_print("║ Existing data detected, but could not detect docker   ║", CLI.COLOR_WARNING)
+                        CLI.colored_print("║ images.                                               ║", CLI.COLOR_WARNING)
+                        CLI.colored_print("║                                                       ║", CLI.COLOR_WARNING)
+                        CLI.colored_print("║ MongoDB and PostgresSQL images must be:               ║", CLI.COLOR_WARNING)
+                        CLI.colored_print("║    - mongo:3.4                                        ║", CLI.COLOR_WARNING)
+                        CLI.colored_print("║    - mdillon/postgis:9.5                              ║", CLI.COLOR_WARNING)
+                        CLI.colored_print("║                                                       ║", CLI.COLOR_WARNING)
+                        CLI.colored_print("║ Be sure to match these versions before going further! ║", CLI.COLOR_WARNING)
+                        CLI.colored_print("╚═══════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
+                        CLI.colored_print("Do you want to continue?", CLI.COLOR_SUCCESS)
+                        CLI.colored_print("\tyes")
+                        CLI.colored_print("\tno")
+                        response = CLI.get_response(["yes", "no"], "no")
+                        if response == "no":
+                            sys.exit()
+                    else:
+                        self.__config["overload_backend"] = True
+
             self.__config = config
             self.write_config()
             return config
-
-        # # TODO Postgres config
-        # # Mongo detection
 
     def get_config(self):
         return self.__config
@@ -305,7 +340,7 @@ class Config:
 
     def write_config(self):
         if self.__config.get("date_created") is None:
-            self.__config["date_created"] = int(time.time())
+           self.__config["date_created"] = int(time.time())
         self.__config["date_modified"] = int(time.time())
 
         try:
@@ -337,6 +372,33 @@ class Config:
                     CLI.colored_print("Please make sure you have permissions and path is correct", CLI.COLOR_ERROR)
 
         self.__config["kobodocker_path"] = kobodocker_path
+
+    def __is_db_image_version_unknown(self, database, master_version):
+        """
+        Tries to detect current docker image for `database`.
+        It's compared to current `master` branch of `kobo-docker` repository.
+
+        :param database: str
+        :param master_version: str
+        :return: bool
+        """
+        unknown_version = True
+        docker_composer_file_path = "{}/docker-compose.yml".format(self.__config["kobodocker_path"])
+        if os.path.exists(docker_composer_file_path):
+            try:
+                content = ""
+                with open(docker_composer_file_path, "r") as docker_composer_file:
+                    content = docker_composer_file.read()
+
+                version_search = re.search(r"{}:\s+image: ([^\n]*)".format(database), content)
+                if version_search:
+                    version = version_search.group(1)
+                    if version == master_version:
+                        unknown_version = False
+            except:
+                pass
+
+        return unknown_version
 
     def __detect_network(self):
 
