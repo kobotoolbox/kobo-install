@@ -224,7 +224,7 @@ class Config:
                         CLI.colored_print("\t1) True")
                         CLI.colored_print("\t2) False")
                         self.__config["debug"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                                  config.get("debug", Config.FALSE))
+                                                                  config.get("debug", Config.TRUE))
 
                     else:
                         # Force reset paths
