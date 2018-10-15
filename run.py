@@ -77,9 +77,6 @@ def __start_env(config):
                               CLI.COLOR_ERROR)
             sys.exit()
 
-    # Give docker some time to clean everything correctly
-    time.sleep(2)
-
     # Make them up
     if (config.get("multi") == Config.TRUE and config.get("server_role") == "backend") or \
             config.get("multi") != Config.TRUE:
@@ -87,8 +84,6 @@ def __start_env(config):
                            "-f", "docker-compose.backend.master.yml",
                            "up", "-d"]
         CLI.run_command(backend_command, config.get("kobodocker_path"))
-        # Give docker some time to start containers
-        time.sleep(2)
 
     if (config.get("multi") == Config.TRUE and config.get("server_role") == "frontend") or \
             config.get("multi") != Config.TRUE:
