@@ -1,5 +1,6 @@
 # Options for the following are "uWSGI" or "runserver_plus" (for debugging).
-KPI_WEB_SERVER=uWSGI
+KPI_WEB_SERVER=${WSGI_SERVER}
+# django extensions are installed on KoBoCat. So only `uWSGI` option is available.
 KOBOCAT_WEB_SERVER=uWSGI
 
 # Options for the following are "Nginx" or "Django".

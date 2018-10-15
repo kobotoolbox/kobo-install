@@ -218,13 +218,23 @@ class Config:
                                                                             config.get("kc_path"))
                         self.__config["kpi_path"] = CLI.colored_input("KPI files location", CLI.COLOR_SUCCESS,
                                                                             config.get("kpi_path"))
+
+                        # Debug
+                        CLI.colored_print("Enable DEBUG?", CLI.COLOR_SUCCESS)
+                        CLI.colored_print("\t1) True")
+                        CLI.colored_print("\t2) False")
+                        self.__config["debug"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                                  config.get("debug", Config.FALSE))
+
                     else:
                         # Force reset paths
                         self.__config["kc_path"] = ""
                         self.__config["kpi_path"] = ""
+                        self.__config["debug"] = Config.FALSE
                 else:
                     # Force reset paths
                     self.__config["dev_mode"] = Config.FALSE
+                    self.__config["debug"] = Config.FALSE
                     self.__config["kc_path"] = ""
                     self.__config["kpi_path"] = ""
 
@@ -284,13 +294,6 @@ class Config:
                         self.__config["kpi_raven"] = ""
                         self.__config["kobocat_raven"] = ""
                         self.__config["kpi_raven_js"] = ""
-
-                    # Debug
-                    CLI.colored_print("Enable DEBUG?", CLI.COLOR_SUCCESS)
-                    CLI.colored_print("Not RECOMMENDED on production!", CLI.COLOR_ERROR)
-                    CLI.colored_print("\t1) True")
-                    CLI.colored_print("\t2) False")
-                    self.__config["debug"] = CLI.get_response([Config.TRUE, Config.FALSE], config.get("debug", Config.FALSE))
 
                     CLI.colored_print("Do you want to tweak uWSGI settings?", CLI.COLOR_SUCCESS)
                     CLI.colored_print("\t1) Yes")

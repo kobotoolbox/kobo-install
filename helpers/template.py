@@ -62,7 +62,9 @@ class Template:
             "NGINX_PORT": config.get("nginx_port", "80"),
             "MAX_REQUESTS": config.get("max_request", "512"),
             "SOFT_LIMIT": int(config.get("soft_limit", "128")) * 1024 * 1024,
-            "POSTGRES_REPLICATION_PASSWORD": config.get("postgres_replication_password")
+            "POSTGRES_REPLICATION_PASSWORD": config.get("postgres_replication_password"),
+            "WSGI_SERVER": "runserver_plus" if config.get("dev_mode") == Config.TRUE else "uWSGI",
+            "USE_X_FORWARDED_HOST": "" if config.get("dev_mode") == Config.TRUE else "#"
         }
 
         for root, dirnames, filenames in os.walk("./templates"):
