@@ -68,6 +68,7 @@ class Config:
                 "kpi_path": "",
                 "super_user_username": "super_admin",
                 "super_user_password": self.__generate_password(),
+                "postgres_replication_password": self.__generate_password(),
                 "use_aws": Config.FALSE,
                 "use_private_dns": Config.FALSE,
                 "master_backend_ip": primary_ip,
@@ -236,7 +237,7 @@ class Config:
                                                                        config.get("postgres_password"))
                 if frontend_questions:
                     # AWS
-                    CLI.colored_print("Use AWS?", CLI.COLOR_SUCCESS)
+                    CLI.colored_print("Do you want to use AWS S3 storage?", CLI.COLOR_SUCCESS)
                     CLI.colored_print("\t1) Yes")
                     CLI.colored_print("\t2) No")
                     self.__config["use_aws"] = CLI.get_response([Config.TRUE, Config.FALSE],
@@ -248,15 +249,10 @@ class Config:
                                                                             config.get("aws_secret_key", ""))
                         self.__config["aws_bucket_name"] = CLI.colored_input("AWS Bucket name", CLI.COLOR_SUCCESS,
                                                                              config.get("aws_bucket_name", ""))
-
-                    CLI.colored_print("Number of uWSGi workers to start?", CLI.COLOR_SUCCESS)
-                    self.__config["workers_start"] = CLI.get_response(
-                        "~\d+",
-                        config.get("workers_start", "4"))
-                    CLI.colored_print("Max uWSGi workers?", CLI.COLOR_SUCCESS)
-                    self.__config["workers_max"] = CLI.get_response(
-                        "~\d+",
-                        config.get("workers_max", "2"))
+                    else:
+                        self.__config["aws_access_key"] = ""
+                        self.__config["aws_secret_key"] = ""
+                        self.__config["aws_bucket_name"] = ""
 
                     # Google Analytics
                     self.__config["google_ua"] = CLI.colored_input("Google Analytics Identifier", CLI.COLOR_SUCCESS,
@@ -267,15 +263,27 @@ class Config:
                                                                         config.get("google_api_key", ""))
 
                     # Intercom
-                    self.__config["intercom"] = CLI.colored_input("Intercom", CLI.COLOR_SUCCESS, config.get("intercom", ""))
+                    self.__config["intercom"] = CLI.colored_input("Intercom App ID", CLI.COLOR_SUCCESS,
+                                                                  config.get("intercom", ""))
 
                     # Raven
-                    self.__config["kpi_raven"] = CLI.colored_input("KPI Raven token", CLI.COLOR_SUCCESS,
-                                                                   config.get("kpi_raven", ""))
-                    self.__config["kobocat_raven"] = CLI.colored_input("KoBoCat Raven token", CLI.COLOR_SUCCESS,
-                                                                       config.get("kobocat_raven", ""))
-                    self.__config["kpi_raven_js"] = CLI.colored_input("KPI Raven JS token", CLI.COLOR_SUCCESS,
-                                                                      config.get("kpi_raven_js", ""))
+                    CLI.colored_print("Do you want to use Sentry?", CLI.COLOR_SUCCESS)
+                    CLI.colored_print("\t1) Yes")
+                    CLI.colored_print("\t2) No")
+                    self.__config["raven_settings"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                                       config.get("raven_settings", Config.FALSE))
+
+                    if self.__config.get("raven_settings") == Config.TRUE:
+                        self.__config["kpi_raven"] = CLI.colored_input("KPI Raven token", CLI.COLOR_SUCCESS,
+                                                                       config.get("kpi_raven", ""))
+                        self.__config["kobocat_raven"] = CLI.colored_input("KoBoCat Raven token", CLI.COLOR_SUCCESS,
+                                                                           config.get("kobocat_raven", ""))
+                        self.__config["kpi_raven_js"] = CLI.colored_input("KPI Raven JS token", CLI.COLOR_SUCCESS,
+                                                                          config.get("kpi_raven_js", ""))
+                    else:
+                        self.__config["kpi_raven"] = ""
+                        self.__config["kobocat_raven"] = ""
+                        self.__config["kpi_raven_js"] = ""
 
                     # Debug
                     CLI.colored_print("Enable DEBUG?", CLI.COLOR_SUCCESS)
@@ -283,6 +291,36 @@ class Config:
                     CLI.colored_print("\t1) True")
                     CLI.colored_print("\t2) False")
                     self.__config["debug"] = CLI.get_response([Config.TRUE, Config.FALSE], config.get("debug", Config.FALSE))
+
+                    CLI.colored_print("Do you want to tweak uWSGI settings?", CLI.COLOR_SUCCESS)
+                    CLI.colored_print("\t1) Yes")
+                    CLI.colored_print("\t2) No")
+                    self.__config["uwsgi_settings"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                                       config.get("uwsgi_settings", Config.FALSE))
+
+                    if self.__config.get("uwsgi_settings") == Config.TRUE:
+                        CLI.colored_print("Number of uWSGi workers to start?", CLI.COLOR_SUCCESS)
+                        self.__config["workers_start"] = CLI.get_response(
+                            "~\d+",
+                            config.get("workers_start", "1"))
+                        CLI.colored_print("Max uWSGi workers?", CLI.COLOR_SUCCESS)
+                        self.__config["workers_max"] = CLI.get_response(
+                            "~\d+",
+                            config.get("workers_max", "2"))
+
+                        CLI.colored_print("Max number of requests per worker?", CLI.COLOR_SUCCESS)
+                        self.__config["max_requests"] = CLI.get_response(
+                            "~\d+",
+                            config.get("max_requests", "512"))
+                        CLI.colored_print("Max memory per workers in MB?", CLI.COLOR_SUCCESS)
+                        self.__config["soft_limit"] = CLI.get_response(
+                            "~\d+",
+                            config.get("soft_limit", "128"))
+                    else:
+                        self.__config["worker_start"] = "1"
+                        self.__config["workers_max"] = "2"
+                        self.__config["max_requests"] = "512"
+                        self.__config["soft_limit"] = "128"
 
             # If first time
             backend_questions = config.get("multi") != Config.TRUE or config.get("server_role") != "frontend"

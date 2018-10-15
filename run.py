@@ -70,7 +70,7 @@ def __start_env(config):
 
     # Test if ports are available
     nginx_port = int(config.get("nginx_port", 80))
-    ports = [nginx_port, 6379, 6380, 5672, 27000, 5432]
+    ports = [nginx_port, 6379, 6380, 5672, 27017, 5432]
     for port in ports:
         if Network.is_port_open(port):
             CLI.colored_print("Port {} is already open. KoboToolbox can't start".format(port),

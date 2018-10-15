@@ -49,6 +49,7 @@ User can choose between 2 types of installations:
 |Postgres password|  **kobo**  | ✓ | ✓ |
 |Use AWS storage|  **No**  | ✓ | ✓ (frontend only) |
 |uWGI workers|  **start: 2, max: 4**  | ✓ | ✓ (frontend only) |
+|uWGI memory limit|  **128 MB**  | ✓ | ✓ (frontend only) |
 |Google UA|  | ✓ | ✓ (frontend only) |
 |Google API Key|  | ✓ | ✓ (frontend only) |
 |Intercom| | ✓ | ✓ (frontend only) |
@@ -67,11 +68,11 @@ User can choose between 2 types of installations:
     2. 5432 PostgreSQL
     3. 5672 RabbitMQ
     4. 6379-6380 redis
-    5. 27000 MongoDB
+    5. 27017 MongoDB
 
 ## To-Do
 
-- Handle postgres replication
+- Handle secondary backend
 - Add better input validations
 - Stop docker containers with command
 - Add option to force update `kobo-docker` repo without rebuilding the config
@@ -83,5 +84,4 @@ User can choose between 2 types of installations:
 ## Known issues
 
 - SMTP user is "None" in envfiles when empty
-- replication in postgres failed
 - script does not work when it's not launched from `kobo-install` repository
