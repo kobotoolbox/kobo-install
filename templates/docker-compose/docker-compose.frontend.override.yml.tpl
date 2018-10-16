@@ -4,6 +4,7 @@ version: '3'
 services:
   kobocat:
     ${USE_KC_DEV_MODE}build: ${KC_PATH}
+    ${USE_KC_DEV_MODE}image: kobocat:dev.${KC_DEV_BUILD_ID}
     ${USE_KC_DEV_MODE}volumes:
     ${USE_KC_DEV_MODE}  - ${KC_PATH}:/srv/src/kobocat
     environment:
@@ -24,6 +25,7 @@ services:
 
   kpi:
     ${USE_KPI_DEV_MODE}build: ${KPI_PATH}
+    ${USE_KPI_DEV_MODE}image: kpi:dev.${KPI_DEV_BUILD_ID}
     ${USE_KPI_DEV_MODE}volumes:
     ${USE_KPI_DEV_MODE}  - ${KPI_PATH}:/srv/src/kpi
     environment:
@@ -44,7 +46,7 @@ services:
 
   nginx:
     environment:
-      - NGINX_PUBLIC_PORT=${NGINX_PORT}
+      - NGINX_PUBLIC_PORT=${NGINX_PUBLIC_PORT}
     ports:
       - ${NGINX_PUBLIC_PORT}:80
     ${USE_DNS}extra_hosts:
@@ -56,6 +58,13 @@ services:
       ${USE_PRIVATE_DNS}- redis-main.${PRIVATE_DOMAIN_NAME}:${MASTER_BACKEND_IP}
       ${USE_PRIVATE_DNS}- rabbit.${PRIVATE_DOMAIN_NAME}:${MASTER_BACKEND_IP}
       ${USE_PRIVATE_DNS}- redis-cache.${PRIVATE_DOMAIN_NAME}:${MASTER_BACKEND_IP}
+    networks:
+      kobo-fe-network:
+        aliases:
+          # These aliases must match the concatenation of `*_PUBLIC_SUBDOMAIN` and `INTERNAL_DOMAIN_NAME` found in `../kobo-deployments/envfile.txt`
+          - ${KOBOFORM_SUBDOMAIN}.docker.internal
+          - ${KOBOCAT_SUBDOMAIN}.docker.internal
+          - ${ENKETO_SUBDOMAIN}.docker.internal
 
   ${USE_DNS}enketo_express:
     ${USE_DNS}extra_hosts:

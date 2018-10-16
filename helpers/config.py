@@ -63,7 +63,7 @@ class Config:
                 "postgres_db": "kobotoolbox",
                 "postgres_user": "kobo",
                 "postgres_password": "kobo",
-                "private_domain_name": "docker.internal",
+                "private_domain_name": "kobo.private",
                 "kc_path": "",
                 "kpi_path": "",
                 "super_user_username": "super_admin",
@@ -196,7 +196,6 @@ class Config:
 
             if config.get("advanced") == Config.TRUE:
 
-                # Dev Mode
                 if frontend_questions and config.get("local_installation") == Config.TRUE:
                     #NGinX different port
                     CLI.colored_print("Web server port?", CLI.COLOR_SUCCESS)
@@ -219,6 +218,14 @@ class Config:
                         self.__config["kpi_path"] = CLI.colored_input("KPI files location", CLI.COLOR_SUCCESS,
                                                                             config.get("kpi_path"))
 
+                        # Create an unique id to build fresh image when starting containers
+                        if (config.get("kc_dev_build_id", "") == "" or
+                            self.__config.get("kc_path") != config.get("kc_path")):
+                            self.__config["kc_dev_build_id"] = str(int(time.time()))
+                        if (config.get("kpi_dev_build_id", "") == "" or
+                                self.__config.get("kpi_path") != config.get("kpi_path")):
+                            self.__config["kpi_dev_build_id"] = str(int(time.time()))
+
                         # Debug
                         CLI.colored_print("Enable DEBUG?", CLI.COLOR_SUCCESS)
                         CLI.colored_print("\t1) True")
@@ -232,11 +239,12 @@ class Config:
                         self.__config["kpi_path"] = ""
                         self.__config["debug"] = Config.FALSE
                 else:
-                    # Force reset paths
+                    # Reset dev configs to default
                     self.__config["dev_mode"] = Config.FALSE
                     self.__config["debug"] = Config.FALSE
                     self.__config["kc_path"] = ""
                     self.__config["kpi_path"] = ""
+                    self.__config["nginx_port"] = "80"
 
                 # DB
                 self.__config["postgres_db"] = CLI.colored_input("Postgres database", CLI.COLOR_SUCCESS,
