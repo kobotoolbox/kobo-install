@@ -340,34 +340,43 @@ class Config:
 
             # If first time
             backend_questions = config.get("multi") != Config.TRUE or config.get("server_role") != "frontend"
-            if first_time and backend_questions:
-                mongo_dir_path = "{}/.vols/mongo".format(self.__config["kobodocker_path"])
-                postgres_dir_path = "{}/.vols/db".format(self.__config["kobodocker_path"])
-                mongo_data_exists = (os.path.exists(mongo_dir_path) and os.path.isdir(mongo_dir_path) and
-                    os.listdir(mongo_dir_path))
-                postgres_data_exists = os.path.exists(postgres_dir_path) and os.path.isdir(postgres_dir_path)
+            if backend_questions:
+                if first_time:
+                    mongo_dir_path = "{}/.vols/mongo".format(self.__config["kobodocker_path"])
+                    postgres_dir_path = "{}/.vols/db".format(self.__config["kobodocker_path"])
+                    mongo_data_exists = (os.path.exists(mongo_dir_path) and os.path.isdir(mongo_dir_path) and
+                        os.listdir(mongo_dir_path))
+                    postgres_data_exists = os.path.exists(postgres_dir_path) and os.path.isdir(postgres_dir_path)
 
-                if mongo_data_exists or postgres_data_exists:
-                    docker_composer_file_path = "{}/docker-compose.backend.template.yml".format(self.__config["kobodocker_path"])
-                    if not os.path.exists(docker_composer_file_path):
-                        CLI.colored_print("╔═════════════════════════════════════════════╗", CLI.COLOR_WARNING)
-                        CLI.colored_print("║ WARNING !!!                                 ║", CLI.COLOR_WARNING)
-                        CLI.colored_print("║                                             ║", CLI.COLOR_WARNING)
-                        CLI.colored_print("║ You are installing over existing data.      ║", CLI.COLOR_WARNING)
-                        CLI.colored_print("║                                             ║", CLI.COLOR_WARNING)
-                        CLI.colored_print("║ MongoDB and PostgresSQL images must be:     ║", CLI.COLOR_WARNING)
-                        CLI.colored_print("║    - mongo:3.4                              ║", CLI.COLOR_WARNING)
-                        CLI.colored_print("║    - mdillon/postgis:9.5                    ║", CLI.COLOR_WARNING)
-                        CLI.colored_print("║                                             ║", CLI.COLOR_WARNING)
-                        CLI.colored_print("║ Be sure to upgrade to these versions before ║", CLI.COLOR_WARNING)
-                        CLI.colored_print("║ going further!                              ║", CLI.COLOR_WARNING)
-                        CLI.colored_print("╚═════════════════════════════════════════════╝", CLI.COLOR_WARNING)
-                        CLI.colored_print("Do you want to continue?", CLI.COLOR_SUCCESS)
-                        CLI.colored_print("\tyes")
-                        CLI.colored_print("\tno")
-                        response = CLI.get_response(["yes", "no"], "no")
-                        if response == "no":
-                            sys.exit()
+                    if mongo_data_exists or postgres_data_exists:
+                        docker_composer_file_path = "{}/docker-compose.backend.template.yml".format(self.__config["kobodocker_path"])
+                        if not os.path.exists(docker_composer_file_path):
+                            CLI.colored_print("╔════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
+                            CLI.colored_print("║ WARNING !!!                                        ║", CLI.COLOR_WARNING)
+                            CLI.colored_print("║                                                    ║", CLI.COLOR_WARNING)
+                            CLI.colored_print("║ You are installing over existing data.             ║", CLI.COLOR_WARNING)
+                            CLI.colored_print("║                                                    ║", CLI.COLOR_WARNING)
+                            CLI.colored_print("║ It's recommended to backup your data and import it ║", CLI.COLOR_WARNING)
+                            CLI.colored_print("║ to a fresh installed (by `kobo-install`) database. ║", CLI.COLOR_WARNING)
+                            CLI.colored_print("║                                                    ║", CLI.COLOR_WARNING)
+                            CLI.colored_print("║ `kobo-install` uses these images:                  ║", CLI.COLOR_WARNING)
+                            CLI.colored_print("║    - MongoDB: mongo:3.4                            ║", CLI.COLOR_WARNING)
+                            CLI.colored_print("║    - PostgreSQL: mdillon/postgis:9.5               ║", CLI.COLOR_WARNING)
+                            CLI.colored_print("║                                                    ║", CLI.COLOR_WARNING)
+                            CLI.colored_print("║ Be sure to upgrade to these versions before        ║", CLI.COLOR_WARNING)
+                            CLI.colored_print("║ going further!                                     ║", CLI.COLOR_WARNING)
+                            CLI.colored_print("╚════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
+                            CLI.colored_print("Are you sure you want to continue?", CLI.COLOR_SUCCESS)
+                            CLI.colored_print("\tyes")
+                            CLI.colored_print("\tno")
+                            response = CLI.get_response(["yes", "no"], "no")
+                            if response == "no":
+                                sys.exit()
+                            else:
+                                # Write kobo_first_run file to run postgres container's entrypoint flawlessly.
+                                os.system("echo $(data) | sudo tee -a {} > /dev/null".format(
+                                    "{}/.vols/db/kobo_first_run".format(self.__config["kobodocker_path"])
+                                ))
 
                 if self.__config.get("advanced") == Config.TRUE:
                     # Postgres settings
