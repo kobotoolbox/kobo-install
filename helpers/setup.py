@@ -13,6 +13,7 @@ class Setup:
     @classmethod
     def run(cls, config):
         """
+        Clone or pull `kobo-docker` project in installation directory
         :param config: dict
         """
 

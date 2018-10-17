@@ -2,18 +2,27 @@ The purpose of the script is to install `KoboToolbox` in minutes without messing
 It prompts the user to answer some questions to create configuration files automatically and to start 
 docker containers based on `kobo-install` branch of `kobo-docker` [repository](https://github.com/kobotoolbox/kobo-docker "").
 
-It can be run with this simple command
+### Usage
 
 `$kobo-install> python run.py`
 
 First time the command is executed, setup will be launched.   
 Subsequent executions will launch docker containers directly.
 
-_The only question which could be asked is:_ `Please choose which network interface you want to use?` if new ip address is detected in for `workstation` installation **only**.
+Rebuild configuration:  
+`$kobo-install> python run.py --setup`
 
-If configuration needs to be changed, please use option `-s`.  
-e.g. `$kobo-install> python run.py -s`
+Get info:  
+`$kobo-install> python run.py --info`
 
+Upgrade KoBoToolbox:  
+`$kobo-install> python run.py --upgrade`
+
+Stop KoBoToolbox:  
+`$kobo-install> python run.py --stop`
+
+Get help:  
+`$kobo-install> python run.py --help`
 
 **Be aware, this utility is a beta release and still needs improvements**
 
@@ -76,9 +85,8 @@ User can choose between 2 types of installations:
 
 - Handle secondary backend
 - Add better input validations
-- Stop docker containers with command
 - Add option to force update `kobo-docker` repo without rebuilding the config
-- Adds comments in the code
+- Add more comments to the code
 - Create command line help
 - Tests
 
