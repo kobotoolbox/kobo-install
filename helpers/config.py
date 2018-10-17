@@ -27,8 +27,22 @@ class Config:
 
     def __init__(self):
         self.__config = self.read_config()
+        self.__first_time = None
+        self.__primary_ip = Network.get_primary_ip()
+
+    @property
+    def advanced_options(self):
+        """
+        Checks whether advanced options should be displayed
+        :return: bool 
+        """
+        return self.__config.get("advanced") == Config.TRUE
 
     def auto_detect_network(self):
+        """
+        Tries to detect new ip
+        :return: bool
+        """
         changed = False
         if self.__config.get("local_installation") == Config.TRUE:
             local_interfaces = Network.get_local_interfaces(all=True)
@@ -38,11 +52,66 @@ class Config:
                 changed = True
         return changed
 
+    @property
+    def backend_questions(self):
+        """
+        Checks whether questions are backend only
+        :return: bool
+        """
+        return not self.multi_servers or not self.frontend
+
+    @property
+    def first_time(self):
+        """
+        Checks whether setup is running for the first time
+        :return: bool
+        """
+        if self.__first_time is None:
+            self.__first_time = self.__config.get("date_created") is None
+        return self.__first_time
+
+    @property
+    def frontend(self):
+        """
+        Checks whether setup is running on a frontend server
+        :return: bool
+        """
+        return self.__config.get("server_role") == "frontend"
+
+    @property
+    def frontend_questions(self):
+        """
+        Checks whether questions are frontend only
+        :return: bool
+        """
+        return not self.multi_servers or self.frontend
+
+    @property
+    def dev_mode(self):
+        return self.__config["dev_mode"] == Config.TRUE
+
+    @property
+    def local_install(self):
+        """
+        Checks whether installation is for `Workstation`s
+        :return: bool
+        """
+        return self.__config.get("local_installation") == Config.TRUE
+
+    @property
+    def multi_servers(self):
+        """
+        Checks whether installation is for separate frontend and backend servers
+        :return: bool
+        """
+        return self.__config.get("multi") == Config.TRUE
+
     def build(self):
-
-        primary_ip = Network.get_primary_ip()
-
-        if not primary_ip:
+        """
+        Build configuration based on user's answer
+        :return: dict
+        """
+        if not self.__primary_ip:
             CLI.colored_print("╔══════════════════════════════════════════════════════╗", CLI.COLOR_ERROR)
             CLI.colored_print("║ No valid networks detected. Can not continue!        ║", CLI.COLOR_ERROR)
             CLI.colored_print("║ Please connect to a network and re-run the command.  ║", CLI.COLOR_ERROR)
@@ -67,12 +136,12 @@ class Config:
                 "kc_path": "",
                 "kpi_path": "",
                 "super_user_username": "super_admin",
-                "super_user_password": self.__generate_password(),
-                "postgres_replication_password": self.__generate_password(),
+                "super_user_password": Config.generate_password(),
+                "postgres_replication_password": Config.generate_password(),
                 "use_aws": Config.FALSE,
                 "use_private_dns": Config.FALSE,
-                "master_backend_ip": primary_ip,
-                "local_interface_ip": primary_ip,
+                "master_backend_ip": self.__primary_ip,
+                "local_interface_ip": self.__primary_ip,
                 "multi": Config.FALSE,
                 "postgres_settings": Config.FALSE,
                 "postgres_ram": "8",
@@ -81,342 +150,45 @@ class Config:
                 "postgres_settings_content": ""
             }
 
-            first_time = self.__config.get("date_created") is None
             config.update(self.__config)
             # Avoid asking questions related to frontend, if role is only for backend
-            frontend_questions = config.get("multi") == Config.FALSE or config.get("server_role") == "frontend"
 
             self.__config = config
             self.__create_directory()
+            self.__questions_advanced_options()
+            self.__questions_installation_type()
 
-            CLI.colored_print("Do you want to see advanced options?", CLI.COLOR_SUCCESS)
-            CLI.colored_print("\t1) Yes")
-            CLI.colored_print("\t2) No")
-            self.__config["advanced"] = CLI.get_response([Config.TRUE, Config.FALSE], config.get("advanced", Config.FALSE))
+            if not self.local_install:
+                if self.advanced_options:
+                    self.__questions_multi_servers()
+                    if self.multi_servers:
+                        self.__questions_roles()
+                        if self.frontend:
+                            self.__questions_private_routes()
 
-            CLI.colored_print("What kind of installation do you need?", CLI.COLOR_SUCCESS)
-            CLI.colored_print("\t1) On your workstation")
-            CLI.colored_print("\t2) On a server")
-            self.__config["local_installation"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                                   config.get("local_installation", Config.FALSE))
-            if config.get("local_installation") == Config.FALSE:
-
-                if config.get("advanced") == Config.TRUE:
-                    CLI.colored_print("Do you want to use separate servers for frontend and backend?",
-                                      CLI.COLOR_SUCCESS)
-                    CLI.colored_print("\t1) Yes")
-                    CLI.colored_print("\t2) No")
-                    self.__config["multi"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                              config.get("multi", Config.FALSE))
-
-                    if config.get("multi") == Config.TRUE:
-                        CLI.colored_print("Which role do you want to assign to this server?", CLI.COLOR_SUCCESS)
-                        CLI.colored_print("\t1) frontend")
-                        CLI.colored_print("\t2) backend")
-                        self.__config["server_role"] = CLI.get_response(["backend", "frontend"],
-                                                                        config.get("server_role", "frontend"))
-
-                        if self.__config.get("server_role") == "frontend":
-                            frontend_questions = True
-                            CLI.colored_print("Do you use DNS for private routes?", CLI.COLOR_SUCCESS)
-                            CLI.colored_print("\t1) Yes")
-                            CLI.colored_print("\t2) No")
-
-                            self.__config["use_private_dns"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                                                config.get("use_private_dns", Config.FALSE))
-
-                            if self.__config["use_private_dns"] == Config.FALSE:
-                                CLI.colored_print("IP address (IPv4) of backend server?", CLI.COLOR_SUCCESS)
-                                self.__config["master_backend_ip"] = CLI.get_response(
-                                    "~\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}",
-                                    config.get("master_backend_ip", primary_ip))
-                            else:
-                                self.__config["private_domain_name"] = CLI.colored_input("Private domain name",
-                                                                                         CLI.COLOR_SUCCESS,
-                                                                                         config.get("private_domain_name", ""))
-                        else:
-                            frontend_questions = False
-
-                if frontend_questions:
-                    self.__config["public_domain_name"] = CLI.colored_input("Public domain name", CLI.COLOR_SUCCESS,
-                                                                            config.get("public_domain_name", ""))
-                    self.__config["kpi_subdomain"] = CLI.colored_input("KPI sub domain", CLI.COLOR_SUCCESS,
-                                                                       config.get("kpi_subdomain", ""))
-                    self.__config["kc_subdomain"] = CLI.colored_input("KoBoCat sub domain", CLI.COLOR_SUCCESS,
-                                                                      config.get("kc_subdomain", ""))
-                    self.__config["ee_subdomain"] = CLI.colored_input("Enketo Express sub domain name",
-                                                                      CLI.COLOR_SUCCESS,
-                                                                      config.get("ee_subdomain", ""))
-
-                    CLI.colored_print("Use HTTPS?", CLI.COLOR_SUCCESS)
-                    CLI.colored_print("Please note that certificate has to be installed on a load balancer!",
-                                      CLI.COLOR_INFO)
-                    CLI.colored_print("\t1) Yes")
-                    CLI.colored_print("\t2) No")
-                    self.__config["https"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                              config.get("https", Config.TRUE))
+                if self.frontend_questions:
+                    self.__questions_public_routes()
             else:
                 # Reset previous choices, in case server role is not the same.
                 self.__config["multi"] = Config.FALSE
                 self.__config["use_private_dns"] = Config.FALSE
-                frontend_questions = True
-
                 self.__detect_network()
 
-            if frontend_questions:
-                # SMTP.
-                self.__config["smtp_host"] = CLI.colored_input("SMTP server", CLI.COLOR_SUCCESS, config.get("smtp_host"))
-                self.__config["smtp_port"] = CLI.colored_input("SMTP port", CLI.COLOR_SUCCESS, config.get("smtp_port", "25"))
-                self.__config["smtp_user"] = CLI.colored_input("SMTP user", CLI.COLOR_SUCCESS, config.get("smtp_user", ""))
-                if self.__config.get("smtp_user"):
-                    self.__config["smtp_password"] = CLI.colored_input("SMTP password", CLI.COLOR_SUCCESS,
-                                                                       config.get("smtp_password"))
-                    CLI.colored_print("Use TLS?", CLI.COLOR_SUCCESS)
-                    CLI.colored_print("\t1) True")
-                    CLI.colored_print("\t2) False")
-                    self.__config["smtp_use_tls"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                                     config.get("smtp_use_tls", Config.TRUE))
-                self.__config["default_from_email"] = CLI.colored_input("From email address", CLI.COLOR_SUCCESS,
-                                                                        "support@{}".format(
-                                                                            self.__config.get("public_domain_name")))
+            if self.frontend_questions:
+                self.__questions_smtp()
+                self.__questions_super_user_credentials()
 
-                # Super user. Only ask for credentials the first time.
-                # Super user is created if db doesn't exists.
-                username = CLI.colored_input("Super user's username", CLI.COLOR_SUCCESS,
-                                             config.get("super_user_username"))
-                password = CLI.colored_input("Super user's password", CLI.COLOR_SUCCESS,
-                                             config.get("super_user_password"))
+            if self.advanced_options:
 
-                if (username != config.get("super_user_username") or password != config.get("super_user_password")) and \
-                        not first_time:
-                    CLI.colored_print("╔══════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
-                    CLI.colored_print("║ Username or password have been changed!              ║", CLI.COLOR_WARNING)
-                    CLI.colored_print("║ Don't forget to apply these changes in Postgres too. ║", CLI.COLOR_WARNING)
-                    CLI.colored_print("║ Super user's credentials won't be updated if the     ║", CLI.COLOR_WARNING)
-                    CLI.colored_print("║ database already exists.                             ║", CLI.COLOR_WARNING)
-                    CLI.colored_print("╚══════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
+                self.__questions_dev_mode()
+                self.__questions_postgres()
 
-                self.__config["super_user_username"] = username
-                self.__config["super_user_password"] = password
-
-            if config.get("advanced") == Config.TRUE:
-
-                if frontend_questions and config.get("local_installation") == Config.TRUE:
-                    #NGinX different port
-                    CLI.colored_print("Web server port?", CLI.COLOR_SUCCESS)
-                    self.__config["nginx_port"] = CLI.get_response("~\d+",
-                                                                config.get("nginx_port", "80"))
-
-                    CLI.colored_print("Developer mode?", CLI.COLOR_SUCCESS)
-                    CLI.colored_print("\t1) Yes")
-                    CLI.colored_print("\t2) No")
-                    self.__config["dev_mode"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                                config.get("dev_mode", Config.FALSE))
-                    if self.__config["dev_mode"] == Config.TRUE:
-                        CLI.colored_print("╔═══════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
-                        CLI.colored_print("║ Where are the files located locally? It can be absolute   ║", CLI.COLOR_WARNING)
-                        CLI.colored_print("║ or relative to the directory of the installation.         ║", CLI.COLOR_WARNING)
-                        CLI.colored_print("║ Leave empty if you don't need to overload the repository. ║", CLI.COLOR_WARNING)
-                        CLI.colored_print("╚═══════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
-                        self.__config["kc_path"] = CLI.colored_input("KoBoCat files location", CLI.COLOR_SUCCESS,
-                                                                            config.get("kc_path"))
-                        self.__config["kpi_path"] = CLI.colored_input("KPI files location", CLI.COLOR_SUCCESS,
-                                                                            config.get("kpi_path"))
-
-                        # Create an unique id to build fresh image when starting containers
-                        if (config.get("kc_dev_build_id", "") == "" or
-                            self.__config.get("kc_path") != config.get("kc_path")):
-                            self.__config["kc_dev_build_id"] = str(int(time.time()))
-                        if (config.get("kpi_dev_build_id", "") == "" or
-                                self.__config.get("kpi_path") != config.get("kpi_path")):
-                            self.__config["kpi_dev_build_id"] = str(int(time.time()))
-
-                        # Debug
-                        CLI.colored_print("Enable DEBUG?", CLI.COLOR_SUCCESS)
-                        CLI.colored_print("\t1) True")
-                        CLI.colored_print("\t2) False")
-                        self.__config["debug"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                                  config.get("debug", Config.TRUE))
-
-                    else:
-                        # Force reset paths
-                        self.__config["kc_path"] = ""
-                        self.__config["kpi_path"] = ""
-                        self.__config["debug"] = Config.FALSE
-                else:
-                    # Reset dev configs to default
-                    self.__config["dev_mode"] = Config.FALSE
-                    self.__config["debug"] = Config.FALSE
-                    self.__config["kc_path"] = ""
-                    self.__config["kpi_path"] = ""
-                    self.__config["nginx_port"] = "80"
-
-                # DB
-                self.__config["postgres_db"] = CLI.colored_input("Postgres database", CLI.COLOR_SUCCESS,
-                                                                 config.get("postgres_db"))
-                self.__config["postgres_user"] = CLI.colored_input("Postgres user", CLI.COLOR_SUCCESS,
-                                                                   config.get("postgres_user"))
-                self.__config["postgres_password"] = CLI.colored_input("Postgres password", CLI.COLOR_SUCCESS,
-                                                                       config.get("postgres_password"))
-                if frontend_questions:
-                    # AWS
-                    CLI.colored_print("Do you want to use AWS S3 storage?", CLI.COLOR_SUCCESS)
-                    CLI.colored_print("\t1) Yes")
-                    CLI.colored_print("\t2) No")
-                    self.__config["use_aws"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                                config.get("use_aws", Config.FALSE))
-                    if self.__config["use_aws"] == Config.TRUE:
-                        self.__config["aws_access_key"] = CLI.colored_input("AWS Access Key", CLI.COLOR_SUCCESS,
-                                                                            config.get("aws_access_key", ""))
-                        self.__config["aws_secret_key"] = CLI.colored_input("AWS Secret Key", CLI.COLOR_SUCCESS,
-                                                                            config.get("aws_secret_key", ""))
-                        self.__config["aws_bucket_name"] = CLI.colored_input("AWS Bucket name", CLI.COLOR_SUCCESS,
-                                                                             config.get("aws_bucket_name", ""))
-                    else:
-                        self.__config["aws_access_key"] = ""
-                        self.__config["aws_secret_key"] = ""
-                        self.__config["aws_bucket_name"] = ""
-
-                    # Google Analytics
-                    self.__config["google_ua"] = CLI.colored_input("Google Analytics Identifier", CLI.COLOR_SUCCESS,
-                                                                   config.get("google_ua", ""))
-
-                    # Google API Key
-                    self.__config["google_api_key"] = CLI.colored_input("Google API Key", CLI.COLOR_SUCCESS,
-                                                                        config.get("google_api_key", ""))
-
-                    # Intercom
-                    self.__config["intercom"] = CLI.colored_input("Intercom App ID", CLI.COLOR_SUCCESS,
-                                                                  config.get("intercom", ""))
-
-                    # Raven
-                    CLI.colored_print("Do you want to use Sentry?", CLI.COLOR_SUCCESS)
-                    CLI.colored_print("\t1) Yes")
-                    CLI.colored_print("\t2) No")
-                    self.__config["raven_settings"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                                       config.get("raven_settings", Config.FALSE))
-
-                    if self.__config.get("raven_settings") == Config.TRUE:
-                        self.__config["kpi_raven"] = CLI.colored_input("KPI Raven token", CLI.COLOR_SUCCESS,
-                                                                       config.get("kpi_raven", ""))
-                        self.__config["kobocat_raven"] = CLI.colored_input("KoBoCat Raven token", CLI.COLOR_SUCCESS,
-                                                                           config.get("kobocat_raven", ""))
-                        self.__config["kpi_raven_js"] = CLI.colored_input("KPI Raven JS token", CLI.COLOR_SUCCESS,
-                                                                          config.get("kpi_raven_js", ""))
-                    else:
-                        self.__config["kpi_raven"] = ""
-                        self.__config["kobocat_raven"] = ""
-                        self.__config["kpi_raven_js"] = ""
-
-                    CLI.colored_print("Do you want to tweak uWSGI settings?", CLI.COLOR_SUCCESS)
-                    CLI.colored_print("\t1) Yes")
-                    CLI.colored_print("\t2) No")
-                    self.__config["uwsgi_settings"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                                       config.get("uwsgi_settings", Config.FALSE))
-
-                    if self.__config.get("uwsgi_settings") == Config.TRUE:
-                        CLI.colored_print("Number of uWSGi workers to start?", CLI.COLOR_SUCCESS)
-                        self.__config["workers_start"] = CLI.get_response(
-                            "~\d+",
-                            config.get("workers_start", "1"))
-                        CLI.colored_print("Max uWSGi workers?", CLI.COLOR_SUCCESS)
-                        self.__config["workers_max"] = CLI.get_response(
-                            "~\d+",
-                            config.get("workers_max", "2"))
-
-                        CLI.colored_print("Max number of requests per worker?", CLI.COLOR_SUCCESS)
-                        self.__config["max_requests"] = CLI.get_response(
-                            "~\d+",
-                            config.get("max_requests", "512"))
-                        CLI.colored_print("Max memory per workers in MB?", CLI.COLOR_SUCCESS)
-                        self.__config["soft_limit"] = CLI.get_response(
-                            "~\d+",
-                            config.get("soft_limit", "128"))
-                    else:
-                        self.__config["worker_start"] = "1"
-                        self.__config["workers_max"] = "2"
-                        self.__config["max_requests"] = "512"
-                        self.__config["soft_limit"] = "128"
-
-            # If first time
-            backend_questions = config.get("multi") != Config.TRUE or config.get("server_role") != "frontend"
-            if backend_questions:
-                if first_time:
-                    mongo_dir_path = "{}/.vols/mongo".format(self.__config["kobodocker_path"])
-                    postgres_dir_path = "{}/.vols/db".format(self.__config["kobodocker_path"])
-                    mongo_data_exists = (os.path.exists(mongo_dir_path) and os.path.isdir(mongo_dir_path) and
-                        os.listdir(mongo_dir_path))
-                    postgres_data_exists = os.path.exists(postgres_dir_path) and os.path.isdir(postgres_dir_path)
-
-                    if mongo_data_exists or postgres_data_exists:
-                        docker_composer_file_path = "{}/docker-compose.backend.template.yml".format(self.__config["kobodocker_path"])
-                        if not os.path.exists(docker_composer_file_path):
-                            CLI.colored_print("╔════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
-                            CLI.colored_print("║ WARNING !!!                                        ║", CLI.COLOR_WARNING)
-                            CLI.colored_print("║                                                    ║", CLI.COLOR_WARNING)
-                            CLI.colored_print("║ You are installing over existing data.             ║", CLI.COLOR_WARNING)
-                            CLI.colored_print("║                                                    ║", CLI.COLOR_WARNING)
-                            CLI.colored_print("║ It's recommended to backup your data and import it ║", CLI.COLOR_WARNING)
-                            CLI.colored_print("║ to a fresh installed (by `kobo-install`) database. ║", CLI.COLOR_WARNING)
-                            CLI.colored_print("║                                                    ║", CLI.COLOR_WARNING)
-                            CLI.colored_print("║ `kobo-install` uses these images:                  ║", CLI.COLOR_WARNING)
-                            CLI.colored_print("║    - MongoDB: mongo:3.4                            ║", CLI.COLOR_WARNING)
-                            CLI.colored_print("║    - PostgreSQL: mdillon/postgis:9.5               ║", CLI.COLOR_WARNING)
-                            CLI.colored_print("║                                                    ║", CLI.COLOR_WARNING)
-                            CLI.colored_print("║ Be sure to upgrade to these versions before        ║", CLI.COLOR_WARNING)
-                            CLI.colored_print("║ going further!                                     ║", CLI.COLOR_WARNING)
-                            CLI.colored_print("╚════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
-                            CLI.colored_print("Are you sure you want to continue?", CLI.COLOR_SUCCESS)
-                            CLI.colored_print("\tyes")
-                            CLI.colored_print("\tno")
-                            response = CLI.get_response(["yes", "no"], "no")
-                            if response == "no":
-                                sys.exit()
-                            else:
-                                # Write kobo_first_run file to run postgres container's entrypoint flawlessly.
-                                os.system("echo $(data) | sudo tee -a {} > /dev/null".format(
-                                    "{}/.vols/db/kobo_first_run".format(self.__config["kobodocker_path"])
-                                ))
-
-                if self.__config.get("advanced") == Config.TRUE:
-                    # Postgres settings
-                    CLI.colored_print("Do you want to tweak PostgreSQL settings?", CLI.COLOR_SUCCESS)
-                    CLI.colored_print("\t1) Yes")
-                    CLI.colored_print("\t2) No")
-                    self.__config["postgres_settings"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                                       config.get("postgres_settings", Config.FALSE))
-
-                    if self.__config["postgres_settings"] == Config.TRUE:
-                        CLI.colored_print("Total Memory in GB?", CLI.COLOR_SUCCESS)
-                        self.__config["postgres_ram"] = CLI.get_response("~\d+", config.get("postgres_ram", "8"))
-
-                        if config.get("multi") == Config.TRUE:
-                            self.__config["postgres_profile"] = "OLTP"
-                            CLI.colored_print("Number of connections?", CLI.COLOR_SUCCESS)
-                            self.__config["postgres_max_connections"] = CLI.get_response(
-                                "~\d+",
-                                config.get("postgres_max_connections", "100"))
-                        elif config.get("dev_mode") == Config.TRUE:
-                            self.__config["postgres_profile"] = "Desktop"
-                        else:
-                            self.__config["postgres_profile"] = "Mixed"
-                            CLI.colored_print("Number of connections?", CLI.COLOR_SUCCESS)
-                            self.__config["postgres_max_connections"] = CLI.get_response(
-                                "~\d+",
-                                config.get("postgres_max_connections", "100"))
-
-                    endpoint = "https://api.pgconfig.org/v1/tuning/get-config?environment_name={profile}" \
-                               "&format=conf&include_pgbadger=false&max_connections={max_connections}&" \
-                               "pg_version=9.5&total_ram={ram}GB&drive_type=SSD".format(
-                        profile=self.__config["postgres_profile"],
-                        ram=self.__config["postgres_ram"],
-                        max_connections=self.__config["postgres_max_connections"]
-                    )
-                    response = Network.curl(endpoint)
-                    if response:
-                        self.__config["postgres_settings_content"] = re.sub(r"(log|lc_).+(\n|$)", "", response)
-                    else:
-                        self.__config["postgres_settings"] = Config.FALSE
+                if self.frontend_questions:
+                    self.__questions_aws()
+                    self.__questions_google()
+                    self.__questions_intercom()
+                    self.__questions_raven()
+                    self.__questions_uwsgi()
 
             self.__config = config
             self.write_config()
@@ -425,7 +197,20 @@ class Config:
     def get_config(self):
         return self.__config
 
+    @staticmethod
+    def generate_password():
+        """
+        Generate random password between 8 to 16 characters
+        :return: str
+        """
+        characters = string.ascii_letters + "!#$%&*+-?@^~" + string.digits
+        return "".join(choice(characters) for x in range(randint(10, 16)))
+
     def read_config(self):
+        """
+        Reads config from file `Config.CONFIG_FILE` if exists
+        :return: dict
+        """
         config = {}
         try:
             with open(Config.CONFIG_FILE, "r") as f:
@@ -437,6 +222,11 @@ class Config:
         return config
 
     def write_config(self):
+        """
+        Writes config to file `Config.CONFIG_FILE`.
+        :return: bool
+        """
+        # Adds `date_created`. This field will be use to determine first usage of the setup option.
         if self.__config.get("date_created") is None:
            self.__config["date_created"] = int(time.time())
         self.__config["date_modified"] = int(time.time())
@@ -454,7 +244,9 @@ class Config:
         return True
 
     def __create_directory(self):
-        # Installation directory
+        """
+        Create repository directory if it doesn't exist.
+        """
         CLI.colored_print("Where do you want to install?", CLI.COLOR_SUCCESS)
         while True:
             kobodocker_path = CLI.colored_input("", CLI.COLOR_SUCCESS,
@@ -470,33 +262,7 @@ class Config:
                     CLI.colored_print("Please make sure you have permissions and path is correct", CLI.COLOR_ERROR)
 
         self.__config["kobodocker_path"] = kobodocker_path
-
-    def __is_db_image_version_unknown(self, database, master_version):
-        """
-        Tries to detect current docker image for `database`.
-        It's compared to current `master` branch of `kobo-docker` repository.
-
-        :param database: str
-        :param master_version: str
-        :return: bool
-        """
-        unknown_version = True
-        docker_composer_file_path = "{}/docker-compose.yml".format(self.__config["kobodocker_path"])
-        if os.path.exists(docker_composer_file_path):
-            try:
-                content = ""
-                with open(docker_composer_file_path, "r") as docker_composer_file:
-                    content = docker_composer_file.read()
-
-                version_search = re.search(r"{}:\s+image: ([^\n]*)".format(database), content)
-                if version_search:
-                    version = version_search.group(1)
-                    if version == master_version:
-                        unknown_version = False
-            except:
-                pass
-
-        return unknown_version
+        self.__validate_installation()
 
     def __detect_network(self):
 
@@ -531,6 +297,383 @@ class Config:
             self.__config["local_interface_ip"] = interfaces[self.__config.get("local_interface")]
             self.__config["master_backend_ip"] = self.__config.get("local_interface_ip")
 
-    def __generate_password(self):
-        characters = string.ascii_letters + "!#$%&*+-?@^~" + string.digits
-        return "".join(choice(characters) for x in range(randint(10, 16)))
+    def __questions_advanced_options(self):
+        """
+        Asks if user wants to see advanced options
+        """
+        CLI.colored_print("Do you want to see advanced options?", CLI.COLOR_SUCCESS)
+        CLI.colored_print("\t1) Yes")
+        CLI.colored_print("\t2) No")
+        self.__config["advanced"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                     self.__config.get("advanced", Config.FALSE))
+
+    def __questions_aws(self):
+        """
+        Asks if user wants to see AWS option
+        and asks for credentials if needed.
+        """
+        CLI.colored_print("Do you want to use AWS S3 storage?", CLI.COLOR_SUCCESS)
+        CLI.colored_print("\t1) Yes")
+        CLI.colored_print("\t2) No")
+        self.__config["use_aws"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                    self.__config.get("use_aws", Config.FALSE))
+        if self.__config["use_aws"] == Config.TRUE:
+            self.__config["aws_access_key"] = CLI.colored_input("AWS Access Key", CLI.COLOR_SUCCESS,
+                                                                self.__config.get("aws_access_key", ""))
+            self.__config["aws_secret_key"] = CLI.colored_input("AWS Secret Key", CLI.COLOR_SUCCESS,
+                                                                self.__config.get("aws_secret_key", ""))
+            self.__config["aws_bucket_name"] = CLI.colored_input("AWS Bucket name", CLI.COLOR_SUCCESS,
+                                                                 self.__config.get("aws_bucket_name", ""))
+        else:
+            self.__config["aws_access_key"] = ""
+            self.__config["aws_secret_key"] = ""
+            self.__config["aws_bucket_name"] = ""
+
+    def __questions_dev_mode(self):
+        """
+        Asks for developer mode and nginx port.
+        Reset to default in case of No
+        """
+
+        if self.frontend_questions and self.local_install:
+            # NGinX different port
+            CLI.colored_print("Web server port?", CLI.COLOR_SUCCESS)
+            self.__config["nginx_port"] = CLI.get_response("~\d+",
+                                                           self.__config.get("nginx_port", "80"))
+
+            CLI.colored_print("Developer mode?", CLI.COLOR_SUCCESS)
+            CLI.colored_print("\t1) Yes")
+            CLI.colored_print("\t2) No")
+            self.__config["dev_mode"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                         self.__config.get("dev_mode", Config.FALSE))
+            if self.dev_mode:
+                CLI.colored_print("╔═══════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
+                CLI.colored_print("║ Where are the files located locally? It can be absolute   ║", CLI.COLOR_WARNING)
+                CLI.colored_print("║ or relative to the directory of the installation.         ║", CLI.COLOR_WARNING)
+                CLI.colored_print("║ Leave empty if you don't need to overload the repository. ║", CLI.COLOR_WARNING)
+                CLI.colored_print("╚═══════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
+                self.__config["kc_path"] = CLI.colored_input("KoBoCat files location", CLI.COLOR_SUCCESS,
+                                                             self.__config.get("kc_path"))
+                self.__config["kpi_path"] = CLI.colored_input("KPI files location", CLI.COLOR_SUCCESS,
+                                                              self.__config.get("kpi_path"))
+
+                # Create an unique id to build fresh image when starting containers
+                if (self.__config.get("kc_dev_build_id", "") == "" or
+                        self.__config.get("kc_path") != self.__config.get("kc_path")):
+                    self.__config["kc_dev_build_id"] = str(int(time.time()))
+                if (self.__config.get("kpi_dev_build_id", "") == "" or
+                        self.__config.get("kpi_path") != self.__config.get("kpi_path")):
+                    self.__config["kpi_dev_build_id"] = str(int(time.time()))
+
+                # Debug
+                CLI.colored_print("Enable DEBUG?", CLI.COLOR_SUCCESS)
+                CLI.colored_print("\t1) True")
+                CLI.colored_print("\t2) False")
+                self.__config["debug"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                          self.__config.get("debug", Config.TRUE))
+            else:
+                # Force reset paths
+                self.__reset_dev_mode()
+        else:
+            self.__reset_dev_mode(True)
+
+    def __questions_google(self):
+        """
+        Asks for Google's keys
+        """
+        # Google Analytics
+        self.__config["google_ua"] = CLI.colored_input("Google Analytics Identifier", CLI.COLOR_SUCCESS,
+                                                       self.__config.get("google_ua", ""))
+
+        # Google API Key
+        self.__config["google_api_key"] = CLI.colored_input("Google API Key", CLI.COLOR_SUCCESS,
+                                                            self.__config.get("google_api_key", ""))
+
+    def __questions_intercom(self):
+        """
+        Asks for Intercom API Key if any
+        """
+        self.__config["intercom"] = CLI.colored_input("Intercom App ID", CLI.COLOR_SUCCESS,
+                                                      self.__config.get("intercom", ""))
+
+    def __questions_installation_type(self):
+        """
+        Asks for installation type
+        """
+        CLI.colored_print("What kind of installation do you need?", CLI.COLOR_SUCCESS)
+        CLI.colored_print("\t1) On your workstation")
+        CLI.colored_print("\t2) On a server")
+        self.__config["local_installation"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                               self.__config.get("local_installation", Config.FALSE))
+
+    def __questions_multi_servers(self):
+        """
+        Asks if installation is for only one server
+        or different frontend and backend servers.
+        """
+        CLI.colored_print("Do you want to use separate servers for frontend and backend?",
+                          CLI.COLOR_SUCCESS)
+        CLI.colored_print("\t1) Yes")
+        CLI.colored_print("\t2) No")
+        self.__config["multi"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                  self.__config.get("multi", Config.FALSE))
+
+    def __questions_postgres(self):
+        """
+        Postgres credentials and settings.
+
+        Settings can be tweaked thanks to pgconfig.org API
+        """
+        self.__config["postgres_db"] = CLI.colored_input("Postgres database", CLI.COLOR_SUCCESS,
+                                                         self.__config.get("postgres_db"))
+        self.__config["postgres_user"] = CLI.colored_input("Postgres user", CLI.COLOR_SUCCESS,
+                                                           self.__config.get("postgres_user"))
+        self.__config["postgres_password"] = CLI.colored_input("Postgres password", CLI.COLOR_SUCCESS,
+                                                               self.__config.get("postgres_password"))
+
+        if self.backend_questions and self.advanced_options:
+            # Postgres settings
+            CLI.colored_print("Do you want to tweak PostgreSQL settings?", CLI.COLOR_SUCCESS)
+            CLI.colored_print("\t1) Yes")
+            CLI.colored_print("\t2) No")
+            self.__config["postgres_settings"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                                  self.__config.get("postgres_settings", Config.FALSE))
+
+            if self.__config["postgres_settings"] == Config.TRUE:
+                CLI.colored_print("Total Memory in GB?", CLI.COLOR_SUCCESS)
+                self.__config["postgres_ram"] = CLI.get_response("~\d+", self.__config.get("postgres_ram", "8"))
+
+                if self.__config.get("multi") == Config.TRUE:
+                    self.__config["postgres_profile"] = "OLTP"
+                    CLI.colored_print("Number of connections?", CLI.COLOR_SUCCESS)
+                    self.__config["postgres_max_connections"] = CLI.get_response(
+                        "~\d+",
+                        self.__config.get("postgres_max_connections", "100"))
+                elif self.dev_mode:
+                    self.__config["postgres_profile"] = "Desktop"
+                else:
+                    self.__config["postgres_profile"] = "Mixed"
+                    CLI.colored_print("Number of connections?", CLI.COLOR_SUCCESS)
+                    self.__config["postgres_max_connections"] = CLI.get_response(
+                        "~\d+",
+                        self.__config.get("postgres_max_connections", "100"))
+
+            # use pgconfig.org API to build postgres config
+            endpoint = "https://api.pgconfig.org/v1/tuning/get-config?environment_name={profile}" \
+                       "&format=conf&include_pgbadger=false&max_connections={max_connections}&" \
+                       "pg_version=9.5&total_ram={ram}GB&drive_type=SSD".format(
+                profile=self.__config["postgres_profile"],
+                ram=self.__config["postgres_ram"],
+                max_connections=self.__config["postgres_max_connections"]
+            )
+            response = Network.curl(endpoint)
+            if response:
+                self.__config["postgres_settings_content"] = re.sub(r"(log|lc_).+(\n|$)", "", response)
+            else:
+                # If no response from API, keep defaults
+                self.__config["postgres_settings"] = Config.FALSE
+
+    def __questions_private_routes(self):
+        """
+        Asks if configuration uses a DNS for private domain names for communication
+        between frontend and backend.
+        Otherwise, it will create entries in `extra_hosts` in composer file based
+        on the provided ip.
+        """
+        CLI.colored_print("Do you use DNS for private routes?", CLI.COLOR_SUCCESS)
+        CLI.colored_print("\t1) Yes")
+        CLI.colored_print("\t2) No")
+
+        self.__config["use_private_dns"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                            self.__config.get("use_private_dns",
+                                                                       Config.FALSE))
+
+        if self.__config["use_private_dns"] == Config.FALSE:
+            CLI.colored_print("IP address (IPv4) of backend server?", CLI.COLOR_SUCCESS)
+            self.__config["master_backend_ip"] = CLI.get_response(
+                "~\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}",
+                self.__config.get("master_backend_ip", self.__primary_ip))
+        else:
+            self.__config["private_domain_name"] = CLI.colored_input("Private domain name",
+                                                                     CLI.COLOR_SUCCESS,
+                                                                     self.__config.get(
+                                                                         "private_domain_name", ""))
+
+    def __questions_public_routes(self):
+        self.__config["public_domain_name"] = CLI.colored_input("Public domain name", CLI.COLOR_SUCCESS,
+                                                                self.__config.get("public_domain_name", ""))
+        self.__config["kpi_subdomain"] = CLI.colored_input("KPI sub domain", CLI.COLOR_SUCCESS,
+                                                           self.__config.get("kpi_subdomain", ""))
+        self.__config["kc_subdomain"] = CLI.colored_input("KoBoCat sub domain", CLI.COLOR_SUCCESS,
+                                                          self.__config.get("kc_subdomain", ""))
+        self.__config["ee_subdomain"] = CLI.colored_input("Enketo Express sub domain name",
+                                                          CLI.COLOR_SUCCESS,
+                                                          self.__config.get("ee_subdomain", ""))
+
+        CLI.colored_print("Use HTTPS?", CLI.COLOR_SUCCESS)
+        CLI.colored_print("Please note that certificate has to be installed on a load balancer!",
+                          CLI.COLOR_INFO)
+        CLI.colored_print("\t1) Yes")
+        CLI.colored_print("\t2) No")
+        self.__config["https"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                  self.__config.get("https", Config.TRUE))
+
+    def __questions_raven(self):
+        CLI.colored_print("Do you want to use Sentry?", CLI.COLOR_SUCCESS)
+        CLI.colored_print("\t1) Yes")
+        CLI.colored_print("\t2) No")
+        self.__config["raven_settings"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                           self.__config.get("raven_settings", Config.FALSE))
+
+        if self.__config.get("raven_settings") == Config.TRUE:
+            self.__config["kpi_raven"] = CLI.colored_input("KPI Raven token", CLI.COLOR_SUCCESS,
+                                                           self.__config.get("kpi_raven", ""))
+            self.__config["kobocat_raven"] = CLI.colored_input("KoBoCat Raven token", CLI.COLOR_SUCCESS,
+                                                               self.__config.get("kobocat_raven", ""))
+            self.__config["kpi_raven_js"] = CLI.colored_input("KPI Raven JS token", CLI.COLOR_SUCCESS,
+                                                              self.__config.get("kpi_raven_js", ""))
+        else:
+            self.__config["kpi_raven"] = ""
+            self.__config["kobocat_raven"] = ""
+            self.__config["kpi_raven_js"] = ""
+
+    def __questions_roles(self):
+        CLI.colored_print("Which role do you want to assign to this server?", CLI.COLOR_SUCCESS)
+        CLI.colored_print("\t1) frontend")
+        CLI.colored_print("\t2) backend")
+        self.__config["server_role"] = CLI.get_response(["backend", "frontend"],
+                                                        self.__config.get("server_role", "frontend"))
+
+    def __questions_smtp(self):
+        self.__config["smtp_host"] = CLI.colored_input("SMTP server", CLI.COLOR_SUCCESS,
+                                                       self.__config.get("smtp_host"))
+        self.__config["smtp_port"] = CLI.colored_input("SMTP port", CLI.COLOR_SUCCESS,
+                                                       self.__config.get("smtp_port", "25"))
+        self.__config["smtp_user"] = CLI.colored_input("SMTP user", CLI.COLOR_SUCCESS,
+                                                       self.__config.get("smtp_user", ""))
+        if self.__config.get("smtp_user"):
+            self.__config["smtp_password"] = CLI.colored_input("SMTP password", CLI.COLOR_SUCCESS,
+                                                               self.__config.get("smtp_password"))
+            CLI.colored_print("Use TLS?", CLI.COLOR_SUCCESS)
+            CLI.colored_print("\t1) True")
+            CLI.colored_print("\t2) False")
+            self.__config["smtp_use_tls"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                             self.__config.get("smtp_use_tls", Config.TRUE))
+        self.__config["default_from_email"] = CLI.colored_input("From email address", CLI.COLOR_SUCCESS,
+                                                                "support@{}".format(
+                                                                    self.__config.get("public_domain_name")))
+
+    def __questions_super_user_credentials(self):
+        # Super user. Only ask for credentials the first time.
+        # Super user is created if db doesn't exists.
+        username = CLI.colored_input("Super user's username", CLI.COLOR_SUCCESS,
+                                     self.__config.get("super_user_username"))
+        password = CLI.colored_input("Super user's password", CLI.COLOR_SUCCESS,
+                                     self.__config.get("super_user_password"))
+
+        if (username != self.__config.get("super_user_username") or
+            password != self.__config.get("super_user_password")) and \
+                not self.first_time:
+            CLI.colored_print("╔══════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
+            CLI.colored_print("║ Username or password have been changed!              ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║ Don't forget to apply these changes in Postgres too. ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║ Super user's credentials won't be updated if the     ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║ database already exists.                             ║", CLI.COLOR_WARNING)
+            CLI.colored_print("╚══════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
+
+        self.__config["super_user_username"] = username
+        self.__config["super_user_password"] = password
+
+    def __questions_uwsgi(self):
+        CLI.colored_print("Do you want to tweak uWSGI settings?", CLI.COLOR_SUCCESS)
+        CLI.colored_print("\t1) Yes")
+        CLI.colored_print("\t2) No")
+        self.__config["uwsgi_settings"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                           self.__config.get("uwsgi_settings", Config.FALSE))
+
+        if self.__config.get("uwsgi_settings") == Config.TRUE:
+            CLI.colored_print("Number of uWSGi workers to start?", CLI.COLOR_SUCCESS)
+            self.__config["workers_start"] = CLI.get_response(
+                "~\d+",
+                self.__config.get("workers_start", "1"))
+            CLI.colored_print("Max uWSGi workers?", CLI.COLOR_SUCCESS)
+            self.__config["workers_max"] = CLI.get_response(
+                "~\d+",
+                self.__config.get("workers_max", "2"))
+
+            CLI.colored_print("Max number of requests per worker?", CLI.COLOR_SUCCESS)
+            self.__config["max_requests"] = CLI.get_response(
+                "~\d+",
+                self.__config.get("max_requests", "512"))
+            CLI.colored_print("Max memory per workers in MB?", CLI.COLOR_SUCCESS)
+            self.__config["soft_limit"] = CLI.get_response(
+                "~\d+",
+                self.__config.get("soft_limit", "128"))
+        else:
+            self.__config["worker_start"] = "1"
+            self.__config["workers_max"] = "2"
+            self.__config["max_requests"] = "512"
+            self.__config["soft_limit"] = "128"
+
+    def __reset_dev_mode(self, reset_nginx_port=False):
+        """
+        Resets several properties to their default to avoid developer mode.
+        It can be useful, if user changes the type of installation on the same server
+
+        :param reset_nginx_port: bool
+        :return: bool
+        """
+        self.__config["dev_mode"] = Config.FALSE
+        self.__config["kc_path"] = ""
+        self.__config["kpi_path"] = ""
+        self.__config["debug"] = Config.FALSE
+        if reset_nginx_port:
+            self.__config["nginx_port"] = "80"
+
+    def __validate_installation(self):
+        """
+        Validates if installation is not run over existing data.
+        The check is made only the first time the setup is run.
+        :return: bool
+        """
+        if self.first_time:
+            mongo_dir_path = "{}/.vols/mongo".format(self.__config["kobodocker_path"])
+            postgres_dir_path = "{}/.vols/db".format(self.__config["kobodocker_path"])
+            mongo_data_exists = (os.path.exists(mongo_dir_path) and os.path.isdir(mongo_dir_path) and
+                                 os.listdir(mongo_dir_path))
+            postgres_data_exists = os.path.exists(postgres_dir_path) and os.path.isdir(postgres_dir_path)
+
+            if mongo_data_exists or postgres_data_exists:
+                # Not a reliable way to detect whether folder contains `kobo-install` files
+                # We assume that if `docker-compose.backend.template.yml` is there,
+                # Docker images are the good ones.
+                # TODO Find a better way
+                docker_composer_file_path = "{}/docker-compose.backend.template.yml".format(
+                    self.__config["kobodocker_path"])
+                if not os.path.exists(docker_composer_file_path):
+                    CLI.colored_print("╔════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
+                    CLI.colored_print("║ WARNING !!!                                        ║", CLI.COLOR_WARNING)
+                    CLI.colored_print("║                                                    ║", CLI.COLOR_WARNING)
+                    CLI.colored_print("║ You are installing over existing data.             ║", CLI.COLOR_WARNING)
+                    CLI.colored_print("║                                                    ║", CLI.COLOR_WARNING)
+                    CLI.colored_print("║ It's recommended to backup your data and import it ║", CLI.COLOR_WARNING)
+                    CLI.colored_print("║ to a fresh installed (by `kobo-install`) database. ║", CLI.COLOR_WARNING)
+                    CLI.colored_print("║                                                    ║", CLI.COLOR_WARNING)
+                    CLI.colored_print("║ `kobo-install` uses these images:                  ║", CLI.COLOR_WARNING)
+                    CLI.colored_print("║    - MongoDB: mongo:3.4                            ║", CLI.COLOR_WARNING)
+                    CLI.colored_print("║    - PostgreSQL: mdillon/postgis:9.5               ║", CLI.COLOR_WARNING)
+                    CLI.colored_print("║                                                    ║", CLI.COLOR_WARNING)
+                    CLI.colored_print("║ Be sure to upgrade to these versions before        ║", CLI.COLOR_WARNING)
+                    CLI.colored_print("║ going further!                                     ║", CLI.COLOR_WARNING)
+                    CLI.colored_print("╚════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
+                    CLI.colored_print("Are you sure you want to continue?", CLI.COLOR_SUCCESS)
+                    CLI.colored_print("\tyes")
+                    CLI.colored_print("\tno")
+                    response = CLI.get_response(["yes", "no"], "no")
+                    if response == "no":
+                        sys.exit()
+                    else:
+                        # Write kobo_first_run file to run postgres container's entrypoint flawlessly.
+                        os.system("echo $(data) | sudo tee -a {} > /dev/null".format(
+                            "{}/.vols/db/kobo_first_run".format(self.__config["kobodocker_path"])
+                        ))

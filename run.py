@@ -36,7 +36,7 @@ def run(force_setup=False):
                 Template.render(current_config)
                 Setup.update_hosts(current_config)
 
-        __start_env(current_config)
+        #__start_env(current_config)
 
 def upgrade():
     # TODO - upgrade kobo-install && kobo-docker repo

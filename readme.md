@@ -43,10 +43,12 @@ User can choose between 2 types of installations:
 |Network interface|  **Autodetected**  | ✓ | ✓ (frontend only) |
 |Use separate servers| **No**  |  | ✓ |
 |Use DNS for private routes| **No**  |  | ✓ (frontend only) |
-|Backend server IP _(if previous answer is no)_| **Local IP**  |  | ✓ (frontend only) |
+|Master backend IP _(if previous answer is no)_| **Local IP**  |  | ✓ (frontend only) |
 |Postgres DB|  **kobo**  | ✓ | ✓ |
 |Postgres user|  **kobo**  | ✓ | ✓ |
 |Postgres password|  **kobo**  | ✓ | ✓ |
+|Postgres number of connections|  **100**  | ✓ | ✓ (backend only) |
+|Postgres RAM|  **8**  | ✓ | ✓ (backend only) |
 |Use AWS storage|  **No**  | ✓ | ✓ (frontend only) |
 |uWGI workers|  **start: 2, max: 4**  | ✓ | ✓ (frontend only) |
 |uWGI memory limit|  **128 MB**  | ✓ | ✓ (frontend only) |
@@ -76,10 +78,8 @@ User can choose between 2 types of installations:
 - Add better input validations
 - Stop docker containers with command
 - Add option to force update `kobo-docker` repo without rebuilding the config
-- Support existing configurations
 - Adds comments in the code
 - Create command line help
-- Refactor Config.run()
 - Tests
 
 ## Known issues
