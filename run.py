@@ -57,6 +57,7 @@ def __start_env(config):
             config.get("multi") != Config.TRUE:
         backend_command = ["docker-compose",
                            "-f", "docker-compose.backend.master.yml",
+                           "-f", "docker-compose.backend.master.override.yml",
                            "down"]
         CLI.run_command(backend_command, config.get("kobodocker_path"))
 
@@ -82,6 +83,7 @@ def __start_env(config):
             config.get("multi") != Config.TRUE:
         backend_command = ["docker-compose",
                            "-f", "docker-compose.backend.master.yml",
+                           "-f", "docker-compose.backend.master.override.yml",
                            "up", "-d"]
         CLI.run_command(backend_command, config.get("kobodocker_path"))
 
