@@ -18,6 +18,7 @@ class Template:
 
         template_variables = {
             "PROTOCOL": "https" if config.get("https") == Config.TRUE else "http",
+            "USE_HTTPS": "" if config.get("https") == Config.TRUE else "#",
             "USE_AWS": "" if config.get("use_aws") == Config.TRUE else "#",
             "AWS_ACCESS_KEY_ID": config.get("aws_access_key", ""),
             "AWS_SECRET_ACCESS_KEY": config.get("aws_secret_key", ""),
@@ -61,7 +62,7 @@ class Template:
             "USE_KC_DEV_MODE": "#" if config.get("kc_path", "") == "" else "",
             "KC_DEV_BUILD_ID": config.get("kc_dev_build_id", ""),
             "KPI_DEV_BUILD_ID": config.get("kpi_dev_build_id", ""),
-            "NGINX_PUBLIC_PORT": config.get("nginx_port", "80"),
+            "NGINX_PUBLIC_PORT": config.get("exposed_nginx_docker_port", "80"),
             "MAX_REQUESTS": config.get("max_request", "512"),
             "SOFT_LIMIT": int(config.get("soft_limit", "128")) * 1024 * 1024,
             "POSTGRES_REPLICATION_PASSWORD": config.get("postgres_replication_password"),

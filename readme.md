@@ -36,7 +36,7 @@ User can choose between 2 types of installations:
 
 |Option|Default|Workstation|Server
 |---|---|---|---|
-|Installation directory| **../kobo-docker**  | ✓ |  |
+|Installation directory| **../kobo-docker**  | ✓ | ✓ |
 |SMTP information|  | ✓ | ✓ (frontend only) |
 |Public domain name|  |  | ✓ (frontend only) |
 |Subdomain names| **kpi, kc, ee**  |  | ✓ (frontend only) |

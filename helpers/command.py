@@ -40,15 +40,17 @@ class Command:
             "https" if config.get("https") == Config.TRUE else "http",
             config.get("kpi_subdomain"),
             config.get("public_domain_name"),
-            ":{}".format(config.get("nginx_port")) if config.get("nginx_port")
-                                                      and str(config.get("nginx_port")) != "80" else ""
+            ":{}".format(config.get("exposed_nginx_docker_port")) if config.get("exposed_nginx_docker_port")
+                                                      and str(config.get("exposed_nginx_docker_port")) != "80" else ""
         )
+
         stop = False
         start = int(time.time())
         success = False
         hostname = "{}.{}".format(config.get("kpi_subdomain"), config.get("public_domain_name"))
+        nginx_port = 443 if config.get("https") == Config.TRUE else int(config.get("exposed_nginx_docker_port", "80"))
         while not stop:
-            if Network.status_check(hostname, "/service_health/", config.get("nginx_port")) == Network.STATUS_OK_200:
+            if Network.status_check(hostname, "/service_health/", nginx_port) == Network.STATUS_OK_200:
                 stop = True
                 success = True
             elif int(time.time()) - start >= timeout:
@@ -90,7 +92,7 @@ class Command:
         cls.stop(False)
         CLI.colored_print("Launching environment", CLI.COLOR_SUCCESS)
         # Test if ports are available
-        nginx_port = int(config.get("nginx_port", 80))
+        nginx_port = int(config.get("exposed_nginx_docker_port", 80))
         ports = [nginx_port, 6379, 6380, 5672, 27017, 5432]
 
         for port in ports:
@@ -119,7 +121,7 @@ class Command:
         if (config.get("multi") == Config.TRUE and config.get("server_role") == "frontend") or \
                 config.get("multi") != Config.TRUE:
             CLI.colored_print("Waiting for environment to be ready", CLI.COLOR_SUCCESS)
-            cls.info(config)
+            cls.info()
         else:
             CLI.colored_print(("Backend server should be up & running! "
                                "Please look at docker logs for further information"), CLI.COLOR_WARNING)

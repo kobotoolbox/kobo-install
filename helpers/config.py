@@ -338,8 +338,8 @@ class Config:
         if self.frontend_questions and self.local_install:
             # NGinX different port
             CLI.colored_print("Web server port?", CLI.COLOR_SUCCESS)
-            self.__config["nginx_port"] = CLI.get_response("~\d+",
-                                                           self.__config.get("nginx_port", "80"))
+            self.__config["exposed_nginx_docker_port"] = CLI.get_response("~\d+",
+                                                           self.__config.get("exposed_nginx_docker_port", "80"))
 
             CLI.colored_print("Developer mode?", CLI.COLOR_SUCCESS)
             CLI.colored_print("\t1) Yes")
@@ -628,7 +628,7 @@ class Config:
         self.__config["kpi_path"] = ""
         self.__config["debug"] = Config.FALSE
         if reset_nginx_port:
-            self.__config["nginx_port"] = "80"
+            self.__config["exposed_nginx_docker_port"] = "80"
 
     def __validate_installation(self):
         """
