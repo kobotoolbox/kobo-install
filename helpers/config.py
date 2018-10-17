@@ -73,7 +73,12 @@ class Config:
                 "use_private_dns": Config.FALSE,
                 "master_backend_ip": primary_ip,
                 "local_interface_ip": primary_ip,
-                "multi": Config.FALSE
+                "multi": Config.FALSE,
+                "postgres_settings": Config.FALSE,
+                "postgres_ram": "8",
+                "postgres_profile": "Mixed",
+                "postgres_max_connections": "100",
+                "postgres_settings_content": ""
             }
 
             first_time = self.__config.get("date_created") is None
@@ -344,7 +349,7 @@ class Config:
 
                 if mongo_data_exists or postgres_data_exists:
                     docker_composer_file_path = "{}/docker-compose.backend.template.yml".format(self.__config["kobodocker_path"])
-                    if os.path.exists(docker_composer_file_path):
+                    if not os.path.exists(docker_composer_file_path):
                         CLI.colored_print("╔═════════════════════════════════════════════╗", CLI.COLOR_WARNING)
                         CLI.colored_print("║ WARNING !!!                                 ║", CLI.COLOR_WARNING)
                         CLI.colored_print("║                                             ║", CLI.COLOR_WARNING)
@@ -363,6 +368,46 @@ class Config:
                         response = CLI.get_response(["yes", "no"], "no")
                         if response == "no":
                             sys.exit()
+
+                if self.__config.get("advanced") == Config.TRUE:
+                    # Postgres settings
+                    CLI.colored_print("Do you want to tweak PostgreSQL settings?", CLI.COLOR_SUCCESS)
+                    CLI.colored_print("\t1) Yes")
+                    CLI.colored_print("\t2) No")
+                    self.__config["postgres_settings"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                                       config.get("postgres_settings", Config.FALSE))
+
+                    if self.__config["postgres_settings"] == Config.TRUE:
+                        CLI.colored_print("Total Memory in GB?", CLI.COLOR_SUCCESS)
+                        self.__config["postgres_ram"] = CLI.get_response("~\d+", config.get("postgres_ram", "8"))
+
+                        if config.get("multi") == Config.TRUE:
+                            self.__config["postgres_profile"] = "OLTP"
+                            CLI.colored_print("Number of connections?", CLI.COLOR_SUCCESS)
+                            self.__config["postgres_max_connections"] = CLI.get_response(
+                                "~\d+",
+                                config.get("postgres_max_connections", "100"))
+                        elif config.get("dev_mode") == Config.TRUE:
+                            self.__config["postgres_profile"] = "Desktop"
+                        else:
+                            self.__config["postgres_profile"] = "Mixed"
+                            CLI.colored_print("Number of connections?", CLI.COLOR_SUCCESS)
+                            self.__config["postgres_max_connections"] = CLI.get_response(
+                                "~\d+",
+                                config.get("postgres_max_connections", "100"))
+
+                    endpoint = "https://api.pgconfig.org/v1/tuning/get-config?environment_name={profile}" \
+                               "&format=conf&include_pgbadger=false&max_connections={max_connections}&" \
+                               "pg_version=9.5&total_ram={ram}GB&drive_type=SSD".format(
+                        profile=self.__config["postgres_profile"],
+                        ram=self.__config["postgres_ram"],
+                        max_connections=self.__config["postgres_max_connections"]
+                    )
+                    response = Network.curl(endpoint)
+                    if response:
+                        self.__config["postgres_settings_content"] = re.sub(r"(log|lc_).+(\n|$)", "", response)
+                    else:
+                        self.__config["postgres_settings"] = Config.FALSE
 
             self.__config = config
             self.write_config()

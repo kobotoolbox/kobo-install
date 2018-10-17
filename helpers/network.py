@@ -5,8 +5,11 @@ import array
 import fcntl
 try:
     import httplib
+    from urllib2 import urlopen
 except:
     from http import client as httplib
+    from urllib.request import urlopen
+
 import platform
 import socket
 import struct
@@ -134,8 +137,8 @@ class Network:
 
         return "eth0"
 
-    @classmethod
-    def status_check(cls, hostname, endpoint, port=80):
+    @staticmethod
+    def status_check(hostname, endpoint, port=80):
         try:
             conn = httplib.HTTPConnection("{}:{}".format(hostname, port), timeout=10)
             conn.request("GET", endpoint)
@@ -151,3 +154,16 @@ class Network:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         result = sock.connect_ex(("127.0.0.1", int(port)))
         return result == 0
+
+    @staticmethod
+    def curl(url):
+        try:
+            response = urlopen(url)
+            data = response.read()
+            if isinstance(data, str):
+                return data  # Python 2
+            else:
+                return data.decode(response.headers.get_content_charset())  # Python 3
+        except Exception as e:
+            pass
+        return

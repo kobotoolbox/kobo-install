@@ -66,7 +66,11 @@ class Template:
             "SOFT_LIMIT": int(config.get("soft_limit", "128")) * 1024 * 1024,
             "POSTGRES_REPLICATION_PASSWORD": config.get("postgres_replication_password"),
             "WSGI_SERVER": "runserver_plus" if config.get("dev_mode") == Config.TRUE else "uWSGI",
-            "USE_X_FORWARDED_HOST": "" if config.get("dev_mode") == Config.TRUE else "#"
+            "USE_X_FORWARDED_HOST": "" if config.get("dev_mode") == Config.TRUE else "#",
+            "OVERRIDE_MASTER_BACKEND": "" if config.get("postgres_settings") == Config.TRUE else "#",
+            "POSTGRES_MASTER_APP_PROFILE": config.get("postgres_profile", ""),
+            "POSTGRES_MASTER_RAM": config.get("postgres_ram", ""),
+            "POSTGRES_MASTER_SETTINGS": config.get("postgres_settings_content", "")
         }
 
         for root, dirnames, filenames in os.walk("./templates"):
