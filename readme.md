@@ -1,8 +1,13 @@
-The purpose of the script is to install `KoboToolbox` in minutes without messing with configuration files.  
-It prompts the user to answer some questions to create configuration files automatically and to start 
-docker containers based on `kobo-install` branch of `kobo-docker` [repository](https://github.com/kobotoolbox/kobo-docker "").
+The purpose of the script is to install `KoBoToolbox ` in minutes without messing with configuration files.  
+It prompts the user to answer some questions to create configuration files automatically and to start docker containers based on `kobo-install` branch of `kobo-docker` [repository](https://github.com/kobotoolbox/kobo-docker "").
 
-### Usage
+## Warning
+If you have already installed `KoBoToolbox` with `kobo-docker` from `master` branch,
+databases are not compatible and and docker images (`PostgreSQL`, `MongoDB`) are not the same.  
+`kobo-install` won't be able to start the app.  
+Upgrade guidance will be released later.
+
+## Usage
 
 `$kobo-install> python run.py`
 
@@ -24,7 +29,9 @@ Stop KoBoToolbox:
 Get help:  
 `$kobo-install> python run.py --help`
 
-**Be aware, this utility is a beta release and still needs improvements**
+
+
+**Be aware, this utility is a beta release and may still have bugs.**
 
 ## Build the configuration
 User can choose between 2 types of installations:
@@ -38,7 +45,7 @@ User can choose between 2 types of installations:
 |---|---|---|---|
 |Installation directory| **../kobo-docker**  | ✓ | ✓ |
 |SMTP information|  | ✓ | ✓ (frontend only) |
-|Public domain name|  |  | ✓ (frontend only) |
+|Public domain name| **kobo.local** |  | ✓ (frontend only) |
 |Subdomain names| **kpi, kc, ee**  |  | ✓ (frontend only) |
 |Use HTTPS| **No**  |  | ✓ (frontend only) |
 |Super user's username| **super_admin** | ✓ | ✓ (frontend only) |
@@ -71,7 +78,7 @@ User can choose between 2 types of installations:
 ## Requirements
 
 - Linux / macOS
-- Python 2.7+
+- Python 2.7+/3.4+
 - [Docker](https://www.docker.com/get-started "") & [Docker Compose](https://docs.docker.com/compose/install/ "")
 - Available TCP Ports:
 

@@ -131,7 +131,7 @@ class Config:
                 "ee_subdomain": "ee",
                 "postgres_db": "kobotoolbox",
                 "postgres_user": "kobo",
-                "postgres_password": "kobo",
+                "postgres_password": Config.generate_password(),
                 "private_domain_name": "kobo.private",
                 "kc_path": "",
                 "kpi_path": "",
@@ -154,6 +154,7 @@ class Config:
             # Avoid asking questions related to frontend, if role is only for backend
 
             self.__config = config
+            self.__welcome()
             self.__create_directory()
             self.__questions_advanced_options()
             self.__questions_installation_type()
@@ -677,3 +678,17 @@ class Config:
                         os.system("echo $(data) | sudo tee -a {} > /dev/null".format(
                             "{}/.vols/db/kobo_first_run".format(self.__config["kobodocker_path"])
                         ))
+
+    def __welcome(self):
+        if self.first_time:
+            CLI.colored_print("╔═══════════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
+            CLI.colored_print("║ Welcome to `kobo-install`!                                    ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║                                                               ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║ You are going to be asked some questions that will            ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║ determine how to build the configuration of `KoBoToolBox.     ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║                                                               ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║ Some questions already have default values (within brackets). ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║ Just press `enter` to accept the default value.               ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║ Otherwise choose between choices or type your answer.         ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║                                                               ║", CLI.COLOR_WARNING)
+            CLI.colored_print("╚═══════════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
