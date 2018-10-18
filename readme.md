@@ -92,13 +92,10 @@ User can choose between 2 types of installations:
 
 - Handle secondary backend
 - Add better input validations
-- Add option to force update `kobo-docker` repo without rebuilding the config
-- Add more comments to the code
-- Create command line help
 - Tests
 
 ## Known issues
 
 - SMTP user is "None" in envfiles when empty
 - script does not work when it's not launched from `kobo-install` repository
-- Sometimes, frontend containers can not communicate with backend containers. `docker-compose down/up` fixes it.
+- Sometimes, frontend containers can not communicate with backend containers. `docker-compose down/up` fixes it. Seems to be only on macOS.
