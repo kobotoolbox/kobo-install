@@ -28,7 +28,7 @@ class Command:
                ))
 
     @classmethod
-    def info(cls, timeout=5*60):
+    def info(cls, timeout=300):
         config_object = Config()
         config = config_object.get_config()
 
@@ -53,12 +53,13 @@ class Command:
             elif int(time.time()) - start >= timeout:
                 if timeout > 0:
                     if config_object.first_time:
-                        CLI.colored_print("`KoBoToolbox` has not started yet, try for another {} minutes".format(timeout), CLI.COLOR_INFO)
+                        CLI.colored_print("\n`KoBoToolbox` has not started yet, try for another {} minutes".format(
+                            timeout), CLI.COLOR_INFO)
                         start = int(time.time())
                     else:
                         # sometimes frontend can not communicate with backend. docker-compose down/up fixes it.
                         if not already_retried:
-                            CLI.colored_print(("`KoBoToolbox` has not started yet, sometimes frontend containers"
+                            CLI.colored_print(("\n`KoBoToolbox` has not started yet, sometimes frontend containers "
                                                "can not communicate with backend containers.\n"
                                                "Let's restart frontend containers.\n"),
                                               CLI.COLOR_INFO)
@@ -100,7 +101,7 @@ class Command:
 
     @classmethod
     def restart_frontend(cls):
-        cls.start()
+        cls.start(frontend_only=True)
 
     @classmethod
     def start(cls, frontend_only=False):
@@ -161,13 +162,14 @@ class Command:
         config_object = Config()
         config = config_object.get_config()
 
-        if (config.get("multi") == Config.TRUE and config.get("server_role") == "backend") or \
-                config.get("multi") != Config.TRUE:
-            backend_command = ["docker-compose",
-                               "-f", "docker-compose.backend.master.yml",
-                               "-f", "docker-compose.backend.master.override.yml",
-                               "down"]
-            CLI.run_command(backend_command, config.get("kobodocker_path"))
+        if not frontend_only:
+            if (config.get("multi") == Config.TRUE and config.get("server_role") == "backend") or \
+                    config.get("multi") != Config.TRUE:
+                backend_command = ["docker-compose",
+                                   "-f", "docker-compose.backend.master.yml",
+                                   "-f", "docker-compose.backend.master.override.yml",
+                                   "down"]
+                CLI.run_command(backend_command, config.get("kobodocker_path"))
 
         if (config.get("multi") == Config.TRUE and config.get("server_role") == "frontend") or \
                 config.get("multi") != Config.TRUE:
