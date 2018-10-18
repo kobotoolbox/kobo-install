@@ -685,7 +685,7 @@ class Config:
             CLI.colored_print("║ Welcome to `kobo-install`!                                    ║", CLI.COLOR_WARNING)
             CLI.colored_print("║                                                               ║", CLI.COLOR_WARNING)
             CLI.colored_print("║ You are going to be asked some questions that will            ║", CLI.COLOR_WARNING)
-            CLI.colored_print("║ determine how to build the configuration of `KoBoToolBox.     ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║ determine how to build the configuration of `KoBoToolBox`.    ║", CLI.COLOR_WARNING)
             CLI.colored_print("║                                                               ║", CLI.COLOR_WARNING)
             CLI.colored_print("║ Some questions already have default values (within brackets). ║", CLI.COLOR_WARNING)
             CLI.colored_print("║ Just press `enter` to accept the default value.               ║", CLI.COLOR_WARNING)
