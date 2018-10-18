@@ -13,11 +13,6 @@ from helpers.setup import Setup
 class Command:
 
     @staticmethod
-    def get_config():
-        config = Config()
-        return config.get_config()
-
-    @staticmethod
     def help():
         print(("Usage: python run.py [options]\n"
                "\n"
@@ -34,7 +29,8 @@ class Command:
 
     @classmethod
     def info(cls, timeout=5*60):
-        config = cls.get_config()
+        config_object = Config()
+        config = config_object.get_config()
 
         main_url = "{}://{}.{}{}".format(
             "https" if config.get("https") == Config.TRUE else "http",
@@ -49,11 +45,27 @@ class Command:
         success = False
         hostname = "{}.{}".format(config.get("kpi_subdomain"), config.get("public_domain_name"))
         nginx_port = 443 if config.get("https") == Config.TRUE else int(config.get("exposed_nginx_docker_port", "80"))
+        already_retried = False
         while not stop:
             if Network.status_check(hostname, "/service_health/", nginx_port) == Network.STATUS_OK_200:
                 stop = True
                 success = True
             elif int(time.time()) - start >= timeout:
+                if timeout > 0:
+                    if config_object.first_time:
+                        CLI.colored_print("`KoBoToolbox` has not started yet, try for another {} minutes".format(timeout), CLI.COLOR_INFO)
+                        start = int(time.time())
+                    else:
+                        # sometimes frontend can not communicate with backend. docker-compose down/up fixes it.
+                        if not already_retried:
+                            CLI.colored_print(("`KoBoToolbox` has not started yet, sometimes frontend containers"
+                                               "can not communicate with backend containers.\n"
+                                               "Let's restart frontend containers.\n"),
+                                              CLI.COLOR_INFO)
+                            already_retried = True
+                            start = int(time.time())
+                            cls.restart_frontend()
+                            continue
                 stop = True
             else:
                 sys.stdout.write(".")
@@ -87,13 +99,26 @@ class Command:
         return success
 
     @classmethod
-    def start(cls):
-        config = cls.get_config()
-        cls.stop(False)
-        CLI.colored_print("Launching environment", CLI.COLOR_SUCCESS)
+    def restart_frontend(cls):
+        cls.start()
+
+    @classmethod
+    def start(cls, frontend_only=False):
+        config_object = Config()
+        config = config_object.get_config()
+        
+        cls.stop(output=False, frontend_only=frontend_only)
+        if frontend_only:
+            CLI.colored_print("Launching frontend containers", CLI.COLOR_SUCCESS)
+        else:
+            CLI.colored_print("Launching environment", CLI.COLOR_SUCCESS)
+
         # Test if ports are available
         nginx_port = int(config.get("exposed_nginx_docker_port", 80))
-        ports = [nginx_port, 6379, 6380, 5672, 27017, 5432]
+        if not frontend_only:
+            ports = [nginx_port, 6379, 6380, 5672, 27017, 5432]
+        else:
+            ports = [nginx_port]
 
         for port in ports:
             if Network.is_port_open(port):
@@ -102,13 +127,14 @@ class Command:
                 sys.exit()
 
         # Make them up
-        if (config.get("multi") == Config.TRUE and config.get("server_role") == "backend") or \
-                config.get("multi") != Config.TRUE:
-            backend_command = ["docker-compose",
-                               "-f", "docker-compose.backend.master.yml",
-                               "-f", "docker-compose.backend.master.override.yml",
-                               "up", "-d"]
-            CLI.run_command(backend_command, config.get("kobodocker_path"))
+        if not frontend_only:
+            if (config.get("multi") == Config.TRUE and config.get("server_role") == "backend") or \
+                    config.get("multi") != Config.TRUE:
+                backend_command = ["docker-compose",
+                                   "-f", "docker-compose.backend.master.yml",
+                                   "-f", "docker-compose.backend.master.override.yml",
+                                   "up", "-d"]
+                CLI.run_command(backend_command, config.get("kobodocker_path"))
 
         if (config.get("multi") == Config.TRUE and config.get("server_role") == "frontend") or \
                 config.get("multi") != Config.TRUE:
@@ -118,20 +144,23 @@ class Command:
                                 "up", "-d"]
             CLI.run_command(frontend_command, config.get("kobodocker_path"))
 
-        if (config.get("multi") == Config.TRUE and config.get("server_role") == "frontend") or \
-                config.get("multi") != Config.TRUE:
-            CLI.colored_print("Waiting for environment to be ready", CLI.COLOR_SUCCESS)
-            cls.info()
-        else:
-            CLI.colored_print(("Backend server should be up & running! "
-                               "Please look at docker logs for further information"), CLI.COLOR_WARNING)
+        if not frontend_only:
+            if (config.get("multi") == Config.TRUE and config.get("server_role") == "frontend") or \
+                    config.get("multi") != Config.TRUE:
+                CLI.colored_print("Waiting for environment to be ready", CLI.COLOR_SUCCESS)
+                cls.info()
+            else:
+                CLI.colored_print(("Backend server should be up & running! "
+                                   "Please look at docker logs for further information"), CLI.COLOR_WARNING)
 
     @classmethod
-    def stop(cls, output=True):
+    def stop(cls, output=True, frontend_only=False):
         """
         Stop containers
         """
-        config = cls.get_config()
+        config_object = Config()
+        config = config_object.get_config()
+
         if (config.get("multi") == Config.TRUE and config.get("server_role") == "backend") or \
                 config.get("multi") != Config.TRUE:
             backend_command = ["docker-compose",
@@ -153,6 +182,8 @@ class Command:
 
     @classmethod
     def upgrade(cls):
-        config = cls.get_config()
+        config_object = Config()
+        config = config_object.get_config()
+
         Setup.run(config)
         CLI.colored_print("KoBoToolbox has been upgraded", CLI.COLOR_SUCCESS)

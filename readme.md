@@ -98,4 +98,5 @@ User can choose between 2 types of installations:
 
 - SMTP user is "None" in envfiles when empty
 - script does not work when it's not launched from `kobo-install` repository
+- Can not empty path of `kobocat` and `kpi` in developer mode if they've already filled out
 - Sometimes, frontend containers can not communicate with backend containers. `docker-compose down/up` fixes it. Seems to be only on macOS.
