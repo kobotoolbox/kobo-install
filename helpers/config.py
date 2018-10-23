@@ -76,7 +76,8 @@ class Config:
         Checks whether setup is running on a frontend server
         :return: bool
         """
-        return self.__config.get("server_role") == "frontend"
+        return self.__config.get("multi") is None or \
+               self.__config.get("server_role") == "frontend"
 
     @property
     def frontend_questions(self):
@@ -88,7 +89,7 @@ class Config:
 
     @property
     def dev_mode(self):
-        return self.__config["dev_mode"] == Config.TRUE
+        return self.__config.get("dev_mode") == Config.TRUE
 
     @property
     def local_install(self):
@@ -96,6 +97,7 @@ class Config:
         Checks whether installation is for `Workstation`s
         :return: bool
         """
+        print(self.__config.get("local_installation") == Config.TRUE)
         return self.__config.get("local_installation") == Config.TRUE
 
     @property
@@ -170,9 +172,6 @@ class Config:
                 if self.frontend_questions:
                     self.__questions_public_routes()
             else:
-                # Reset previous choices, in case server role is not the same.
-                self.__config["multi"] = Config.FALSE
-                self.__config["use_private_dns"] = Config.FALSE
                 self.__detect_network()
 
             if self.frontend_questions:
@@ -406,6 +405,10 @@ class Config:
         CLI.colored_print("\t2) On a server")
         self.__config["local_installation"] = CLI.get_response([Config.TRUE, Config.FALSE],
                                                                self.__config.get("local_installation", Config.FALSE))
+        if self.local_install:
+            # Reset previous choices, in case server role is not the same.
+            self.__config["multi"] = Config.FALSE
+            self.__config["use_private_dns"] = Config.FALSE
 
     def __questions_multi_servers(self):
         """
@@ -444,7 +447,7 @@ class Config:
                 CLI.colored_print("Total Memory in GB?", CLI.COLOR_SUCCESS)
                 self.__config["postgres_ram"] = CLI.get_response("~\d+", self.__config.get("postgres_ram", "8"))
 
-                if self.__config.get("multi") == Config.TRUE:
+                if self.multi_servers:
                     self.__config["postgres_profile"] = "OLTP"
                     CLI.colored_print("Number of connections?", CLI.COLOR_SUCCESS)
                     self.__config["postgres_max_connections"] = CLI.get_response(

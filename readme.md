@@ -88,11 +88,17 @@ User can choose between 2 types of installations:
     4. 6379-6380 redis
     5. 27017 MongoDB
 
+## Tests
+
+Tests can be run with `pytest`.
+
+- virtualenv for python2 can be created with `requirements_py2_tests.txt`
+- virtualenv for python3 can be created with `requirements_py3_tests.txt`
+
 ## To-Do
 
 - Handle secondary backend
 - Add better input validations
-- Tests
 
 ## Known issues
 
