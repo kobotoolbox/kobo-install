@@ -97,7 +97,6 @@ class Config:
         Checks whether installation is for `Workstation`s
         :return: bool
         """
-        print(self.__config.get("local_installation") == Config.TRUE)
         return self.__config.get("local_installation") == Config.TRUE
 
     @property
