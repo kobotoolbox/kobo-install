@@ -23,6 +23,7 @@ class Template:
             "AWS_ACCESS_KEY_ID": config.get("aws_access_key", ""),
             "AWS_SECRET_ACCESS_KEY": config.get("aws_secret_key", ""),
             "AWS_BUCKET_NAME": config.get("aws_bucket_name", ""),
+            "AWS_BACKUP_BUCKET_NAME": config.get("aws_backup_bucket_name", ""),
             "GOOGLE_UA": config.get("google_ua", ""),
             "GOOGLE_API_KEY": config.get("google_api_key", ""),
             "INTERCOM_APP_ID": config.get("intercom", ""),

@@ -323,6 +323,8 @@ class Config:
                                                                 self.__config.get("aws_secret_key", ""))
             self.__config["aws_bucket_name"] = CLI.colored_input("AWS Bucket name", CLI.COLOR_SUCCESS,
                                                                  self.__config.get("aws_bucket_name", ""))
+            self.__config["aws_backup_bucket_name"] = CLI.colored_input("AWS Backups bucket name", CLI.COLOR_SUCCESS,
+                                                                 self.__config.get("aws_backup_bucket_name", ""))
         else:
             self.__config["aws_access_key"] = ""
             self.__config["aws_secret_key"] = ""
