@@ -115,7 +115,11 @@ class Command:
             CLI.colored_print("Launching environment", CLI.COLOR_SUCCESS)
 
         # Test if ports are available
-        nginx_port = int(config.get("exposed_nginx_docker_port", 80))
+        if config_object.proxy:
+            nginx_port = int(config.get("nginx_proxy_port", 80))
+        else:
+            nginx_port = int(config.get("exposed_nginx_docker_port", 80))
+            
         if not frontend_only:
             ports = [nginx_port, 6379, 6380, 5672, 27017, 5432]
         else:
