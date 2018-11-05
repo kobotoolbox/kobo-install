@@ -107,6 +107,14 @@ class Config:
         """
         return self.__config.get("multi") == Config.TRUE
 
+    @property
+    def proxy(self):
+        """
+        Checks whether installation is using a proxy or a load balancer
+        :return: bool
+        """
+        return self.__config.get("proxy") == Config.TRUE
+
     def build(self):
         """
         Build configuration based on user's answer
@@ -515,13 +523,28 @@ class Config:
                                                           CLI.COLOR_SUCCESS,
                                                           self.__config.get("ee_subdomain", ""))
 
-        CLI.colored_print("Use HTTPS?", CLI.COLOR_SUCCESS)
-        CLI.colored_print("Please note that certificate has to be installed on a load balancer!",
-                          CLI.COLOR_INFO)
+        CLI.colored_print("Do you use a reverse proxy or a load balancer?", CLI.COLOR_SUCCESS)
         CLI.colored_print("\t1) Yes")
         CLI.colored_print("\t2) No")
-        self.__config["https"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                  self.__config.get("https", Config.TRUE))
+        self.__config["proxy"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                  self.__config.get("proxy", Config.TRUE))
+
+
+        if self.proxy:
+            CLI.colored_print("Use HTTPS?", CLI.COLOR_SUCCESS)
+            CLI.colored_print("Please note that certificate has to be installed on the load balancer!",
+                              CLI.COLOR_INFO)
+            CLI.colored_print("\t1) Yes")
+            CLI.colored_print("\t2) No")
+            self.__config["https"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                      self.__config.get("https", Config.TRUE))
+
+            CLI.colored_print("Port used by reverse proxy?", CLI.COLOR_SUCCESS)
+            self.__config["nginx_proxy_port"] = CLI.get_response("~\d+",
+                                                           self.__config.get("nginx_proxy_port", "80"))
+        else:
+            self.__config["https"] = Config.FALSE
+            self.__config["nginx_proxy_port"] = "80"
 
     def __questions_raven(self):
         CLI.colored_print("Do you want to use Sentry?", CLI.COLOR_SUCCESS)

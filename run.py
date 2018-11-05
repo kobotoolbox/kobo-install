@@ -24,11 +24,11 @@ def run(force_setup=False):
         if force_setup:
             current_config = config.build()
             Setup.run(current_config)
-            Template.render(current_config)
+            Template.render(config)
             Setup.update_hosts(current_config)
         else:
             if config.auto_detect_network():
-                Template.render(current_config)
+                Template.render(config)
                 Setup.update_hosts(current_config)
 
         Command.start()
