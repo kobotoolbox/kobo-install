@@ -202,7 +202,7 @@ class Config:
         Generate random password between 8 to 16 characters
         :return: str
         """
-        characters = string.ascii_letters + "!#$%&*+-?@^~" + string.digits
+        characters = string.ascii_letters + "!$%&+-?@^~" + string.digits
         return "".join(choice(characters) for x in range(randint(10, 16)))
 
     def read_config(self):
