@@ -144,6 +144,10 @@ class Command:
                                    "-f", "docker-compose.backend.master.yml",
                                    "-f", "docker-compose.backend.master.override.yml",
                                    "up", "-d"]
+                if config.get("docker_prefix", "") != "":
+                    backend_command.insert(-2, "-p")
+                    backend_command.insert(-2, config.get("docker_prefix"))
+
                 CLI.run_command(backend_command, config.get("kobodocker_path"))
 
         if (config.get("multi") == Config.TRUE and config.get("server_role") == "frontend") or \
@@ -152,6 +156,11 @@ class Command:
                                 "-f", "docker-compose.frontend.yml",
                                 "-f", "docker-compose.frontend.override.yml",
                                 "up", "-d"]
+
+            if config.get("docker_prefix", "") != "":
+                frontend_command.insert(-2, "-p")
+                frontend_command.insert(-2, config.get("docker_prefix"))
+
             CLI.run_command(frontend_command, config.get("kobodocker_path"))
 
         if not frontend_only:
@@ -178,6 +187,9 @@ class Command:
                                    "-f", "docker-compose.backend.master.yml",
                                    "-f", "docker-compose.backend.master.override.yml",
                                    "down"]
+                if config.get("docker_prefix", "") != "":
+                    backend_command.insert(-1, "-p")
+                    backend_command.insert(-1, config.get("docker_prefix"))
                 CLI.run_command(backend_command, config.get("kobodocker_path"))
 
         if (config.get("multi") == Config.TRUE and config.get("server_role") == "frontend") or \
@@ -186,6 +198,9 @@ class Command:
                                 "-f", "docker-compose.frontend.yml",
                                 "-f", "docker-compose.frontend.override.yml",
                                 "down"]
+            if config.get("docker_prefix", "") != "":
+                frontend_command.insert(-1, "-p")
+                frontend_command.insert(-1, config.get("docker_prefix"))
             CLI.run_command(frontend_command, config.get("kobodocker_path"))
 
         if output:

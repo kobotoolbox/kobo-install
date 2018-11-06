@@ -191,6 +191,7 @@ class Config:
 
             if self.advanced_options:
 
+                self.__questions_docker_prefix()
                 self.__questions_dev_mode()
                 self.__questions_postgres()
                 self.__questions_ports()
@@ -390,6 +391,13 @@ class Config:
                 self.__reset_dev_mode()
         else:
             self.__reset_dev_mode(True)
+
+    def __questions_docker_prefix(self):
+        """
+        Asks for Docker compose prefix. It allows to start containers with a custom prefix
+        """
+        self.__config["docker_prefix"] = CLI.colored_input("Docker Compose prefix? (leave empty for default)", CLI.COLOR_SUCCESS,
+                                                       self.__config.get("docker_prefix", ""))
 
     def __questions_google(self):
         """
