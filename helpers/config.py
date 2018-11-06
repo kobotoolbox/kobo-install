@@ -134,14 +134,14 @@ class Config:
                 "kobodocker_path": os.path.realpath("{}/../../kobo-docker".format(
                     os.path.dirname(os.path.realpath(__file__)))
                 ),
+                "private_domain_name": "kobo.private",
                 "public_domain_name": "kobo.local",
-                "kpi_subdomain": "kpi",
+                "kpi_subdomain": "kf",
                 "kc_subdomain": "kc",
                 "ee_subdomain": "ee",
                 "postgres_db": "kobotoolbox",
                 "postgres_user": "kobo",
                 "postgres_password": Config.generate_password(),
-                "private_domain_name": "kobo.private",
                 "kc_path": "",
                 "kpi_path": "",
                 "super_user_username": "super_admin",
@@ -555,6 +555,16 @@ class Config:
         self.__config["ee_subdomain"] = CLI.colored_input("Enketo Express sub domain name",
                                                           CLI.COLOR_SUCCESS,
                                                           self.__config.get("ee_subdomain", ""))
+
+
+        parts = self.__config.get("public_domain_name", "").split(".")
+
+        self.__config["private_domain_name"] = "{}.private".format(
+            ".".join(parts[:-1])
+        )
+        self.__config["internal_domain_name"] = "{}.internal".format(
+            ".".join(parts[:-1])
+        )
 
         CLI.colored_print("Do you use a reverse proxy or a load balancer?", CLI.COLOR_SUCCESS)
         CLI.colored_print("\t1) Yes")

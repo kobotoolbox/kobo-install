@@ -34,6 +34,7 @@ class Template:
             "GOOGLE_UA": config.get("google_ua", ""),
             "GOOGLE_API_KEY": config.get("google_api_key", ""),
             "INTERCOM_APP_ID": config.get("intercom", ""),
+            "INTERNAL_DOMAIN_NAME": config.get("internal_domain_name", ""),
             "PRIVATE_DOMAIN_NAME": config.get("private_domain_name", ""),
             "PUBLIC_DOMAIN_NAME": config.get("public_domain_name", ""),
             "KOBOFORM_SUBDOMAIN": config.get("kpi_subdomain", ""),

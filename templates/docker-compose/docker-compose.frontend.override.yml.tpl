@@ -63,10 +63,9 @@ services:
     networks:
       kobo-fe-network:
         aliases:
-          # These aliases must match the concatenation of `*_PUBLIC_SUBDOMAIN` and `INTERNAL_DOMAIN_NAME` found in `../kobo-deployments/envfile.txt`
-          - ${KOBOFORM_SUBDOMAIN}.docker.internal
-          - ${KOBOCAT_SUBDOMAIN}.docker.internal
-          - ${ENKETO_SUBDOMAIN}.docker.internal
+          - ${KOBOFORM_SUBDOMAIN}.${INTERNAL_DOMAIN_NAME}
+          - ${KOBOCAT_SUBDOMAIN}.${INTERNAL_DOMAIN_NAME}
+          - ${ENKETO_SUBDOMAIN}.${INTERNAL_DOMAIN_NAME}
 
   ${USE_DNS}enketo_express:
     ${USE_DNS}extra_hosts:
