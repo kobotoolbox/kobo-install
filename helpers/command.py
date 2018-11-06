@@ -45,9 +45,10 @@ class Command:
         success = False
         hostname = "{}.{}".format(config.get("kpi_subdomain"), config.get("public_domain_name"))
         nginx_port = 443 if config.get("https") == Config.TRUE else int(config.get("exposed_nginx_docker_port", "80"))
+        https = config.get("https") == Config.TRUE
         already_retried = False
         while not stop:
-            if Network.status_check(hostname, "/service_health/", nginx_port) == Network.STATUS_OK_200:
+            if Network.status_check(hostname, "/service_health/", nginx_port, https) == Network.STATUS_OK_200:
                 stop = True
                 success = True
             elif int(time.time()) - start >= timeout:
@@ -119,11 +120,15 @@ class Command:
             nginx_port = int(config.get("nginx_proxy_port", 80))
         else:
             nginx_port = int(config.get("exposed_nginx_docker_port", 80))
-            
+
+        ports = [nginx_port]
+
         if not frontend_only:
-            ports = [nginx_port, 6379, 6380, 5672, 27017, 5432]
-        else:
-            ports = [nginx_port]
+            ports.append(config.get("postgresql_port"))
+            ports.append(config.get("rabbit_port"))
+            ports.append(config.get("mongo_port"))
+            ports.append(config.get("redis_main_port"))
+            ports.append(config.get("redis_cache_port"))
 
         for port in ports:
             if Network.is_port_open(port):

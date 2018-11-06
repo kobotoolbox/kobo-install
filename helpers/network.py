@@ -138,9 +138,12 @@ class Network:
         return "eth0"
 
     @staticmethod
-    def status_check(hostname, endpoint, port=80):
+    def status_check(hostname, endpoint, port=80, secure=False):
         try:
-            conn = httplib.HTTPConnection("{}:{}".format(hostname, port), timeout=10)
+            if secure:
+                conn = httplib.HTTPConnection("{}:{}".format(hostname, port), timeout=10)
+            else:
+                conn = httplib.HTTPSConnection("{}:{}".format(hostname, port), timeout=10)
             conn.request("GET", endpoint)
             response = conn.getresponse()
             return response.status

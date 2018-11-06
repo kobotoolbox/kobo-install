@@ -14,11 +14,11 @@
     "redis": {
         "cache": {
             "host": "redis-cache.${PRIVATE_DOMAIN_NAME}",
-            "port": "6380"
+            "port": "${REDIS_MAIN_PORT}"
         },
         "main": {
             "host": "redis-main.${PRIVATE_DOMAIN_NAME}",
-            "port": "6379"
+            "port": "${REDIS_MAIN_PORT}"
         }
     },
      "google": {

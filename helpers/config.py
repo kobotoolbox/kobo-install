@@ -189,6 +189,7 @@ class Config:
 
                 self.__questions_dev_mode()
                 self.__questions_postgres()
+                self.__questions_ports()
 
                 if self.frontend_questions:
                     self.__questions_aws()
@@ -485,6 +486,38 @@ class Config:
             else:
                 # If no response from API, keep defaults
                 self.__config["postgres_settings"] = Config.FALSE
+
+    def __questions_ports(self):
+        """
+        Customize services ports
+        """
+        CLI.colored_print("Do you want to customize service ports?", CLI.COLOR_SUCCESS)
+        CLI.colored_print("\t1) Yes")
+        CLI.colored_print("\t2) No")
+        self.__config["customized_ports"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                            self.__config.get("customized_ports",
+                                                                       Config.FALSE))
+        if self.__config.get("customized_ports") == Config.TRUE:
+            CLI.colored_print("PostgreSQL?", CLI.COLOR_SUCCESS)
+            self.__config["postgresql_port"] = CLI.get_response("~\d+", self.__config.get("postgresql_port", "5432"))
+
+            CLI.colored_print("RabbitMQ?", CLI.COLOR_SUCCESS)
+            self.__config["rabbit_port"] = CLI.get_response("~\d+", self.__config.get("rabbit_port", "5672"))
+
+            CLI.colored_print("MongoDB?", CLI.COLOR_SUCCESS)
+            self.__config["mongo_port"] = CLI.get_response("~\d+", self.__config.get("mongo_port", "27017"))
+
+            CLI.colored_print("Redis (main)?", CLI.COLOR_SUCCESS)
+            self.__config["redis_main_port"] = CLI.get_response("~\d+", self.__config.get("redis_main_port", "6379"))
+
+            CLI.colored_print("Redis (cache)?", CLI.COLOR_SUCCESS)
+            self.__config["redis_cache_port"] = CLI.get_response("~\d+", self.__config.get("redis_cache_port", "6380"))
+        else:
+            self.__config["postgresql_port"] = "5432",
+            self.__config["rabbit_port"] = "5672",
+            self.__config["mongo_port"] = "27017",
+            self.__config["redis_main_port"] = "6379",
+            self.__config["redis_cache_port"] = "6380"
 
     def __questions_private_routes(self):
         """

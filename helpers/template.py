@@ -77,10 +77,15 @@ class Template:
             "POSTGRES_REPLICATION_PASSWORD": config.get("postgres_replication_password"),
             "WSGI_SERVER": "runserver_plus" if config.get("dev_mode") == Config.TRUE else "uWSGI",
             "USE_X_FORWARDED_HOST": "" if config.get("dev_mode") == Config.TRUE else "#",
-            "OVERRIDE_MASTER_BACKEND": "" if config.get("postgres_settings") == Config.TRUE else "#",
+            "OVERRIDE_POSTGRES_MASTER": "" if config.get("postgres_settings") == Config.TRUE else "#",
             "POSTGRES_MASTER_APP_PROFILE": config.get("postgres_profile", ""),
             "POSTGRES_MASTER_RAM": config.get("postgres_ram", ""),
-            "POSTGRES_MASTER_SETTINGS": config.get("postgres_settings_content", "")
+            "POSTGRES_MASTER_SETTINGS": config.get("postgres_settings_content", ""),
+            "POSTGRES_PORT": config.get("postgresql_port", "5432"),
+            "RABBITMQ_PORT": config.get("rabbit_port", "5672"),
+            "MONGO_PORT": config.get("mongo_port", "27017"),
+            "REDIS_MAIN_PORT": config.get("redis_main_port", "6739"),
+            "REDIS_CACHE_PORT": config.get("redis_cache_port", "6380")
         }
 
         for root, dirnames, filenames in os.walk("./templates"):
@@ -106,5 +111,3 @@ class Template:
                     sys.exit()
 
         return destination_directory
-
-
