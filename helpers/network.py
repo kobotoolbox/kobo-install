@@ -141,9 +141,9 @@ class Network:
     def status_check(hostname, endpoint, port=80, secure=False):
         try:
             if secure:
-                conn = httplib.HTTPConnection("{}:{}".format(hostname, port), timeout=10)
-            else:
                 conn = httplib.HTTPSConnection("{}:{}".format(hostname, port), timeout=10)
+            else:
+                conn = httplib.HTTPConnection("{}:{}".format(hostname, port), timeout=10)
             conn.request("GET", endpoint)
             response = conn.getresponse()
             return response.status
