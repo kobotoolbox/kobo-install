@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, unicode_literals
 
+import binascii
 import json
 import os
 from random import choice, randint
@@ -134,6 +135,7 @@ class Config:
                 "kobodocker_path": os.path.realpath("{}/../../kobo-docker".format(
                     os.path.dirname(os.path.realpath(__file__)))
                 ),
+                "internal_domain_name": "docker.internal",
                 "private_domain_name": "kobo.private",
                 "public_domain_name": "kobo.local",
                 "kpi_subdomain": "kf",
@@ -156,7 +158,9 @@ class Config:
                 "postgres_ram": "8",
                 "postgres_profile": "Mixed",
                 "postgres_max_connections": "100",
-                "postgres_settings_content": ""
+                "postgres_settings_content": "",
+                "enketo_api_token": binascii.hexlify(os.urandom(60)),
+                "django_secret_key": binascii.hexlify(os.urandom(24))
             }
 
             config.update(self.__config)
@@ -502,7 +506,7 @@ class Config:
             self.__config["postgresql_port"] = CLI.get_response("~\d+", self.__config.get("postgresql_port", "5432"))
 
             CLI.colored_print("RabbitMQ?", CLI.COLOR_SUCCESS)
-            self.__config["rabbit_port"] = CLI.get_response("~\d+", self.__config.get("rabbit_port", "5672"))
+            self.__config["rabbit_mq_port"] = CLI.get_response("~\d+", self.__config.get("rabbit_mq_port", "5672"))
 
             CLI.colored_print("MongoDB?", CLI.COLOR_SUCCESS)
             self.__config["mongo_port"] = CLI.get_response("~\d+", self.__config.get("mongo_port", "27017"))
@@ -513,10 +517,10 @@ class Config:
             CLI.colored_print("Redis (cache)?", CLI.COLOR_SUCCESS)
             self.__config["redis_cache_port"] = CLI.get_response("~\d+", self.__config.get("redis_cache_port", "6380"))
         else:
-            self.__config["postgresql_port"] = "5432",
-            self.__config["rabbit_port"] = "5672",
-            self.__config["mongo_port"] = "27017",
-            self.__config["redis_main_port"] = "6379",
+            self.__config["postgresql_port"] = "5432"
+            self.__config["rabbit_mq_port"] = "5672"
+            self.__config["mongo_port"] = "27017"
+            self.__config["redis_main_port"] = "6379"
             self.__config["redis_cache_port"] = "6380"
 
     def __questions_private_routes(self):
@@ -681,7 +685,7 @@ class Config:
                 "~\d+",
                 self.__config.get("soft_limit", "128"))
         else:
-            self.__config["worker_start"] = "1"
+            self.__config["workers_start"] = "1"
             self.__config["workers_max"] = "2"
             self.__config["max_requests"] = "512"
             self.__config["soft_limit"] = "128"

@@ -125,7 +125,7 @@ class Command:
 
         if not frontend_only:
             ports.append(config.get("postgresql_port"))
-            ports.append(config.get("rabbit_port"))
+            ports.append(config.get("rabbit_mq_port"))
             ports.append(config.get("mongo_port"))
             ports.append(config.get("redis_main_port"))
             ports.append(config.get("redis_cache_port"))

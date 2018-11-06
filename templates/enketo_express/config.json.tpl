@@ -14,7 +14,7 @@
     "redis": {
         "cache": {
             "host": "redis-cache.${PRIVATE_DOMAIN_NAME}",
-            "port": "${REDIS_MAIN_PORT}"
+            "port": "${REDIS_CACHE_PORT}"
         },
         "main": {
             "host": "redis-main.${PRIVATE_DOMAIN_NAME}",
