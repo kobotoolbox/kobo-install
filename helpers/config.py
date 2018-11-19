@@ -206,23 +206,23 @@ class Config:
             else:
                 self.__detect_network()
 
-            # if self.frontend_questions:
-            #     self.__questions_smtp()
-            #     self.__questions_super_user_credentials()
+            if self.frontend_questions:
+                self.__questions_smtp()
+                self.__questions_super_user_credentials()
 
             if self.advanced_options:
 
-                # self.__questions_docker_prefix()
-                # self.__questions_dev_mode()
-                # self.__questions_postgres()
-                # self.__questions_ports()
+                self.__questions_docker_prefix()
+                self.__questions_dev_mode()
+                self.__questions_postgres()
+                self.__questions_ports()
 
                 if self.frontend_questions:
                     self.__questions_aws()
-                    # self.__questions_google()
-                    # self.__questions_intercom()
-                    # self.__questions_raven()
-                    # self.__questions_uwsgi()
+                    self.__questions_google()
+                    self.__questions_intercom()
+                    self.__questions_raven()
+                    self.__questions_uwsgi()
 
             self.__questions_backup()
 
