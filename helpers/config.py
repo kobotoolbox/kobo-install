@@ -167,7 +167,22 @@ class Config:
                 "postgres_max_connections": "100",
                 "postgres_settings_content": "",
                 "enketo_api_token": binascii.hexlify(os.urandom(60)),
-                "django_secret_key": binascii.hexlify(os.urandom(24))
+                "django_secret_key": binascii.hexlify(os.urandom(24)),
+                "use_backup": Config.FALSE,
+                "kobocat_media_schedule": "0 0 * * 0",
+                "mongo_backup_schedule": "0 1 * * 0",
+                "postgres_backup_schedule": "0 2 * * 0",
+                "redis_backup_schedule": "0 3 * * 0",
+                "aws_backup_bucket_name": "",
+                "aws_backup_yearly_retention": "2",
+                "aws_backup_monthly_retention": "12",
+                "aws_backup_weekly_retention": "4",
+                "aws_backup_daily_retention": "30",
+                "aws_mongo_backup_minimum_size": "50",
+                "aws_postgres_backup_minimum_size": "50",
+                "aws_redis_backup_minimum_size": "5",
+                "aws_backup_upload_chunk_size": "15",
+                "aws_backup_bucket_deletion_rule_enabled": Config.FALSE,
             }
 
             config.update(self.__config)
@@ -362,7 +377,7 @@ class Config:
             self.__config["use_backup"] = CLI.get_response([Config.TRUE, Config.FALSE],
                                                            self.__config.get("use_backup", Config.FALSE))
 
-            if self.__config["use_backup"]:
+            if self.__config.get("use_backup") == Config.TRUE:
                 if self.advanced_options:
                     if self.backend_questions and not self.frontend_questions:
                         self.__questions_aws()
@@ -385,9 +400,9 @@ class Config:
 
                     if self.frontend_questions and not self.aws:
                         CLI.colored_print("KoBoCat media backup schedule?", CLI.COLOR_SUCCESS)
-                        self.__config["kobocat_media_schedule"] = CLI.get_response("~{}".format(schedule_regex_pattern),
+                        self.__config["kobocat_media_backup_schedule"] = CLI.get_response("~{}".format(schedule_regex_pattern),
                                                                                    self.__config.get(
-                                                                                       "kobocat_media_schedule",
+                                                                                       "kobocat_media_backup_schedule",
                                                                                        "0 0 * * 0"))
                     if self.backend_questions:
                         CLI.colored_print("MongoDB backup schedule?", CLI.COLOR_SUCCESS)
@@ -445,7 +460,7 @@ class Config:
                                 self.__config["aws_mongo_backup_minimum_size"] = CLI.get_response("~^\d+$",
                                                                                                   self.__config.get(
                                                                                                       "aws_mongo_backup_minimum_size",
-                                                                                                      "100"))
+                                                                                                      "50"))
 
                                 CLI.colored_print("PostgresSQL backup minimum size (in MB)?", CLI.COLOR_SUCCESS)
                                 CLI.colored_print("Files below this size will be ignored when rotating backups.",
@@ -453,7 +468,7 @@ class Config:
                                 self.__config["aws_postgres_backup_minimum_size"] = CLI.get_response("~^\d+$",
                                                                                                      self.__config.get(
                                                                                                          "aws_postgres_backup_minimum_size",
-                                                                                                         "100"))
+                                                                                                         "50"))
 
                                 CLI.colored_print("Redis backup minimum size (in MB)?", CLI.COLOR_SUCCESS)
                                 CLI.colored_print("Files below this size will be ignored when rotating backups.",
@@ -478,8 +493,6 @@ class Config:
                                                       Config.FALSE))
         else:
             self.__config["use_backup"] = Config.FALSE
-
-        sys.exit()
 
     def __questions_dev_mode(self):
         """

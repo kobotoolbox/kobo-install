@@ -30,7 +30,6 @@ class Template:
             "AWS_ACCESS_KEY_ID": config.get("aws_access_key", ""),
             "AWS_SECRET_ACCESS_KEY": config.get("aws_secret_key", ""),
             "AWS_BUCKET_NAME": config.get("aws_bucket_name", ""),
-            "AWS_BACKUP_BUCKET_NAME": config.get("aws_backup_bucket_name", ""),
             "GOOGLE_UA": config.get("google_ua", ""),
             "GOOGLE_API_KEY": config.get("google_api_key", ""),
             "INTERCOM_APP_ID": config.get("intercom", ""),
@@ -62,7 +61,7 @@ class Template:
             "USE_PUBLIC_DNS": "" if config.get("local_installation") == Config.TRUE else "#",
             "USE_PRIVATE_DNS": "#" if config.get("use_private_dns") == Config.TRUE else "",
             "USE_DNS": "" if config.get("local_installation") == Config.TRUE or
-                              config.get("use_private_dns") == Config.FALSE else "#",
+                             config.get("use_private_dns") == Config.FALSE else "#",
             "WORKERS_MAX": config.get("workers_max", ""),
             "WORKERS_START": config.get("workers_start", ""),
             "KC_PATH": config.get("kc_path", ""),
@@ -86,7 +85,27 @@ class Template:
             "RABBIT_MQ_PORT": config.get("rabbit_mq_port", "5672"),
             "MONGO_PORT": config.get("mongo_port", "27017"),
             "REDIS_MAIN_PORT": config.get("redis_main_port", "6739"),
-            "REDIS_CACHE_PORT": config.get("redis_cache_port", "6380")
+            "REDIS_CACHE_PORT": config.get("redis_cache_port", "6380"),
+            "USE_BACKUP": "" if config.get("use_backup") == Config.TRUE else "#",
+            "USE_AWS_BACKUP": "" if config_object.aws and
+                                    config.get("use_backup") == Config.TRUE and
+                                    config.get("aws_backup_bucket_name") != "" else "#",
+            "USE_MEDIA_BACKUP": "" if not config_object.aws and config.get("use_backup") == Config.TRUE else "#",
+            "KOBOCAT_MEDIA_BACKUP_SCHEDULE": config.get("kobocat_media_backup_schedule"),
+            "MONGO_BACKUP_SCHEDULE": config.get("mongo_backup_schedule"),
+            "POSTGRES_BACKUP_SCHEDULE": config.get("postgres_backup_schedule"),
+            "REDIS_BACKUP_SCHEDULE": config.get("redis_backup_schedule"),
+            "AWS_BACKUP_BUCKET_NAME": config.get("aws_backup_bucket_name"),
+            "AWS_BACKUP_YEARLY_RETENTION": config.get("aws_backup_yearly_retention"),
+            "AWS_BACKUP_MONTHLY_RETENTION": config.get("aws_backup_monthly_retention"),
+            "AWS_BACKUP_WEEKLY_RETENTION": config.get("aws_backup_weekly_retention"),
+            "AWS_BACKUP_DAILY_RETENTION": config.get("aws_backup_daily_retention"),
+            "AWS_MONGO_BACKUP_MINIMUM_SIZE": config.get("aws_mongo_backup_minimum_size"),
+            "AWS_POSTGRES_BACKUP_MINIMUM_SIZE": config.get("aws_postgres_backup_minimum_size"),
+            "AWS_REDIS_BACKUP_MINIMUM_SIZE": config.get("aws_redis_backup_minimum_size"),
+            "AWS_BACKUP_UPLOAD_CHUNK_SIZE": config.get("aws_backup_upload_chunk_size"),
+            "AWS_BACKUP_BUCKET_DELETION_RULE_ENABLED": "False" if config.get(
+                "aws_backup_bucket_deletion_rule_enabled") == Config.FALSE else "True",
         }
 
         for root, dirnames, filenames in os.walk("./templates"):
