@@ -7,6 +7,8 @@
 KOBO_MONGO_PORT=${MONGO_PORT}
 KOBO_MONGO_HOST=mongo.${PRIVATE_DOMAIN_NAME}
 
+# Default MongoDB backup schedule is weekly at 01:00 AM UTC on Sunday.
+${USE_DB_BACKUP}MONGO_BACKUP_SCHEDULE=${MONGO_BACKUP_SCHEDULE}
 
 #--------------------------------------------------------------------------------
 # POSTGRES
@@ -31,6 +33,8 @@ KOBO_POSTGRES_REPLICATION_PASSWORD=${POSTGRES_REPLICATION_PASSWORD}
 #KOBO_POSTGRES_MASTER_ENDPOINT=primary.postgres.${PRIVATE_DOMAIN_NAME}
 #KOBO_POSTGRES_SLAVE_ENDPOINT=secondary.postgres.${PRIVATE_DOMAIN_NAME}
 
+# Default Postgres backup schedule is weekly at 02:00 AM UTC on Sunday.
+${USE_DB_BACKUP}POSTGRES_BACKUP_SCHEDULE=${POSTGRES_BACKUP_SCHEDULE}
 
 #--------------------------------------------------------------------------------
 # RABBIT
@@ -38,3 +42,10 @@ KOBO_POSTGRES_REPLICATION_PASSWORD=${POSTGRES_REPLICATION_PASSWORD}
 
 KOBO_RABBIT_PORT=${RABBIT_MQ_PORT}
 KOBO_RABBIT_HOST=rabbit.${PRIVATE_DOMAIN_NAME}
+
+#--------------------------------------------------------------------------------
+# REDIS
+#--------------------------------------------------------------------------------
+
+# Default Redis backup schedule is weekly at 03:00 AM UTC on Sunday.
+${USE_DB_BACKUP}REDIS_BACKUP_SCHEDULE=${REDIS_BACKUP_SCHEDULE}

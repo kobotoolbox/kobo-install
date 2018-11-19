@@ -17,7 +17,6 @@ from helpers.singleton import Singleton
 
 
 class Config:
-
     CONFIG_FILE = ".run.conf"
     TRUE = "1"
     FALSE = "2"
@@ -52,6 +51,14 @@ class Config:
                 self.write_config()
                 changed = True
         return changed
+
+    @property
+    def aws(self):
+        """
+        Checks whether questions are backend only
+        :return: bool
+        """
+        return self.__config.get("use_aws") == Config.TRUE
 
     @property
     def backend_questions(self):
@@ -164,7 +171,6 @@ class Config:
             }
 
             config.update(self.__config)
-            # Avoid asking questions related to frontend, if role is only for backend
 
             self.__config = config
             self.__welcome()
@@ -185,23 +191,25 @@ class Config:
             else:
                 self.__detect_network()
 
-            if self.frontend_questions:
-                self.__questions_smtp()
-                self.__questions_super_user_credentials()
+            # if self.frontend_questions:
+            #     self.__questions_smtp()
+            #     self.__questions_super_user_credentials()
 
             if self.advanced_options:
 
-                self.__questions_docker_prefix()
-                self.__questions_dev_mode()
-                self.__questions_postgres()
-                self.__questions_ports()
+                # self.__questions_docker_prefix()
+                # self.__questions_dev_mode()
+                # self.__questions_postgres()
+                # self.__questions_ports()
 
                 if self.frontend_questions:
                     self.__questions_aws()
-                    self.__questions_google()
-                    self.__questions_intercom()
-                    self.__questions_raven()
-                    self.__questions_uwsgi()
+                    # self.__questions_google()
+                    # self.__questions_intercom()
+                    # self.__questions_raven()
+                    # self.__questions_uwsgi()
+
+            self.__questions_backup()
 
             self.__config = config
             self.write_config()
@@ -241,7 +249,7 @@ class Config:
         """
         # Adds `date_created`. This field will be use to determine first usage of the setup option.
         if self.__config.get("date_created") is None:
-           self.__config["date_created"] = int(time.time())
+            self.__config["date_created"] = int(time.time())
         self.__config["date_modified"] = int(time.time())
 
         try:
@@ -337,12 +345,141 @@ class Config:
                                                                 self.__config.get("aws_secret_key", ""))
             self.__config["aws_bucket_name"] = CLI.colored_input("AWS Bucket name", CLI.COLOR_SUCCESS,
                                                                  self.__config.get("aws_bucket_name", ""))
-            self.__config["aws_backup_bucket_name"] = CLI.colored_input("AWS Backups bucket name", CLI.COLOR_SUCCESS,
-                                                                 self.__config.get("aws_backup_bucket_name", ""))
         else:
             self.__config["aws_access_key"] = ""
             self.__config["aws_secret_key"] = ""
             self.__config["aws_bucket_name"] = ""
+
+    def __questions_backup(self):
+        """
+        Asks all questions about backups.
+        """
+        if self.backend_questions or (self.frontend_questions and not self.aws):
+
+            CLI.colored_print("Do you want to activate backups?", CLI.COLOR_SUCCESS)
+            CLI.colored_print("\t1) Yes")
+            CLI.colored_print("\t2) No")
+            self.__config["use_backup"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                           self.__config.get("use_backup", Config.FALSE))
+
+            if self.__config["use_backup"]:
+                if self.advanced_options:
+                    if self.backend_questions and not self.frontend_questions:
+                        self.__questions_aws()
+
+                    schedule_regex_pattern = "^((((\d+(,\d+)*)|(\d+-\d+)|(\*(\/\d+)?)))(\s+(((\d+(,\d+)*)|(\d+\-\d+)|(\*(\/\d+)?)))){4})$"
+                    CLI.colored_print("╔═════════════════════════════════════════════════════════════════╗",
+                                      CLI.COLOR_WARNING)
+                    CLI.colored_print("║ Schedules use linux cron syntax with UTC datetimes.             ║",
+                                      CLI.COLOR_WARNING)
+                    CLI.colored_print("║ For example, schedule at 12:00 AM E.S.T every Sunday would be:  ║",
+                                      CLI.COLOR_WARNING)
+                    CLI.colored_print("║ 0 5 * * 0                                                       ║",
+                                      CLI.COLOR_WARNING)
+                    CLI.colored_print("║                                                                 ║",
+                                      CLI.COLOR_WARNING)
+                    CLI.colored_print("║ Please visit https://crontab.guru/ to generate a cron schedule. ║",
+                                      CLI.COLOR_WARNING)
+                    CLI.colored_print("╚═════════════════════════════════════════════════════════════════╝",
+                                      CLI.COLOR_WARNING)
+
+                    if self.frontend_questions and not self.aws:
+                        CLI.colored_print("KoBoCat media backup schedule?", CLI.COLOR_SUCCESS)
+                        self.__config["kobocat_media_schedule"] = CLI.get_response("~{}".format(schedule_regex_pattern),
+                                                                                   self.__config.get(
+                                                                                       "kobocat_media_schedule",
+                                                                                       "0 0 * * 0"))
+                    if self.backend_questions:
+                        CLI.colored_print("MongoDB backup schedule?", CLI.COLOR_SUCCESS)
+                        self.__config["mongo_backup_schedule"] = CLI.get_response("~{}".format(schedule_regex_pattern),
+                                                                                  self.__config.get(
+                                                                                      "mongo_backup_schedule",
+                                                                                      "0 1 * * 0"))
+
+                        CLI.colored_print("PostgreSQL backup schedule?", CLI.COLOR_SUCCESS)
+                        self.__config["postgres_backup_schedule"] = CLI.get_response(
+                            "~{}".format(schedule_regex_pattern),
+                            self.__config.get(
+                                "postgres_backup_schedule",
+                                "0 2 * * 0"))
+
+                        CLI.colored_print("Redis backup schedule?", CLI.COLOR_SUCCESS)
+                        self.__config["redis_backup_schedule"] = CLI.get_response("~{}".format(schedule_regex_pattern),
+                                                                                  self.__config.get(
+                                                                                      "redis_backup_schedule",
+                                                                                      "0 3 * * 0"))
+                        if self.aws:
+                            self.__config["aws_backup_bucket_name"] = CLI.colored_input("AWS Backups bucket name",
+                                                                                        CLI.COLOR_SUCCESS,
+                                                                                        self.__config.get(
+                                                                                            "aws_backup_bucket_name",
+                                                                                            ""))
+                            if self.__config["aws_backup_bucket_name"] != "":
+                                CLI.colored_print("How many yearly backups to keep?", CLI.COLOR_SUCCESS)
+                                self.__config["aws_backup_yearly_retention"] = CLI.get_response("~^\d+$",
+                                                                                                self.__config.get(
+                                                                                                    "aws_backup_yearly_retention",
+                                                                                                    "2"))
+
+                                CLI.colored_print("How many monthly backups to keep?", CLI.COLOR_SUCCESS)
+                                self.__config["aws_backup_monthly_retention"] = CLI.get_response("~^\d+$",
+                                                                                                 self.__config.get(
+                                                                                                     "aws_backup_monthly_retention",
+                                                                                                     "12"))
+
+                                CLI.colored_print("How many weekly backups to keep?", CLI.COLOR_SUCCESS)
+                                self.__config["aws_backup_weekly_retention"] = CLI.get_response("~^\d+$",
+                                                                                                self.__config.get(
+                                                                                                    "aws_backup_weekly_retention",
+                                                                                                    "4"))
+
+                                CLI.colored_print("How many daily backups to keep?", CLI.COLOR_SUCCESS)
+                                self.__config["aws_backup_daily_retention"] = CLI.get_response("~^\d+$",
+                                                                                               self.__config.get(
+                                                                                                   "aws_backup_daily_retention",
+                                                                                                   "30"))
+
+                                CLI.colored_print("MongoDB backup minimum size (in MB)?", CLI.COLOR_SUCCESS)
+                                CLI.colored_print("Files below this size will be ignored when rotating backups.",
+                                                  CLI.COLOR_INFO)
+                                self.__config["aws_mongo_backup_minimum_size"] = CLI.get_response("~^\d+$",
+                                                                                                  self.__config.get(
+                                                                                                      "aws_mongo_backup_minimum_size",
+                                                                                                      "100"))
+
+                                CLI.colored_print("PostgresSQL backup minimum size (in MB)?", CLI.COLOR_SUCCESS)
+                                CLI.colored_print("Files below this size will be ignored when rotating backups.",
+                                                  CLI.COLOR_INFO)
+                                self.__config["aws_postgres_backup_minimum_size"] = CLI.get_response("~^\d+$",
+                                                                                                     self.__config.get(
+                                                                                                         "aws_postgres_backup_minimum_size",
+                                                                                                         "100"))
+
+                                CLI.colored_print("Redis backup minimum size (in MB)?", CLI.COLOR_SUCCESS)
+                                CLI.colored_print("Files below this size will be ignored when rotating backups.",
+                                                  CLI.COLOR_INFO)
+                                self.__config["aws_redis_backup_minimum_size"] = CLI.get_response("~^\d+$",
+                                                                                                  self.__config.get(
+                                                                                                      "aws_redis_backup_minimum_size",
+                                                                                                      "5"))
+
+                                CLI.colored_print("Chunk size of multipart uploads (in MB)?", CLI.COLOR_SUCCESS)
+                                self.__config["aws_backup_upload_chunk_size"] = CLI.get_response("~^\d+$",
+                                                                                                 self.__config.get(
+                                                                                                     "aws_backup_upload_chunk_size",
+                                                                                                     "15"))
+
+                                CLI.colored_print("Use AWS LifeCycle deletion rule?", CLI.COLOR_SUCCESS)
+                                CLI.colored_print("\t1) Yes")
+                                CLI.colored_print("\t2) No")
+                                self.__config["aws_backup_bucket_deletion_rule_enabled"] = CLI.get_response(
+                                    [Config.TRUE, Config.FALSE],
+                                    self.__config.get("aws_backup_bucket_deletion_rule_enabled",
+                                                      Config.FALSE))
+        else:
+            self.__config["use_backup"] = Config.FALSE
+
+        sys.exit()
 
     def __questions_dev_mode(self):
         """
@@ -353,8 +490,9 @@ class Config:
         if self.frontend_questions and self.local_install:
             # NGinX different port
             CLI.colored_print("Web server port?", CLI.COLOR_SUCCESS)
-            self.__config["exposed_nginx_docker_port"] = CLI.get_response("~\d+",
-                                                           self.__config.get("exposed_nginx_docker_port", "80"))
+            self.__config["exposed_nginx_docker_port"] = CLI.get_response("~^\d+$",
+                                                                          self.__config.get("exposed_nginx_docker_port",
+                                                                                            "80"))
 
             CLI.colored_print("Developer mode?", CLI.COLOR_SUCCESS)
             CLI.colored_print("\t1) Yes")
@@ -396,8 +534,9 @@ class Config:
         """
         Asks for Docker compose prefix. It allows to start containers with a custom prefix
         """
-        self.__config["docker_prefix"] = CLI.colored_input("Docker Compose prefix? (leave empty for default)", CLI.COLOR_SUCCESS,
-                                                       self.__config.get("docker_prefix", ""))
+        self.__config["docker_prefix"] = CLI.colored_input("Docker Compose prefix? (leave empty for default)",
+                                                           CLI.COLOR_SUCCESS,
+                                                           self.__config.get("docker_prefix", ""))
 
     def __questions_google(self):
         """
@@ -467,13 +606,13 @@ class Config:
 
             if self.__config["postgres_settings"] == Config.TRUE:
                 CLI.colored_print("Total Memory in GB?", CLI.COLOR_SUCCESS)
-                self.__config["postgres_ram"] = CLI.get_response("~\d+", self.__config.get("postgres_ram", "8"))
+                self.__config["postgres_ram"] = CLI.get_response("~^\d+$", self.__config.get("postgres_ram", "8"))
 
                 if self.multi_servers:
                     self.__config["postgres_profile"] = "OLTP"
                     CLI.colored_print("Number of connections?", CLI.COLOR_SUCCESS)
                     self.__config["postgres_max_connections"] = CLI.get_response(
-                        "~\d+",
+                        "~^\d+$",
                         self.__config.get("postgres_max_connections", "100"))
                 elif self.dev_mode:
                     self.__config["postgres_profile"] = "Desktop"
@@ -481,7 +620,7 @@ class Config:
                     self.__config["postgres_profile"] = "Mixed"
                     CLI.colored_print("Number of connections?", CLI.COLOR_SUCCESS)
                     self.__config["postgres_max_connections"] = CLI.get_response(
-                        "~\d+",
+                        "~^\d+$",
                         self.__config.get("postgres_max_connections", "100"))
 
             # use pgconfig.org API to build postgres config
@@ -507,23 +646,24 @@ class Config:
         CLI.colored_print("\t1) Yes")
         CLI.colored_print("\t2) No")
         self.__config["customized_ports"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                            self.__config.get("customized_ports",
-                                                                       Config.FALSE))
+                                                             self.__config.get("customized_ports",
+                                                                               Config.FALSE))
         if self.__config.get("customized_ports") == Config.TRUE:
             CLI.colored_print("PostgreSQL?", CLI.COLOR_SUCCESS)
-            self.__config["postgresql_port"] = CLI.get_response("~\d+", self.__config.get("postgresql_port", "5432"))
+            self.__config["postgresql_port"] = CLI.get_response("~^\d+$", self.__config.get("postgresql_port", "5432"))
 
             CLI.colored_print("RabbitMQ?", CLI.COLOR_SUCCESS)
-            self.__config["rabbit_mq_port"] = CLI.get_response("~\d+", self.__config.get("rabbit_mq_port", "5672"))
+            self.__config["rabbit_mq_port"] = CLI.get_response("~^\d+$", self.__config.get("rabbit_mq_port", "5672"))
 
             CLI.colored_print("MongoDB?", CLI.COLOR_SUCCESS)
-            self.__config["mongo_port"] = CLI.get_response("~\d+", self.__config.get("mongo_port", "27017"))
+            self.__config["mongo_port"] = CLI.get_response("~^\d+$", self.__config.get("mongo_port", "27017"))
 
             CLI.colored_print("Redis (main)?", CLI.COLOR_SUCCESS)
-            self.__config["redis_main_port"] = CLI.get_response("~\d+", self.__config.get("redis_main_port", "6379"))
+            self.__config["redis_main_port"] = CLI.get_response("~^\d+$", self.__config.get("redis_main_port", "6379"))
 
             CLI.colored_print("Redis (cache)?", CLI.COLOR_SUCCESS)
-            self.__config["redis_cache_port"] = CLI.get_response("~\d+", self.__config.get("redis_cache_port", "6380"))
+            self.__config["redis_cache_port"] = CLI.get_response("~^\d+$",
+                                                                 self.__config.get("redis_cache_port", "6380"))
         else:
             self.__config["postgresql_port"] = "5432"
             self.__config["rabbit_mq_port"] = "5672"
@@ -544,7 +684,7 @@ class Config:
 
         self.__config["use_private_dns"] = CLI.get_response([Config.TRUE, Config.FALSE],
                                                             self.__config.get("use_private_dns",
-                                                                       Config.FALSE))
+                                                                              Config.FALSE))
 
         if self.__config["use_private_dns"] == Config.FALSE:
             CLI.colored_print("IP address (IPv4) of backend server?", CLI.COLOR_SUCCESS)
@@ -568,7 +708,6 @@ class Config:
                                                           CLI.COLOR_SUCCESS,
                                                           self.__config.get("ee_subdomain", ""))
 
-
         parts = self.__config.get("public_domain_name", "").split(".")
 
         self.__config["private_domain_name"] = "{}.private".format(
@@ -584,7 +723,6 @@ class Config:
         self.__config["proxy"] = CLI.get_response([Config.TRUE, Config.FALSE],
                                                   self.__config.get("proxy", Config.TRUE))
 
-
         if self.proxy:
             CLI.colored_print("Use HTTPS?", CLI.COLOR_SUCCESS)
             CLI.colored_print("Please note that certificate has to be installed on the load balancer!",
@@ -595,8 +733,8 @@ class Config:
                                                       self.__config.get("https", Config.TRUE))
 
             CLI.colored_print("Port used by reverse proxy?", CLI.COLOR_SUCCESS)
-            self.__config["nginx_proxy_port"] = CLI.get_response("~\d+",
-                                                           self.__config.get("nginx_proxy_port", "80"))
+            self.__config["nginx_proxy_port"] = CLI.get_response("~^\d+$",
+                                                                 self.__config.get("nginx_proxy_port", "80"))
         else:
             self.__config["https"] = Config.FALSE
             self.__config["nginx_proxy_port"] = "80"
@@ -677,20 +815,20 @@ class Config:
         if self.__config.get("uwsgi_settings") == Config.TRUE:
             CLI.colored_print("Number of uWSGi workers to start?", CLI.COLOR_SUCCESS)
             self.__config["workers_start"] = CLI.get_response(
-                "~\d+",
+                "~^\d+$",
                 self.__config.get("workers_start", "1"))
             CLI.colored_print("Max uWSGi workers?", CLI.COLOR_SUCCESS)
             self.__config["workers_max"] = CLI.get_response(
-                "~\d+",
+                "~^\d+$",
                 self.__config.get("workers_max", "2"))
 
             CLI.colored_print("Max number of requests per worker?", CLI.COLOR_SUCCESS)
             self.__config["max_requests"] = CLI.get_response(
-                "~\d+",
+                "~^\d+$",
                 self.__config.get("max_requests", "512"))
             CLI.colored_print("Max memory per workers in MB?", CLI.COLOR_SUCCESS)
             self.__config["soft_limit"] = CLI.get_response(
-                "~\d+",
+                "~^\d+$",
                 self.__config.get("soft_limit", "128"))
         else:
             self.__config["workers_start"] = "1"
