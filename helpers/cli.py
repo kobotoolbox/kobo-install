@@ -20,6 +20,8 @@ class CLI(object):
     COLOR_INFO = "\033[94m"
     COLOR_WARNING = "\033[95m"
 
+    EMPTY_CHARACTER = "-"
+
     @classmethod
     def get_response(cls, validators=None, default=""):
     
@@ -47,6 +49,12 @@ class CLI(object):
     def colored_input(cls, message, color=NO_COLOR, default=None):
         text = cls.get_message_with_default(message, default)
         input_ = input(cls.colorize(text, color))
+
+        # User wants to delete value previously entered.
+        if input_ == "-":
+            default = ""
+            input_ = ""
+
         return input_ if input_ is not None and input_ != "" else default
 
     @classmethod
