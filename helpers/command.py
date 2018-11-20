@@ -116,14 +116,16 @@ class Command:
             CLI.colored_print("Launching environment", CLI.COLOR_SUCCESS)
 
         # Test if ports are available
+        ports = []
         if config_object.proxy:
             nginx_port = int(config.get("nginx_proxy_port", 80))
         else:
             nginx_port = int(config.get("exposed_nginx_docker_port", 80))
 
-        ports = [nginx_port]
+        if frontend_only or config_object.frontend or not config_object.multi_servers:
+            ports.append(nginx_port)
 
-        if not frontend_only:
+        if not frontend_only or config_object.master_backend or config_object.slave_backend:
             ports.append(config.get("postgresql_port"))
             ports.append(config.get("rabbit_mq_port"))
             ports.append(config.get("mongo_port"))
@@ -140,9 +142,12 @@ class Command:
         if not frontend_only:
             if (config.get("multi") == Config.TRUE and config.get("server_role") == "backend") or \
                     config.get("multi") != Config.TRUE:
+
+                backend_role = config.get("backend_server_role")
+
                 backend_command = ["docker-compose",
-                                   "-f", "docker-compose.backend.master.yml",
-                                   "-f", "docker-compose.backend.master.override.yml",
+                                   "-f", "docker-compose.backend.{}.yml".format(backend_role),
+                                   "-f", "docker-compose.backend.{}.override.yml".format(backend_role),
                                    "up", "-d"]
                 if config.get("docker_prefix", "") != "":
                     backend_command.insert(-2, "-p")
@@ -183,9 +188,12 @@ class Command:
         if not frontend_only:
             if (config.get("multi") == Config.TRUE and config.get("server_role") == "backend") or \
                     config.get("multi") != Config.TRUE:
+
+                backend_role = config.get("backend_server_role")
+
                 backend_command = ["docker-compose",
-                                   "-f", "docker-compose.backend.master.yml",
-                                   "-f", "docker-compose.backend.master.override.yml",
+                                   "-f", "docker-compose.backend.{}.yml".format(backend_role),
+                                   "-f", "docker-compose.backend.{}.override.yml".format(backend_role),
                                    "down"]
                 if config.get("docker_prefix", "") != "":
                     backend_command.insert(-1, "-p")

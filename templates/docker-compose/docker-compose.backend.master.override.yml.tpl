@@ -8,8 +8,10 @@ services:
       - ${RABBIT_MQ_PORT}:5672
 
   postgres:
-    ${OVERRIDE_POSTGRES_MASTER}volumes:
-    ${OVERRIDE_POSTGRES_MASTER}  - ../kobo-deployments/postgres/master/postgres.conf:/kobo-docker-scripts/master/postgres.conf
+    ${OVERRIDE_POSTGRES_SETTINGS}volumes:
+    ${OVERRIDE_POSTGRES_SETTINGS}  - ../kobo-deployments/postgres/master/postgres.conf:/kobo-docker-scripts/master/postgres.conf
+    ${POSTGRES_BACKUP_FROM_SLAVE}environment:
+    ${POSTGRES_BACKUP_FROM_SLAVE}  - POSTGRES_BACKUP_FROM_SLAVE=True
     ports:
       - ${POSTGRES_PORT}:5432
 

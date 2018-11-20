@@ -9,8 +9,8 @@
 # https://www.pgconfig.org/#/tuning
 # DB Version: 9.5
 # OS Type: linux
-# App profile: ${POSTGRES_MASTER_APP_PROFILE}
+# App profile: ${POSTGRES_APP_PROFILE}
 # Hard-drive: SSD
-# Total Memory (RAM): ${POSTGRES_MASTER_RAM}GB
+# Total Memory (RAM): ${POSTGRES_RAM}GB
 
-${POSTGRES_MASTER_SETTINGS}
+${POSTGRES_SETTINGS}

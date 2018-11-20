@@ -61,6 +61,24 @@ class Config:
         return self.__config.get("use_aws") == Config.TRUE
 
     @property
+    def master_backend(self):
+        """
+        Checks whether setup is running on a master backend server
+        :return: bool
+        """
+        return self.multi_servers and \
+               self.__config.get("backend_server_role") == "master"
+
+    @property
+    def slave_backend(self):
+        """
+        Checks whether setup is running on a slave backend server
+        :return: bool
+        """
+        return self.multi_servers and \
+               self.__config.get("backend_server_role") == "slave"
+
+    @property
     def backend_questions(self):
         """
         Checks whether questions are backend only
@@ -183,6 +201,7 @@ class Config:
                 "aws_redis_backup_minimum_size": "5",
                 "aws_backup_upload_chunk_size": "15",
                 "aws_backup_bucket_deletion_rule_enabled": Config.FALSE,
+                "backend_server_role": "master"
             }
 
             config.update(self.__config)
@@ -241,7 +260,7 @@ class Config:
         Generate random password between 8 to 16 characters
         :return: str
         """
-        characters = string.ascii_letters + "!$%&+-?@^~" + string.digits
+        characters = string.ascii_letters + "!$%+-?@^~" + string.digits
         return "".join(choice(characters) for x in range(randint(10, 16)))
 
     def read_config(self):
@@ -407,11 +426,6 @@ class Config:
                                                                                        "kobocat_media_backup_schedule",
                                                                                        "0 0 * * 0"))
                     if self.backend_questions:
-                        CLI.colored_print("MongoDB backup schedule?", CLI.COLOR_SUCCESS)
-                        self.__config["mongo_backup_schedule"] = CLI.get_response("~{}".format(schedule_regex_pattern),
-                                                                                  self.__config.get(
-                                                                                      "mongo_backup_schedule",
-                                                                                      "0 1 * * 0"))
 
                         CLI.colored_print("PostgreSQL backup schedule?", CLI.COLOR_SUCCESS)
                         self.__config["postgres_backup_schedule"] = CLI.get_response(
@@ -420,11 +434,26 @@ class Config:
                                 "postgres_backup_schedule",
                                 "0 2 * * 0"))
 
-                        CLI.colored_print("Redis backup schedule?", CLI.COLOR_SUCCESS)
-                        self.__config["redis_backup_schedule"] = CLI.get_response("~{}".format(schedule_regex_pattern),
-                                                                                  self.__config.get(
-                                                                                      "redis_backup_schedule",
-                                                                                      "0 3 * * 0"))
+                        if self.master_backend:
+                            CLI.colored_print("Run backups from master backend server?", CLI.COLOR_SUCCESS)
+                            CLI.colored_print("\t1) Yes")
+                            CLI.colored_print("\t2) No")
+                            self.__config["backup_from_master"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                                           self.__config.get("backup_from_master",
+                                                                                             Config.TRUE))
+
+                            CLI.colored_print("MongoDB backup schedule?", CLI.COLOR_SUCCESS)
+                            self.__config["mongo_backup_schedule"] = CLI.get_response(
+                                "~{}".format(schedule_regex_pattern),
+                                self.__config.get(
+                                    "mongo_backup_schedule",
+                                    "0 1 * * 0"))
+
+                            CLI.colored_print("Redis backup schedule?", CLI.COLOR_SUCCESS)
+                            self.__config["redis_backup_schedule"] = CLI.get_response("~{}".format(schedule_regex_pattern),
+                                                                                      self.__config.get(
+                                                                                          "redis_backup_schedule",
+                                                                                          "0 3 * * 0"))
                         if self.aws:
                             self.__config["aws_backup_bucket_name"] = CLI.colored_input("AWS Backups bucket name",
                                                                                         CLI.COLOR_SUCCESS,
@@ -780,6 +809,16 @@ class Config:
         CLI.colored_print("\t2) backend")
         self.__config["server_role"] = CLI.get_response(["backend", "frontend"],
                                                         self.__config.get("server_role", "frontend"))
+
+        if self.__config.get("server_role") == "backend":
+            CLI.colored_print("Which role do you want to assign to this backend server?", CLI.COLOR_SUCCESS)
+            CLI.colored_print("\t1) master")
+            CLI.colored_print("\t2) slave")
+            self.__config["backend_server_role"] = CLI.get_response(["master", "slave"],
+                                                            self.__config.get("backend_server_role", "master"))
+        else:
+            # It may be useless to force backend role when using multi servers.
+            self.__config["backend_server_role"] = "master"
 
     def __questions_smtp(self):
         self.__config["smtp_host"] = CLI.colored_input("SMTP server", CLI.COLOR_SUCCESS,

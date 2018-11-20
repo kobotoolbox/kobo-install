@@ -82,11 +82,13 @@ User can choose between 2 types of installations:
 - [Docker](https://www.docker.com/get-started "") & [Docker Compose](https://docs.docker.com/compose/install/ "")
 - Available TCP Ports:
 
-    1. 80 NginX (or chosen custom port in advanced options)
+    1. 80 NginX
     2. 5432 PostgreSQL
     3. 5672 RabbitMQ
     4. 6379-6380 redis
     5. 27017 MongoDB
+    
+    _N.B.: Ports can be customized in advanced options._
 
 ## Tests
 
@@ -99,10 +101,3 @@ Tests can be run with `pytest`.
 
 - Handle secondary backend
 - Add better input validations
-
-## Known issues
-
-- SMTP user is "None" in envfiles when empty
-- script does not work when it's not launched from `kobo-install` repository
-- Can not empty path of `kobocat` and `kpi` in developer mode if they've already filled out
-- Sometimes, frontend containers can not communicate with backend containers. `docker-compose down/up` fixes it. Seems to be only on macOS.
