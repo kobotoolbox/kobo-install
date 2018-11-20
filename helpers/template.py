@@ -72,7 +72,7 @@ class Template:
             "KPI_DEV_BUILD_ID": config.get("kpi_dev_build_id", ""),
             "NGINX_PUBLIC_PORT": config.get("exposed_nginx_docker_port", "80"),
             "NGINX_EXPOSED_PORT": nginx_port,
-            "MAX_REQUESTS": config.get("max_request", "512"),
+            "MAX_REQUESTS": config.get("max_requests", "512"),
             "SOFT_LIMIT": int(config.get("soft_limit", "128")) * 1024 * 1024,
             "POSTGRES_REPLICATION_PASSWORD": config.get("postgres_replication_password"),
             "WSGI_SERVER": "runserver_plus" if config.get("dev_mode") == Config.TRUE else "uWSGI",

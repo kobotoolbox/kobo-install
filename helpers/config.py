@@ -194,6 +194,7 @@ class Config:
             self.__questions_installation_type()
 
             if not self.local_install:
+
                 if self.advanced_options:
                     self.__questions_multi_servers()
                     if self.multi_servers:
@@ -203,6 +204,7 @@ class Config:
 
                 if self.frontend_questions:
                     self.__questions_public_routes()
+
             else:
                 self.__detect_network()
 
@@ -722,13 +724,14 @@ class Config:
                                                           self.__config.get("ee_subdomain", ""))
 
         parts = self.__config.get("public_domain_name", "").split(".")
-
-        self.__config["private_domain_name"] = "{}.private".format(
-            ".".join(parts[:-1])
-        )
         self.__config["internal_domain_name"] = "{}.internal".format(
             ".".join(parts[:-1])
         )
+        if not self.multi_servers or \
+                (self.multi_servers and self.__config.get("use_private_dns") == Config.FALSE):
+            self.__config["private_domain_name"] = "{}.private".format(
+                ".".join(parts[:-1])
+            )
 
         CLI.colored_print("Do you use a reverse proxy or a load balancer?", CLI.COLOR_SUCCESS)
         CLI.colored_print("\t1) Yes")
@@ -794,8 +797,9 @@ class Config:
             self.__config["smtp_use_tls"] = CLI.get_response([Config.TRUE, Config.FALSE],
                                                              self.__config.get("smtp_use_tls", Config.TRUE))
         self.__config["default_from_email"] = CLI.colored_input("From email address", CLI.COLOR_SUCCESS,
-                                                                "support@{}".format(
-                                                                    self.__config.get("public_domain_name")))
+                                                                self.__config.get("default_from_email",
+                                                                    "support@{}".format(
+                                                                        self.__config.get("public_domain_name"))))
 
     def __questions_super_user_credentials(self):
         # Super user. Only ask for credentials the first time.
