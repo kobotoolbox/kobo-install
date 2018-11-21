@@ -141,6 +141,10 @@ class Config:
         """
         return self.__config.get("proxy") == Config.TRUE
 
+    @property
+    def staging_mode(self):
+        return self.__config.get("staging_mode") == Config.TRUE
+
     def build(self):
         """
         Build configuration based on user's answer
@@ -421,10 +425,11 @@ class Config:
 
                     if self.frontend_questions and not self.aws:
                         CLI.colored_print("KoBoCat media backup schedule?", CLI.COLOR_SUCCESS)
-                        self.__config["kobocat_media_backup_schedule"] = CLI.get_response("~{}".format(schedule_regex_pattern),
-                                                                                   self.__config.get(
-                                                                                       "kobocat_media_backup_schedule",
-                                                                                       "0 0 * * 0"))
+                        self.__config["kobocat_media_backup_schedule"] = CLI.get_response(
+                            "~{}".format(schedule_regex_pattern),
+                            self.__config.get(
+                                "kobocat_media_backup_schedule",
+                                "0 0 * * 0"))
                     if self.backend_questions:
 
                         CLI.colored_print("PostgreSQL backup schedule?", CLI.COLOR_SUCCESS)
@@ -439,8 +444,9 @@ class Config:
                             CLI.colored_print("\t1) Yes")
                             CLI.colored_print("\t2) No")
                             self.__config["backup_from_master"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                                           self.__config.get("backup_from_master",
-                                                                                             Config.TRUE))
+                                                                                   self.__config.get(
+                                                                                       "backup_from_master",
+                                                                                       Config.TRUE))
 
                             CLI.colored_print("MongoDB backup schedule?", CLI.COLOR_SUCCESS)
                             self.__config["mongo_backup_schedule"] = CLI.get_response(
@@ -450,10 +456,11 @@ class Config:
                                     "0 1 * * 0"))
 
                             CLI.colored_print("Redis backup schedule?", CLI.COLOR_SUCCESS)
-                            self.__config["redis_backup_schedule"] = CLI.get_response("~{}".format(schedule_regex_pattern),
-                                                                                      self.__config.get(
-                                                                                          "redis_backup_schedule",
-                                                                                          "0 3 * * 0"))
+                            self.__config["redis_backup_schedule"] = CLI.get_response(
+                                "~{}".format(schedule_regex_pattern),
+                                self.__config.get(
+                                    "redis_backup_schedule",
+                                    "0 3 * * 0"))
                         if self.aws:
                             self.__config["aws_backup_bucket_name"] = CLI.colored_input("AWS Backups bucket name",
                                                                                         CLI.COLOR_SUCCESS,
@@ -527,23 +534,37 @@ class Config:
 
     def __questions_dev_mode(self):
         """
-        Asks for developer mode and nginx port.
+        Asks for developer/staging mode.
+
+        Dev mode allows to modify nginx port and
+        Staging model
+
         Reset to default in case of No
         """
 
-        if self.frontend_questions and self.local_install:
-            # NGinX different port
-            CLI.colored_print("Web server port?", CLI.COLOR_SUCCESS)
-            self.__config["exposed_nginx_docker_port"] = CLI.get_response("~^\d+$",
-                                                                          self.__config.get("exposed_nginx_docker_port",
-                                                                                            "80"))
+        if self.frontend_questions:
 
-            CLI.colored_print("Developer mode?", CLI.COLOR_SUCCESS)
-            CLI.colored_print("\t1) Yes")
-            CLI.colored_print("\t2) No")
-            self.__config["dev_mode"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                         self.__config.get("dev_mode", Config.FALSE))
-            if self.dev_mode:
+            if self.local_install:
+                # NGinX different port
+                CLI.colored_print("Web server port?", CLI.COLOR_SUCCESS)
+                self.__config["exposed_nginx_docker_port"] = CLI.get_response("~^\d+$",
+                                                                              self.__config.get(
+                                                                                  "exposed_nginx_docker_port",
+                                                                                  "80"))
+                CLI.colored_print("Developer mode?", CLI.COLOR_SUCCESS)
+                CLI.colored_print("\t1) Yes")
+                CLI.colored_print("\t2) No")
+                self.__config["dev_mode"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                             self.__config.get("dev_mode", Config.FALSE))
+                self.__config["staging_mode"] = Config.FALSE
+            else:
+                CLI.colored_print("Staging mode?", CLI.COLOR_SUCCESS)
+                CLI.colored_print("\t1) Yes")
+                CLI.colored_print("\t2) No")
+                self.__config["staging_mode"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                                 self.__config.get("staging_mode", Config.FALSE))
+
+            if self.dev_mode or self.staging_mode:
                 CLI.colored_print("╔═══════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
                 CLI.colored_print("║ Where are the files located locally? It can be absolute   ║", CLI.COLOR_WARNING)
                 CLI.colored_print("║ or relative to the directory of the installation.         ║", CLI.COLOR_WARNING)
@@ -562,17 +583,16 @@ class Config:
                         self.__config.get("kpi_path") != self.__config.get("kpi_path")):
                     self.__config["kpi_dev_build_id"] = str(int(time.time()))
 
-                # Debug
-                CLI.colored_print("Enable DEBUG?", CLI.COLOR_SUCCESS)
-                CLI.colored_print("\t1) True")
-                CLI.colored_print("\t2) False")
-                self.__config["debug"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                          self.__config.get("debug", Config.TRUE))
+                if self.dev_mode:
+                    # Debug
+                    CLI.colored_print("Enable DEBUG?", CLI.COLOR_SUCCESS)
+                    CLI.colored_print("\t1) True")
+                    CLI.colored_print("\t2) False")
+                    self.__config["debug"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                              self.__config.get("debug", Config.TRUE))
             else:
                 # Force reset paths
-                self.__reset_dev_mode()
-        else:
-            self.__reset_dev_mode(True)
+                self.__reset_dev_mode(self.staging_mode)
 
     def __questions_docker_prefix(self):
         """
@@ -815,7 +835,7 @@ class Config:
             CLI.colored_print("\t1) master")
             CLI.colored_print("\t2) slave")
             self.__config["backend_server_role"] = CLI.get_response(["master", "slave"],
-                                                            self.__config.get("backend_server_role", "master"))
+                                                                    self.__config.get("backend_server_role", "master"))
         else:
             # It may be useless to force backend role when using multi servers.
             self.__config["backend_server_role"] = "master"
@@ -837,8 +857,9 @@ class Config:
                                                              self.__config.get("smtp_use_tls", Config.TRUE))
         self.__config["default_from_email"] = CLI.colored_input("From email address", CLI.COLOR_SUCCESS,
                                                                 self.__config.get("default_from_email",
-                                                                    "support@{}".format(
-                                                                        self.__config.get("public_domain_name"))))
+                                                                                  "support@{}".format(
+                                                                                      self.__config.get(
+                                                                                          "public_domain_name"))))
 
     def __questions_super_user_credentials(self):
         # Super user. Only ask for credentials the first time.
@@ -901,6 +922,7 @@ class Config:
         :return: bool
         """
         self.__config["dev_mode"] = Config.FALSE
+        self.__config["staging_mode"] = Config.FALSE
         self.__config["kc_path"] = ""
         self.__config["kpi_path"] = ""
         self.__config["debug"] = Config.FALSE
