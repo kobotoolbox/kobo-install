@@ -578,11 +578,16 @@ class Config:
                 # Create an unique id to build fresh image when starting containers
                 if (self.__config.get("kc_dev_build_id", "") == "" or
                         self.__config.get("kc_path") != self.__config.get("kc_path")):
-                    self.__config["kc_dev_build_id"] = str(int(time.time()))
+                    self.__config["kc_dev_build_id"] = "{prefix}{timestamp}".format(
+                        prefix="{}.".format(self.__config.get("docker_prefix")) if self.__config.get("docker_prefix") else "",
+                        timestamp=str(int(time.time()))
+                    )
                 if (self.__config.get("kpi_dev_build_id", "") == "" or
                         self.__config.get("kpi_path") != self.__config.get("kpi_path")):
-                    self.__config["kpi_dev_build_id"] = str(int(time.time()))
-
+                    self.__config["kpi_dev_build_id"] = "{prefix}{timestamp}".format(
+                        prefix="{}.".format(self.__config.get("docker_prefix")) if self.__config.get("docker_prefix") else "",
+                        timestamp=str(int(time.time()))
+                    )
                 if self.dev_mode:
                     # Debug
                     CLI.colored_print("Enable DEBUG?", CLI.COLOR_SUCCESS)
