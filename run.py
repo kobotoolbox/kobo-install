@@ -33,8 +33,8 @@ def run(force_setup=False):
 
         Command.start()
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     if len(sys.argv) > 2:
         CLI.colored_print("Bad syntax. Try 'run.py --help'", CLI.COLOR_ERROR)
     elif len(sys.argv) == 2:
@@ -48,6 +48,8 @@ if __name__ == "__main__":
             run(force_setup=True)
         elif sys.argv[1] == "-S" or sys.argv[1] == "--stop":
             Command.stop()
+        elif sys.argv[1] == "-l" or sys.argv[1] == "--logs":
+            Command.logs()
         else:
             CLI.colored_print("Bad syntax. Try 'run.py --help'", CLI.COLOR_ERROR)
     else:

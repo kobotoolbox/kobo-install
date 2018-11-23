@@ -72,10 +72,20 @@ class CLI(object):
         return "{}{}".format(message, default)
 
     @classmethod
-    def run_command(cls, command, cwd=None):
-        try:
-            subprocess.check_output(command, universal_newlines=True, cwd=cwd)
-        except subprocess.CalledProcessError as cpe:
-            cls.colored_print(cpe.output, CLI.COLOR_ERROR)
-            return False
-        return True
+    def run_command(cls, command, cwd=None, polling=True):
+        if polling:
+            process = subprocess.Popen(command, stdout=subprocess.PIPE, cwd=cwd)
+            while True:
+                output = process.stdout.readline()
+                if output == "" and process.poll() is not None:
+                    break
+                if output:
+                    print(output.strip())
+            return process.poll()
+        else:
+            stdout = None
+            try:
+                stdout = subprocess.check_output(command, universal_newlines=True, cwd=cwd)
+            except subprocess.CalledProcessError as cpe:
+                cls.colored_print(cpe.output, CLI.COLOR_ERROR)
+            return stdout

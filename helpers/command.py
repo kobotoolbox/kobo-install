@@ -19,6 +19,8 @@ class Command:
                "    Options:\n"
                "          -i, --info\n"
                "                Show KoBoToolbox Url and super user credentials\n"
+               "          -l, --logs\n"
+               "                Display docker logs\n"        
                "          -s, --setup\n"
                "                Prompt questions to rebuild configuration. Restart KoBoToolbox\n"
                "          -S, --stop\n"
@@ -46,27 +48,29 @@ class Command:
         hostname = "{}.{}".format(config.get("kpi_subdomain"), config.get("public_domain_name"))
         nginx_port = 443 if config.get("https") == Config.TRUE else int(config.get("exposed_nginx_docker_port", "80"))
         https = config.get("https") == Config.TRUE
-        already_retried = False
+        already_retried = None if config_object.first_time else False
         while not stop:
             if Network.status_check(hostname, "/service_health/", nginx_port, https) == Network.STATUS_OK_200:
                 stop = True
                 success = True
             elif int(time.time()) - start >= timeout:
                 if timeout > 0:
-                    if config_object.first_time:
-                        CLI.colored_print("\n`KoBoToolbox` has not started yet, try for another {} minutes".format(
-                            timeout), CLI.COLOR_INFO)
+                    # sometimes frontend can not communicate with backend. docker-compose down/up fixes it.
+                    if already_retried is False:
+                        CLI.colored_print(("\n`KoBoToolbox` has not started yet, sometimes frontend containers "
+                                           "can not communicate with backend containers.\n"
+                                           "Let's restart frontend containers.\n"),
+                                          CLI.COLOR_INFO)
+                        already_retried = True
                         start = int(time.time())
+                        cls.restart_frontend()
+                        continue
                     else:
-                        # sometimes frontend can not communicate with backend. docker-compose down/up fixes it.
-                        if not already_retried:
-                            CLI.colored_print(("\n`KoBoToolbox` has not started yet, sometimes frontend containers "
-                                               "can not communicate with backend containers.\n"
-                                               "Let's restart frontend containers.\n"),
-                                              CLI.COLOR_INFO)
-                            already_retried = True
+                        if config_object.first_time and already_retried is None:
+                            CLI.colored_print("\n`KoBoToolbox` has not started yet, wait for another {} minutes!".format(
+                                timeout), CLI.COLOR_INFO)
                             start = int(time.time())
-                            cls.restart_frontend()
+                            already_retried = False
                             continue
                 stop = True
             else:
@@ -99,6 +103,35 @@ class Command:
             CLI.colored_print("Something went wrong! Please look at docker logs", CLI.COLOR_ERROR)
 
         return success
+
+    @classmethod
+    def logs(cls):
+        config_object = Config()
+        config = config_object.get_config()
+
+        if config_object.master_backend or config_object.slave_backend:
+            backend_role = config.get("backend_server_role")
+
+            backend_command = ["docker-compose",
+                               "-f", "docker-compose.backend.{}.yml".format(backend_role),
+                               "-f", "docker-compose.backend.{}.override.yml".format(backend_role),
+                               "logs", "-f"]
+            if config.get("docker_prefix", "") != "":
+                backend_command.insert(-2, "-p")
+                backend_command.insert(-2, config.get("docker_prefix"))
+
+            CLI.run_command(backend_command, config.get("kobodocker_path"), True)
+
+        if config_object.frontend:
+            frontend_command = ["docker-compose",
+                                "-f", "docker-compose.frontend.yml",
+                                "-f", "docker-compose.frontend.override.yml",
+                                "logs", "-f"]
+            if config.get("docker_prefix", "") != "":
+                frontend_command.insert(-2, "-p")
+                frontend_command.insert(-2, config.get("docker_prefix"))
+
+            CLI.run_command(frontend_command, config.get("kobodocker_path"), True)
 
     @classmethod
     def restart_frontend(cls):

@@ -102,7 +102,7 @@ class Config:
         Checks whether setup is running on a frontend server
         :return: bool
         """
-        return self.__config.get("multi") is None or \
+        return not self.multi_servers or \
                self.__config.get("server_role") == "frontend"
 
     @property
