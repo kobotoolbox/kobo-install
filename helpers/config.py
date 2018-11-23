@@ -874,13 +874,13 @@ class Config:
         password = CLI.colored_input("Super user's password", CLI.COLOR_SUCCESS,
                                      self.__config.get("super_user_password"))
 
-        if (username != self.__config.get("super_user_username") or
-            password != self.__config.get("super_user_password")) and \
+        if username == self.__config.get("super_user_username") and \
+            password != self.__config.get("super_user_password") and \
                 not self.first_time:
             CLI.colored_print("╔══════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
-            CLI.colored_print("║ Username or password have been changed!              ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║ Super user's password has been changed!              ║", CLI.COLOR_WARNING)
             CLI.colored_print("║ Don't forget to apply these changes in Postgres too. ║", CLI.COLOR_WARNING)
-            CLI.colored_print("║ Super user's credentials won't be updated if the     ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║ Super user's password won't be updated if the        ║", CLI.COLOR_WARNING)
             CLI.colored_print("║ database already exists.                             ║", CLI.COLOR_WARNING)
             CLI.colored_print("╚══════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
 
@@ -994,5 +994,4 @@ class Config:
             CLI.colored_print("║ Just press `enter` to accept the default value or enter `-`   ║", CLI.COLOR_WARNING)
             CLI.colored_print("║ to remove previously entered value.                           ║", CLI.COLOR_WARNING)
             CLI.colored_print("║ Otherwise choose between choices or type your answer.         ║", CLI.COLOR_WARNING)
-            CLI.colored_print("║                                                               ║", CLI.COLOR_WARNING)
             CLI.colored_print("╚═══════════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)

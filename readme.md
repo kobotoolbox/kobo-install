@@ -5,7 +5,8 @@ It prompts the user to answer some questions to create configuration files autom
 If you have already installed `KoBoToolbox` with `kobo-docker` from `master` branch,
 databases are not compatible and and docker images (`PostgreSQL`, `MongoDB`) are not the same.  
 `kobo-install` won't be able to start the app.  
-Upgrade guidance will be released later.
+
+
 
 ## Usage
 
@@ -20,6 +21,9 @@ Rebuild configuration:
 Get info:  
 `$kobo-install> python run.py --info`
 
+Get docker logs:  
+`$kobo-install> python run.py --logs`
+
 Upgrade KoBoToolbox:  
 `$kobo-install> python run.py --upgrade`
 
@@ -28,7 +32,6 @@ Stop KoBoToolbox:
 
 Get help:  
 `$kobo-install> python run.py --help`
-
 
 
 **Be aware, this utility is a beta release and may still have bugs.**
@@ -56,6 +59,7 @@ User can choose between 2 types of installations:
 |Option|Default|Workstation|Server
 |---|---|---|---|
 |Webserver port| **80**  | ✓ |  |
+|Reverse proxy interal port| **80**  |  | ✓ (frontend only) |
 |Network interface|  **Autodetected**  | ✓ | ✓ (frontend only) |
 |Use separate servers| **No**  |  | ✓ |
 |Use DNS for private routes| **No**  |  | ✓ (frontend only) |
@@ -72,8 +76,9 @@ User can choose between 2 types of installations:
 |Google API Key|  | ✓ | ✓ (frontend only) |
 |Intercom| | ✓ | ✓ (frontend only) |
 |Raven tokens|   | ✓ | ✓ (frontend only) |
-|Debug|  **False**  | ✓ | ✓ (frontend only) |
+|Debug|  **False**  | ✓ |  |
 |Developer mode|  **False**  | ✓ | |
+|Staging mode|  **False**  |  | ✓ (frontend only) |
 
 ## Requirements
 
@@ -100,4 +105,4 @@ Tests can be run with `pytest`.
 ## To-Do
 
 - Handle secondary backend
-- Add better input validations
+- Validate users' input
