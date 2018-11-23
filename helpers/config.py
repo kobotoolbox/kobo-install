@@ -802,7 +802,7 @@ class Config:
             self.__config["https"] = CLI.get_response([Config.TRUE, Config.FALSE],
                                                       self.__config.get("https", Config.TRUE))
 
-            CLI.colored_print("Port used by reverse proxy?", CLI.COLOR_SUCCESS)
+            CLI.colored_print("Internal port used by reverse proxy?", CLI.COLOR_SUCCESS)
             self.__config["nginx_proxy_port"] = CLI.get_response("~^\d+$",
                                                                  self.__config.get("nginx_proxy_port", "80"))
         else:
