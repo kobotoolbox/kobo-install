@@ -394,6 +394,11 @@ class Config:
         """
         Asks all questions about backups.
         """
+        print(self.backend_questions)
+        print(self.frontend_questions)
+        print(not self.aws)
+        print(self.frontend_questions and not self.aws)
+
         if self.backend_questions or (self.frontend_questions and not self.aws):
 
             CLI.colored_print("Do you want to activate backups?", CLI.COLOR_SUCCESS)
@@ -430,6 +435,7 @@ class Config:
                             self.__config.get(
                                 "kobocat_media_backup_schedule",
                                 "0 0 * * 0"))
+
                     if self.backend_questions:
 
                         CLI.colored_print("PostgreSQL backup schedule?", CLI.COLOR_SUCCESS)
@@ -447,7 +453,7 @@ class Config:
                                                                                    self.__config.get(
                                                                                        "backup_from_master",
                                                                                        Config.TRUE))
-
+                        if self.master_backend or not self.multi_servers:
                             CLI.colored_print("MongoDB backup schedule?", CLI.COLOR_SUCCESS)
                             self.__config["mongo_backup_schedule"] = CLI.get_response(
                                 "~{}".format(schedule_regex_pattern),
