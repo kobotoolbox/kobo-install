@@ -394,11 +394,6 @@ class Config:
         """
         Asks all questions about backups.
         """
-        print(self.backend_questions)
-        print(self.frontend_questions)
-        print(not self.aws)
-        print(self.frontend_questions and not self.aws)
-
         if self.backend_questions or (self.frontend_questions and not self.aws):
 
             CLI.colored_print("Do you want to activate backups?", CLI.COLOR_SUCCESS)

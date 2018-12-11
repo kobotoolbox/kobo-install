@@ -7,7 +7,6 @@ from helpers.config import Config
 
 
 class Setup:
-
     KOBO_DOCKER_BRANCH = "kobo-install"
 
     @classmethod
@@ -65,7 +64,7 @@ class Setup:
                         "\n{start_sentence}"
                         "\n{routes}"
                         "\n{end_sentence}"
-                       ).format(
+                        ).format(
                 bof=tmp_host.strip(),
                 start_sentence=start_sentence,
                 routes=routes,
@@ -76,13 +75,18 @@ class Setup:
                 f.write(tmp_host)
 
             if config.get("review_host") != Config.FALSE:
-                CLI.colored_print("╔═══════════════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
-                CLI.colored_print("║ Administrative privileges are required to update your /etc/hosts. ║", CLI.COLOR_WARNING)
-                CLI.colored_print("╚═══════════════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
-                CLI.colored_print("Do you want to review your /etc/hosts file before overwriting it?", CLI.COLOR_SUCCESS)
+                CLI.colored_print("╔═══════════════════════════════════════════════════════════════════╗",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("║ Administrative privileges are required to update your /etc/hosts. ║",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("╚═══════════════════════════════════════════════════════════════════╝",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("Do you want to review your /etc/hosts file before overwriting it?",
+                                  CLI.COLOR_SUCCESS)
                 CLI.colored_print("\t1) Yes")
                 CLI.colored_print("\t2) No")
-                config["review_host"] = CLI.get_response([Config.TRUE, Config.FALSE], config.get("review_host", Config.FALSE))
+                config["review_host"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                         config.get("review_host", Config.FALSE))
                 if config["review_host"] == Config.TRUE:
                     print(tmp_host)
                     CLI.colored_input("Press any keys when ready")

@@ -8,6 +8,7 @@ from helpers.cli import CLI
 from helpers.config import Config
 from helpers.network import Network
 from helpers.setup import Setup
+from helpers.template import Template
 
 
 class Command:
@@ -20,7 +21,13 @@ class Command:
                "          -i, --info\n"
                "                Show KoBoToolbox Url and super user credentials\n"
                "          -l, --logs\n"
-               "                Display docker logs\n"        
+               "                Display docker logs\n"
+               "          -b, --build\n"
+               "                Build kpi and kobocat (only on dev/staging mode)\n"
+               "          -bkf, --build-kpi\n"
+               "                Build kpi (only on dev/staging mode)\n"
+               "          -bkc, --build-kobocat\n"
+               "                Build kobocat (only on dev/staging mode)\n"
                "          -s, --setup\n"
                "                Prompt questions to rebuild configuration. Restart KoBoToolbox\n"
                "          -S, --stop\n"
@@ -28,6 +35,59 @@ class Command:
                "          -u, --upgrade\n"
                "                Upgrade KoBoToolbox\n"
                ))
+
+    @classmethod
+    def build(cls, image=None):
+        """
+        Builds kpi/kobocat images with `--no-caches` option
+        Pulls latest `kobotoolbox/koboform_base` as well
+
+        :param image: str
+        """
+        config_object = Config()
+        config = config_object.get_config()
+
+        if config_object.dev_mode or config_object.staging_mode:
+
+            def build_image(image_):
+                frontend_command = ["docker-compose",
+                                    "-f", "docker-compose.frontend.yml",
+                                    "-f", "docker-compose.frontend.override.yml",
+                                    "build", "--force-rm", "--no-cache",
+                                    image_]
+
+                if config.get("docker_prefix", "") != "":
+                    frontend_command.insert(-4, "-p")
+                    frontend_command.insert(-4, config.get("docker_prefix"))
+
+                CLI.run_command(frontend_command, config.get("kobodocker_path"))
+
+            pull_base_command = ["docker",
+                                 "pull",
+                                 "kobotoolbox/koboform_base"]
+
+            CLI.run_command(pull_base_command, config.get("kobodocker_path"))
+
+            if image is None or image == "kf":
+                build_image("kpi")
+                # Create an unique id to build fresh image when starting containers
+                config["kc_dev_build_id"] = "{prefix}{timestamp}".format(
+                    prefix="{}.".format(config.get("docker_prefix"))
+                    if config.get("docker_prefix") else "",
+                    timestamp=str(int(time.time()))
+                )
+
+                config["kpi_dev_build_id"] = "{prefix}{timestamp}".format(
+                    prefix="{}.".format(config.get("docker_prefix"))
+                    if config.get("docker_prefix") else "",
+                    timestamp=str(int(time.time()))
+                )
+
+            if image is None or image == "kc":
+                build_image("kobocat")
+
+            config_object.write_config()
+            Template.render(config_object)
 
     @classmethod
     def info(cls, timeout=300):
@@ -39,7 +99,8 @@ class Command:
             config.get("kpi_subdomain"),
             config.get("public_domain_name"),
             ":{}".format(config.get("exposed_nginx_docker_port")) if config.get("exposed_nginx_docker_port")
-                                                      and str(config.get("exposed_nginx_docker_port")) != "80" else ""
+                                                                     and str(
+                config.get("exposed_nginx_docker_port")) != "80" else ""
         )
 
         stop = False
@@ -67,8 +128,9 @@ class Command:
                         continue
                     else:
                         if config_object.first_time and already_retried is None:
-                            CLI.colored_print("\n`KoBoToolbox` has not started yet, wait for another {} minutes!".format(
-                                timeout), CLI.COLOR_INFO)
+                            CLI.colored_print(
+                                "\n`KoBoToolbox` has not started yet, wait for another {} minutes!".format(
+                                    timeout), CLI.COLOR_INFO)
                             start = int(time.time())
                             already_retried = False
                             continue
@@ -141,7 +203,7 @@ class Command:
     def start(cls, frontend_only=False):
         config_object = Config()
         config = config_object.get_config()
-        
+
         cls.stop(output=False, frontend_only=frontend_only)
         if frontend_only:
             CLI.colored_print("Launching frontend containers", CLI.COLOR_SUCCESS)

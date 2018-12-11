@@ -50,6 +50,12 @@ if __name__ == "__main__":
             Command.stop()
         elif sys.argv[1] == "-l" or sys.argv[1] == "--logs":
             Command.logs()
+        elif sys.argv[1] == "-b" or sys.argv[1] == "--build":
+            Command.build()
+        elif sys.argv[1] == "-bkf" or sys.argv[1] == "--build-kpi":
+            Command.build("kf")
+        elif sys.argv[1] == "-bkc" or sys.argv[1] == "--build-kobocat":
+            Command.build("kc")
         else:
             CLI.colored_print("Bad syntax. Try 'run.py --help'", CLI.COLOR_ERROR)
     else:
