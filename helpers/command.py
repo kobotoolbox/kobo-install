@@ -69,21 +69,19 @@ class Command:
             CLI.run_command(pull_base_command, config.get("kobodocker_path"))
 
             if image is None or image == "kf":
-                build_image("kpi")
-                # Create an unique id to build fresh image when starting containers
-                config["kc_dev_build_id"] = "{prefix}{timestamp}".format(
-                    prefix="{}.".format(config.get("docker_prefix"))
-                    if config.get("docker_prefix") else "",
-                    timestamp=str(int(time.time()))
-                )
-
                 config["kpi_dev_build_id"] = "{prefix}{timestamp}".format(
                     prefix="{}.".format(config.get("docker_prefix"))
                     if config.get("docker_prefix") else "",
                     timestamp=str(int(time.time()))
                 )
+                build_image("kpi")
 
             if image is None or image == "kc":
+                config["kc_dev_build_id"] = "{prefix}{timestamp}".format(
+                    prefix="{}.".format(config.get("docker_prefix"))
+                    if config.get("docker_prefix") else "",
+                    timestamp=str(int(time.time()))
+                )
                 build_image("kobocat")
 
             config_object.write_config()
