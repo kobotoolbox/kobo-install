@@ -74,6 +74,8 @@ class Command:
                     if config.get("docker_prefix") else "",
                     timestamp=str(int(time.time()))
                 )
+                config_object.write_config()
+                Template.render(config_object)
                 build_image("kpi")
 
             if image is None or image == "kc":
@@ -82,10 +84,9 @@ class Command:
                     if config.get("docker_prefix") else "",
                     timestamp=str(int(time.time()))
                 )
+                config_object.write_config()
+                Template.render(config_object)
                 build_image("kobocat")
-
-            config_object.write_config()
-            Template.render(config_object)
 
     @classmethod
     def info(cls, timeout=600):
