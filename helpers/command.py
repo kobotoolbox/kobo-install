@@ -90,7 +90,7 @@ class Command:
             Template.render(config_object)
 
     @classmethod
-    def info(cls, timeout=300):
+    def info(cls, timeout=600):
         config_object = Config()
         config = config_object.get_config()
 
