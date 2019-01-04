@@ -53,11 +53,11 @@ class Setup:
                      "{kpi_subdomain}.{public_domain_name} " \
                      "{kc_subdomain}.{public_domain_name} " \
                      "{ee_subdomain}.{public_domain_name}".format(
-                ip_address=config.get("local_interface_ip"),
-                public_domain_name=config.get("public_domain_name"),
-                kpi_subdomain=config.get("kpi_subdomain"),
-                kc_subdomain=config.get("kc_subdomain"),
-                ee_subdomain=config.get("ee_subdomain")
+                        ip_address=config.get("local_interface_ip"),
+                        public_domain_name=config.get("public_domain_name"),
+                        kpi_subdomain=config.get("kpi_subdomain"),
+                        kc_subdomain=config.get("kc_subdomain"),
+                        ee_subdomain=config.get("ee_subdomain")
             )
 
             tmp_host = ("{bof}"

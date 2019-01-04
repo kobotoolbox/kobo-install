@@ -72,7 +72,7 @@ class CLI(object):
         return "{}{}".format(message, default)
 
     @classmethod
-    def run_command(cls, command, cwd=None, polling=True):
+    def run_command(cls, command, cwd=None, polling=False):
         if polling:
             process = subprocess.Popen(command, stdout=subprocess.PIPE, cwd=cwd)
             while True:
