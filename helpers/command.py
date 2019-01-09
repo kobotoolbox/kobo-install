@@ -171,7 +171,7 @@ class Command:
         config = config_object.get_config()
 
         if config_object.master_backend or config_object.slave_backend:
-            backend_role = config.get("backend_server_role")
+            backend_role = config.get("backend_server_role", "master")
 
             backend_command = ["docker-compose",
                                "-f", "docker-compose.backend.{}.yml".format(backend_role),
@@ -237,7 +237,7 @@ class Command:
             if (config.get("multi") == Config.TRUE and config.get("server_role") == "backend") or \
                     config.get("multi") != Config.TRUE:
 
-                backend_role = config.get("backend_server_role")
+                backend_role = config.get("backend_server_role", "master")
 
                 backend_command = ["docker-compose",
                                    "-f", "docker-compose.backend.{}.yml".format(backend_role),
@@ -265,7 +265,7 @@ class Command:
         if not frontend_only:
             if (config.get("multi") == Config.TRUE and config.get("server_role") == "frontend") or \
                     config.get("multi") != Config.TRUE:
-                CLI.colored_print("Waiting for environment to be ready", CLI.COLOR_SUCCESS)
+                CLI.colored_print("Waiting for environment to be ready. It can take a few minutes.", CLI.COLOR_SUCCESS)
                 cls.info()
             else:
                 CLI.colored_print(("Backend server should be up & running! "
@@ -283,7 +283,7 @@ class Command:
             if (config.get("multi") == Config.TRUE and config.get("server_role") == "backend") or \
                     config.get("multi") != Config.TRUE:
 
-                backend_role = config.get("backend_server_role")
+                backend_role = config.get("backend_server_role", "master")
 
                 backend_command = ["docker-compose",
                                    "-f", "docker-compose.backend.{}.yml".format(backend_role),
