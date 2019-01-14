@@ -11,6 +11,7 @@ except:
     from urllib.request import urlopen
 
 import platform
+import re
 import socket
 import struct
 import sys
@@ -104,6 +105,32 @@ class Network:
                     ifaddresses = netifaces.ifaddresses(interface)
                     if ifaddresses.get(netifaces.AF_INET) and ifaddresses.get(netifaces.AF_INET)[0].get("addr"):
                         ip_dict[interface] = ifaddresses.get(netifaces.AF_INET)[0].get("addr")
+
+            if all:
+                # Because macOS doesn't expose docker0 interface.
+                # we are gonna fake it.
+                # Guess it from simple `nginx` container.
+                get_docker_range_command = [
+                    "docker",
+                    "run", "--rm",
+                    "nginx",
+                    "cat",
+                    "/etc/hosts"
+                ]
+                try:
+                    # Don't mess with awk, single quotes & `subprocess.check_output`
+                    container_etc_hosts = CLI.run_command(get_docker_range_command)
+                    container_etc_hosts_lines = container_etc_hosts.split("\n")
+                    last_line = container_etc_hosts_lines[-2]
+                    ip_address = re.split(r"\s", last_line)[0].strip()
+                    if re.match(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}", ip_address):
+                        parts = ip_address.split(".")
+                        ip_dict["docker0"] = "{}.1".format(
+                            ".".join(parts[:3]))
+                except Exception as e:
+                    # Can't find docker interface. Too bad!
+                    pass
+
         return ip_dict
 
     @staticmethod
