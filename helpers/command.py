@@ -315,3 +315,8 @@ class Command:
 
         Setup.run(config)
         CLI.colored_print("KoBoToolbox has been upgraded", CLI.COLOR_SUCCESS)
+
+        # update itself
+        git_command = ["git", "pull", "origin", "master"]
+        CLI.run_command(git_command)
+        CLI.colored_print("KoBoInstall has been upgraded", CLI.COLOR_SUCCESS)
