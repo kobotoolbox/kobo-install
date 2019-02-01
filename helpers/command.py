@@ -128,7 +128,7 @@ class Command:
                     else:
                         if config_object.first_time and already_retried is None:
                             CLI.colored_print(
-                                "\n`KoBoToolbox` has not started yet, wait for another {} minutes!".format(
+                                "\n`KoBoToolbox` has not started yet, wait for another {} seconds!".format(
                                     timeout), CLI.COLOR_INFO)
                             start = int(time.time())
                             already_retried = False
