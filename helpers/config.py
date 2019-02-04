@@ -722,9 +722,6 @@ class Config:
             CLI.colored_print("PostgreSQL?", CLI.COLOR_SUCCESS)
             self.__config["postgresql_port"] = CLI.get_response("~^\d+$", self.__config.get("postgresql_port", "5432"))
 
-            CLI.colored_print("RabbitMQ?", CLI.COLOR_SUCCESS)
-            self.__config["rabbit_mq_port"] = CLI.get_response("~^\d+$", self.__config.get("rabbit_mq_port", "5672"))
-
             CLI.colored_print("MongoDB?", CLI.COLOR_SUCCESS)
             self.__config["mongo_port"] = CLI.get_response("~^\d+$", self.__config.get("mongo_port", "27017"))
 
@@ -736,7 +733,6 @@ class Config:
                                                                  self.__config.get("redis_cache_port", "6380"))
         else:
             self.__config["postgresql_port"] = "5432"
-            self.__config["rabbit_mq_port"] = "5672"
             self.__config["mongo_port"] = "27017"
             self.__config["redis_main_port"] = "6379"
             self.__config["redis_cache_port"] = "6380"
