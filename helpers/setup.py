@@ -7,7 +7,7 @@ from helpers.config import Config
 
 
 class Setup:
-    KOBO_DOCKER_BRANCH = "kobo-install"
+    KOBO_DOCKER_BRANCH = "kobo-install-wo-rabbit"
 
     @classmethod
     def run(cls, config):
