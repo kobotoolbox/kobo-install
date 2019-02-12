@@ -8,8 +8,8 @@
         "note", "select-desktop", "select-mobile", "autocomplete", "geo", "textarea",
         "table", "radio", "date", "time", "datetime", "compact", "file", "draw",
         "likert", "distress", "horizontal", "image-view", "comment", "image-map", "date-mobile",
-        "../../node_modules/enketo-image-customization-widget/image-customization",
-        "../../node_modules/enketo-literacy-test-widget/literacywidget"
+        "../../../node_modules/enketo-image-customization-widget/image-customization",
+        "../../../node_modules/enketo-literacy-test-widget/literacywidget"
     ],
     "redis": {
         "cache": {
