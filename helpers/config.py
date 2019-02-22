@@ -297,8 +297,8 @@ class Config:
         try:
             base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
             config_file = "{}/{}".format(base_dir, Config.CONFIG_FILE)
-            #with open(config_file, "w") as f:
-            #    f.write(json.dumps(self.__config))
+            with open(config_file, "w") as f:
+                f.write(json.dumps(self.__config))
 
             os.chmod(config_file, stat.S_IWRITE | stat.S_IREAD)
 
