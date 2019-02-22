@@ -5,7 +5,7 @@ ${USE_X_FORWARDED_HOST}USE_X_FORWARDED_HOST=True
 DJANGO_SETTINGS_MODULE=onadata.settings.kc_environ
 ENKETO_VERSION=Express
 
-KOBOCAT_BROKER_URL=redis://redis-main.${PRIVATE_DOMAIN_NAME}:${REDIS_MAIN_PORT}/2
+KOBOCAT_BROKER_URL=redis://redis-cache.${PRIVATE_DOMAIN_NAME}:${REDIS_MAIN_PORT}/2
 KOBOCAT_CELERY_LOG_FILE=/srv/logs/celery.log
 
 # Default KoBoCAT media backup schedule is weekly at 12:00 AM UTC on Sunday.
