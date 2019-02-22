@@ -274,7 +274,9 @@ class Config:
         """
         config = {}
         try:
-            with open(Config.CONFIG_FILE, "r") as f:
+            base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+            config_file = "{}/{}".format(base_dir, Config.CONFIG_FILE)
+            with open(config_file, "r") as f:
                 config = json.loads(f.read())
         except Exception as e:
             pass
@@ -293,10 +295,12 @@ class Config:
         self.__config["date_modified"] = int(time.time())
 
         try:
-            with open(Config.CONFIG_FILE, "w") as f:
-                f.write(json.dumps(self.__config))
+            base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+            config_file = "{}/{}".format(base_dir, Config.CONFIG_FILE)
+            #with open(config_file, "w") as f:
+            #    f.write(json.dumps(self.__config))
 
-            os.chmod(Config.CONFIG_FILE, stat.S_IWRITE | stat.S_IREAD)
+            os.chmod(config_file, stat.S_IWRITE | stat.S_IREAD)
 
         except Exception as e:
             CLI.colored_print("Could not write configuration file", CLI.COLOR_ERROR)

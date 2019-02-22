@@ -109,8 +109,10 @@ class Template:
                 "aws_backup_bucket_deletion_rule_enabled") == Config.FALSE else "True",
         }
 
-        for root, dirnames, filenames in os.walk("./templates"):
-            destination_directory = cls.__create_directory(root, config)
+        base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+        templates_path = "{}/templates".format(base_dir)
+        for root, dirnames, filenames in os.walk(templates_path):
+            destination_directory = cls.__create_directory(root, config, base_dir)
             for filename in fnmatch.filter(filenames, '*.tpl'):
                 with open(os.path.join(root, filename), "r") as template:
                     t = PyTemplate(template.read())
@@ -118,12 +120,15 @@ class Template:
                         f.write(t.substitute(template_variables))
 
     @staticmethod
-    def __create_directory(path, config):
+    def __create_directory(path, config, base_dir):
         environment_directory = os.path.realpath("{}/../kobo-deployments".format(config["kobodocker_path"]))
         if "docker-compose" in path:
             destination_directory = config["kobodocker_path"]
         else:
-            destination_directory = path.replace("./templates", environment_directory)
+            destination_directory = "{base_destination_directory}{sub_directory}".format(
+                base_destination_directory=environment_directory,
+                sub_directory=path.replace("{}/templates".format(base_dir), "")
+            )
             if not os.path.isdir(destination_directory):
                 try:
                     os.makedirs(destination_directory)
