@@ -221,7 +221,6 @@ class Command:
 
         if not frontend_only or config_object.master_backend or config_object.slave_backend:
             ports.append(config.get("postgresql_port", 5432))
-            ports.append(config.get("rabbit_mq_port", 5672))
             ports.append(config.get("mongo_port", 27017))
             ports.append(config.get("redis_main_port", 6379))
             ports.append(config.get("redis_cache_port", 6380))
