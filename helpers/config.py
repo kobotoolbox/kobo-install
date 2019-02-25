@@ -619,7 +619,7 @@ class Config:
             if self.dev_mode or self.staging_mode:
                 CLI.colored_print("╔═══════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
                 CLI.colored_print("║ Where are the files located locally? It can be absolute   ║", CLI.COLOR_WARNING)
-                CLI.colored_print("║ or relative to the directory of the `kobo-docker`.        ║", CLI.COLOR_WARNING)
+                CLI.colored_print("║ or relative to the directory of `kobo-docker`.            ║", CLI.COLOR_WARNING)
                 CLI.colored_print("║ Leave empty if you don't need to overload the repository. ║", CLI.COLOR_WARNING)
                 CLI.colored_print("╚═══════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
                 self.__config["kc_path"] = CLI.colored_input("KoBoCat files location", CLI.COLOR_SUCCESS,
