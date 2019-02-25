@@ -17,12 +17,26 @@ class Setup:
         """
 
         if not os.path.isdir("{}/.git".format(config["kobodocker_path"])):
+            # Move unique id file to /tmp in order to clone without errors
+            # (e.g. not empty directory)
+            uniqid_mv_command = [
+                "mv", Config.UNIQUE_ID_FILE,
+                "/tmp"
+            ]
+            CLI.run_command(uniqid_mv_command, cwd=config["kobodocker_path"])
+
             # clone project
             git_command = [
                 "git", "clone", "https://github.com/kobotoolbox/kobo-docker",
                 config["kobodocker_path"]
             ]
             CLI.run_command(git_command, cwd=os.path.dirname(config["kobodocker_path"]))
+
+            uniqid_restore_command = [
+                "mv", "/tmp/{}".format(Config.UNIQUE_ID_FILE),
+                "."
+            ]
+            CLI.run_command(uniqid_restore_command, cwd=config["kobodocker_path"])
 
         if os.path.isdir("{}/.git".format(config["kobodocker_path"])):
             # checkout branch

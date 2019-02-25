@@ -18,6 +18,7 @@ from helpers.singleton import Singleton
 
 class Config:
     CONFIG_FILE = ".run.conf"
+    UNIQUE_ID_FILE = ".uniqid"
     TRUE = "1"
     FALSE = "2"
 
@@ -282,7 +283,27 @@ class Config:
             pass
 
         self.__config = config
+        unique_id = self.read_unique_id()
+        if not unique_id:
+            self.__config["unique_id"] = int(time.time())
+
         return config
+
+    def read_unique_id(self):
+        """
+        Reads unique id from file `Config.UNIQUE_ID_FILE`
+        :return: str
+        """
+        unique_id = None
+
+        try:
+            unique_id_file = "{}/{}".format(self.__config.get("kobodocker_path"), Config.UNIQUE_ID_FILE)
+            with open(unique_id_file, "r") as f:
+                unique_id = f.read().strip()
+        except Exception as e:
+            pass
+
+        return unique_id
 
     def write_config(self):
         """
@@ -308,6 +329,19 @@ class Config:
 
         return True
 
+    def write_unique_id(self):
+        try:
+            unique_id_file = "{}/{}".format(self.__config.get("kobodocker_path"), Config.UNIQUE_ID_FILE)
+            with open(unique_id_file, "w") as f:
+                f.write(str(self.__config.get("unique_id")))
+
+            os.chmod(unique_id_file, stat.S_IWRITE | stat.S_IREAD)
+        except Exception as e:
+            CLI.colored_print("Could not write unique_id file", CLI.COLOR_ERROR)
+            return False
+
+        return True
+
     def __create_directory(self):
         """
         Create repository directory if it doesn't exist.
@@ -316,16 +350,29 @@ class Config:
         while True:
             kobodocker_path = CLI.colored_input("", CLI.COLOR_SUCCESS,
                                                 self.__config.get("kobodocker_path"))
-            if os.path.isdir(kobodocker_path):
-                break
-            else:
-                try:
-                    os.makedirs(kobodocker_path)
-                    break
-                except Exception as e:
-                    CLI.colored_print("Could not create directory {}!".format(kobodocker_path), CLI.COLOR_ERROR)
-                    CLI.colored_print("Please make sure you have permissions and path is correct", CLI.COLOR_ERROR)
 
+            if kobodocker_path.startswith("."):
+                base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+                kobodocker_path = "{}/{}".format(base_dir, kobodocker_path)
+
+            CLI.colored_print("Please confirm path [{}]".format(kobodocker_path),
+                              CLI.COLOR_SUCCESS)
+            CLI.colored_print("\t1) Yes")
+            CLI.colored_print("\t2) No")
+
+            if CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE) == Config.TRUE:
+
+                if os.path.isdir(kobodocker_path):
+                    break
+                else:
+                    try:
+                        os.makedirs(kobodocker_path)
+                        break
+                    except Exception as e:
+                        CLI.colored_print("Could not create directory {}!".format(kobodocker_path), CLI.COLOR_ERROR)
+                        CLI.colored_print("Please make sure you have permissions and path is correct", CLI.COLOR_ERROR)
+
+        self.write_unique_id()
         self.__config["kobodocker_path"] = kobodocker_path
         self.__validate_installation()
 
@@ -572,7 +619,7 @@ class Config:
             if self.dev_mode or self.staging_mode:
                 CLI.colored_print("╔═══════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
                 CLI.colored_print("║ Where are the files located locally? It can be absolute   ║", CLI.COLOR_WARNING)
-                CLI.colored_print("║ or relative to the directory of the installation.         ║", CLI.COLOR_WARNING)
+                CLI.colored_print("║ or relative to the directory of the `kobo-docker`.        ║", CLI.COLOR_WARNING)
                 CLI.colored_print("║ Leave empty if you don't need to overload the repository. ║", CLI.COLOR_WARNING)
                 CLI.colored_print("╚═══════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
                 self.__config["kc_path"] = CLI.colored_input("KoBoCat files location", CLI.COLOR_SUCCESS,

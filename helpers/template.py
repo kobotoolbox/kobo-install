@@ -5,6 +5,7 @@ import binascii
 import fnmatch
 import os
 from string import Template as PyTemplate
+import stat
 import sys
 
 from helpers.cli import CLI
@@ -12,6 +13,8 @@ from helpers.config import Config
 
 
 class Template:
+
+    UNIQUE_ID_FILE = ".uniqid"
 
     @classmethod
     def render(cls, config_object):
@@ -109,19 +112,40 @@ class Template:
                 "aws_backup_bucket_deletion_rule_enabled") == Config.FALSE else "True",
         }
 
+        environment_directory = os.path.realpath("{}/../kobo-deployments".format(config["kobodocker_path"]))
+
+        if str(config.get("unique_id", "")) != str(cls.__read_unique_id(environment_directory)):
+            CLI.colored_print("╔═════════════════════════════════════════════════════════════════════╗",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ WARNING!                                                            ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ Existing environment files are detected. Files will be overwritten. ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("╚═════════════════════════════════════════════════════════════════════╝",
+                              CLI.COLOR_WARNING)
+
+            CLI.colored_print("Do you want to continue?", CLI.COLOR_SUCCESS)
+            CLI.colored_print("\t1) Yes")
+            CLI.colored_print("\t2) No")
+
+            if CLI.get_response([Config.TRUE, Config.FALSE], Config.FALSE) == Config.FALSE:
+                sys.exit()
+
+        cls.__write_unique_id(environment_directory, config.get("unique_id"))
+
         base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
         templates_path = "{}/templates".format(base_dir)
         for root, dirnames, filenames in os.walk(templates_path):
-            destination_directory = cls.__create_directory(root, config, base_dir)
+            destination_directory = cls.__create_directory(environment_directory, root, config, base_dir)
             for filename in fnmatch.filter(filenames, '*.tpl'):
                 with open(os.path.join(root, filename), "r") as template:
                     t = PyTemplate(template.read())
                     with open(os.path.join(destination_directory, filename[:-4]), "w") as f:
                         f.write(t.substitute(template_variables))
 
-    @staticmethod
-    def __create_directory(path, config, base_dir):
-        environment_directory = os.path.realpath("{}/../kobo-deployments".format(config["kobodocker_path"]))
+    @classmethod
+    def __create_directory(cls, environment_directory, path, config, base_dir):
+
         if "docker-compose" in path:
             destination_directory = config["kobodocker_path"]
         else:
@@ -137,3 +161,34 @@ class Template:
                     sys.exit()
 
         return destination_directory
+
+    @staticmethod
+    def __read_unique_id(destination_directory):
+        """
+        Reads unique id from file `Template.UNIQUE_ID_FILE`
+        :return: str
+        """
+        unique_id = None
+        try:
+            unique_id_file = "{}/{}".format(destination_directory, Template.UNIQUE_ID_FILE)
+            with open(unique_id_file, "r") as f:
+                unique_id = f.read().strip()
+        except Exception as e:
+            pass
+
+        return unique_id
+
+    @staticmethod
+    def __write_unique_id(destination_directory, unique_id):
+        try:
+            unique_id_file = "{}/{}".format(destination_directory, Template.UNIQUE_ID_FILE)
+            with open(unique_id_file, "w") as f:
+                f.write(str(unique_id))
+
+            os.chmod(unique_id_file, stat.S_IWRITE | stat.S_IREAD)
+
+        except Exception as e:
+            CLI.colored_print("Could not write unique_id file", CLI.COLOR_ERROR)
+            return False
+
+        return True
