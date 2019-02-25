@@ -577,12 +577,16 @@ class Config:
                 CLI.colored_print("╚═══════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
                 self.__config["kc_path"] = CLI.colored_input("KoBoCat files location", CLI.COLOR_SUCCESS,
                                                              self.__config.get("kc_path"))
+
+                self.__clone_repo(self.__config["kc_path"], "kobocat")
                 self.__config["kpi_path"] = CLI.colored_input("KPI files location", CLI.COLOR_SUCCESS,
                                                               self.__config.get("kpi_path"))
+                self.__clone_repo(self.__config["kpi_path"], "kpi")
 
                 # Create an unique id to build fresh image when starting containers
                 if (self.__config.get("kc_dev_build_id", "") == "" or
                         self.__config.get("kc_path") != self.__config.get("kc_path")):
+
                     self.__config["kc_dev_build_id"] = "{prefix}{timestamp}".format(
                         prefix="{}.".format(self.__config.get("docker_prefix")) if self.__config.get("docker_prefix") else "",
                         timestamp=str(int(time.time()))
@@ -999,3 +1003,31 @@ class Config:
         CLI.colored_print("║ to remove previously entered value.                           ║", CLI.COLOR_WARNING)
         CLI.colored_print("║ Otherwise choose between choices or type your answer.         ║", CLI.COLOR_WARNING)
         CLI.colored_print("╚═══════════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
+
+    def __clone_repo(self, repo_path, repo_name):
+        if repo_path:
+            if repo_path.startswith("."):
+                full_repo_path = "{}/{}".format(
+                    self.__config["kobodocker_path"],
+                    repo_path
+                )
+            else:
+                full_repo_path = repo_path
+
+            if repo_path and not os.path.isdir("{}/.git".format(full_repo_path)):
+                # clone repo
+                try:
+                    os.makedirs(full_repo_path)
+                except Exception as e:
+                    CLI.colored_print("Please verify permissions.", CLI.COLOR_ERROR)
+                    sys.exit()
+
+                git_command = [
+                    "git", "clone", "https://github.com/kobotoolbox/{}".format(repo_name),
+                    full_repo_path
+                ]
+
+                CLI.colored_print("Cloning `{}` repository to `{}` ".format(
+                    repo_name,
+                    full_repo_path), CLI.COLOR_INFO)
+                CLI.run_command(git_command, cwd=os.path.dirname(full_repo_path))
