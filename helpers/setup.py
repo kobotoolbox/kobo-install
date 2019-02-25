@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, unicode_literals
 import os
+import sys
 
 from helpers.cli import CLI
 from helpers.config import Config
@@ -109,4 +110,6 @@ class Setup:
                 config_ = Config()
                 config_.write_config()
 
-            os.system("sudo mv /etc/hosts /etc/hosts.old && sudo mv /tmp/etchosts /etc/hosts")
+            return_value = os.system("sudo mv /etc/hosts /etc/hosts.old && sudo mv /tmp/etchosts /etc/hosts")
+            if return_value != 0:
+                sys.exit()
