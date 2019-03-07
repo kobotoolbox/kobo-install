@@ -112,9 +112,11 @@ class Template:
                 "aws_backup_bucket_deletion_rule_enabled") == Config.FALSE else "True",
         }
 
-        environment_directory = os.path.realpath("{}/../kobo-deployments".format(config["kobodocker_path"]))
-
-        if str(config.get("unique_id", "")) != str(cls.__read_unique_id(environment_directory)):
+        environment_directory = os.path.realpath(os.path.normpath(os.path.join(config["kobodocker_path"],
+                                                                               "..",
+                                                                               "kobo-deployments")))
+        unique_id = cls.__read_unique_id(environment_directory)
+        if unique_id is not None and str(config.get("unique_id", "")) != str(unique_id):
             CLI.colored_print("╔═════════════════════════════════════════════════════════════════════╗",
                               CLI.COLOR_WARNING)
             CLI.colored_print("║ WARNING!                                                            ║",
@@ -134,7 +136,7 @@ class Template:
         cls.__write_unique_id(environment_directory, config.get("unique_id"))
 
         base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-        templates_path = "{}/templates".format(base_dir)
+        templates_path = os.path.join(base_dir, "templates")
         for root, dirnames, filenames in os.walk(templates_path):
             destination_directory = cls.__create_directory(environment_directory, root, config, base_dir)
             for filename in fnmatch.filter(filenames, '*.tpl'):
@@ -144,20 +146,20 @@ class Template:
                         f.write(t.substitute(template_variables))
 
     @classmethod
-    def __create_directory(cls, environment_directory, path, config, base_dir):
+    def __create_directory(cls, environment_directory, path="", config={}, base_dir=""):
 
         if "docker-compose" in path:
-            destination_directory = config["kobodocker_path"]
+            destination_directory = config.get("kobodocker_path")
         else:
-            destination_directory = "{base_destination_directory}{sub_directory}".format(
-                base_destination_directory=environment_directory,
-                sub_directory=path.replace("{}/templates".format(base_dir), "")
-            )
+            destination_directory = os.path.join(environment_directory,
+                                                 path.replace(os.path.join(
+                                                     base_dir, "templates", ""), ""))
             if not os.path.isdir(destination_directory):
                 try:
                     os.makedirs(destination_directory)
                 except Exception as e:
-                    CLI.colored_print("Please verify permissions.", CLI.COLOR_ERROR)
+                    CLI.colored_print("Can not create {}. Please verify permissions!".format(destination_directory),
+                                      CLI.COLOR_ERROR)
                     sys.exit()
 
         return destination_directory
@@ -168,20 +170,27 @@ class Template:
         Reads unique id from file `Template.UNIQUE_ID_FILE`
         :return: str
         """
-        unique_id = None
-        try:
-            unique_id_file = "{}/{}".format(destination_directory, Template.UNIQUE_ID_FILE)
-            with open(unique_id_file, "r") as f:
-                unique_id = f.read().strip()
-        except Exception as e:
-            pass
+        unique_id = ""
+
+        if os.path.isdir(destination_directory):
+            try:
+                unique_id_file = os.path.join(destination_directory, Template.UNIQUE_ID_FILE)
+                with open(unique_id_file, "r") as f:
+                    unique_id = f.read().strip()
+            except Exception as e:
+                pass
+        else:
+            unique_id = None
 
         return unique_id
 
-    @staticmethod
-    def __write_unique_id(destination_directory, unique_id):
+    @classmethod
+    def __write_unique_id(cls, destination_directory, unique_id):
         try:
-            unique_id_file = "{}/{}".format(destination_directory, Template.UNIQUE_ID_FILE)
+            unique_id_file = os.path.join(destination_directory, Template.UNIQUE_ID_FILE)
+            # Ensure kobo-deployment is created.
+            cls.__create_directory(destination_directory)
+
             with open(unique_id_file, "w") as f:
                 f.write(str(unique_id))
 

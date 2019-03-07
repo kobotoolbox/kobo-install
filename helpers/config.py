@@ -162,8 +162,11 @@ class Config:
                 "workers_max": "2",
                 "workers_start": "1",
                 "debug": Config.FALSE,
-                "kobodocker_path": os.path.realpath("{}/../../kobo-docker".format(
-                    os.path.dirname(os.path.realpath(__file__)))
+                "kobodocker_path": os.path.realpath(os.path.normpath(os.path.join(
+                    os.path.dirname(os.path.realpath(__file__)),
+                    "..",
+                    "..",
+                    "kobo-docker"))
                 ),
                 "internal_domain_name": "docker.internal",
                 "private_domain_name": "kobo.private",
@@ -276,7 +279,7 @@ class Config:
         config = {}
         try:
             base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-            config_file = "{}/{}".format(base_dir, Config.CONFIG_FILE)
+            config_file = os.path.join(base_dir, Config.CONFIG_FILE)
             with open(config_file, "r") as f:
                 config = json.loads(f.read())
         except Exception as e:
@@ -297,7 +300,8 @@ class Config:
         unique_id = None
 
         try:
-            unique_id_file = "{}/{}".format(self.__config.get("kobodocker_path"), Config.UNIQUE_ID_FILE)
+            unique_id_file = os.path.join(self.__config.get("kobodocker_path"),
+                                          Config.UNIQUE_ID_FILE)
             with open(unique_id_file, "r") as f:
                 unique_id = f.read().strip()
         except Exception as e:
@@ -317,7 +321,7 @@ class Config:
 
         try:
             base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-            config_file = "{}/{}".format(base_dir, Config.CONFIG_FILE)
+            config_file = os.path.join(base_dir, Config.CONFIG_FILE)
             with open(config_file, "w") as f:
                 f.write(json.dumps(self.__config))
 
@@ -331,7 +335,7 @@ class Config:
 
     def write_unique_id(self):
         try:
-            unique_id_file = "{}/{}".format(self.__config.get("kobodocker_path"), Config.UNIQUE_ID_FILE)
+            unique_id_file = os.path.join(self.__config.get("kobodocker_path"), Config.UNIQUE_ID_FILE)
             with open(unique_id_file, "w") as f:
                 f.write(str(self.__config.get("unique_id")))
 
@@ -353,7 +357,7 @@ class Config:
 
             if kobodocker_path.startswith("."):
                 base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-                kobodocker_path = "{}/{}".format(base_dir, kobodocker_path)
+                kobodocker_path = os.path.normpath(os.path.join(base_dir, kobodocker_path))
 
             CLI.colored_print("Please confirm path [{}]".format(kobodocker_path),
                               CLI.COLOR_SUCCESS)
@@ -997,8 +1001,8 @@ class Config:
         :return: bool
         """
         if self.first_time:
-            mongo_dir_path = "{}/.vols/mongo".format(self.__config["kobodocker_path"])
-            postgres_dir_path = "{}/.vols/db".format(self.__config["kobodocker_path"])
+            mongo_dir_path = os.path.join(self.__config["kobodocker_path"], ".vols", "mongo")
+            postgres_dir_path = os.path.join(self.__config["kobodocker_path"], ".vols", "db")
             mongo_data_exists = (os.path.exists(mongo_dir_path) and os.path.isdir(mongo_dir_path) and
                                  os.listdir(mongo_dir_path))
             postgres_data_exists = os.path.exists(postgres_dir_path) and os.path.isdir(postgres_dir_path)
@@ -1008,8 +1012,8 @@ class Config:
                 # We assume that if `docker-compose.backend.template.yml` is there,
                 # Docker images are the good ones.
                 # TODO Find a better way
-                docker_composer_file_path = "{}/docker-compose.backend.template.yml".format(
-                    self.__config["kobodocker_path"])
+                docker_composer_file_path = os.path.join(self.__config["kobodocker_path"],
+                                                         "docker-compose.backend.template.yml")
                 if not os.path.exists(docker_composer_file_path):
                     CLI.colored_print("╔════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
                     CLI.colored_print("║ WARNING !!!                                        ║", CLI.COLOR_WARNING)
@@ -1034,8 +1038,8 @@ class Config:
                         sys.exit()
                     else:
                         # Write kobo_first_run file to run postgres container's entrypoint flawlessly.
-                        os.system("echo $(data) | sudo tee -a {} > /dev/null".format(
-                            "{}/.vols/db/kobo_first_run".format(self.__config["kobodocker_path"])
+                        os.system("echo $(date) | sudo tee -a {} > /dev/null".format(
+                            os.path.join(self.__config["kobodocker_path"], ".vols", "db", "kobo_first_run")
                         ))
 
     def __welcome(self):
@@ -1054,14 +1058,14 @@ class Config:
     def __clone_repo(self, repo_path, repo_name):
         if repo_path:
             if repo_path.startswith("."):
-                full_repo_path = "{}/{}".format(
+                full_repo_path = os.path.normpath(os.path.join(
                     self.__config["kobodocker_path"],
                     repo_path
-                )
+                ))
             else:
                 full_repo_path = repo_path
 
-            if repo_path and not os.path.isdir("{}/.git".format(full_repo_path)):
+            if repo_path and not os.path.isdir(os.path.join(full_repo_path, ".git")):
                 # clone repo
                 try:
                     os.makedirs(full_repo_path)

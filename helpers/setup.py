@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, unicode_literals
 import os
+import shutil
 import sys
+import tempfile
 
 from helpers.cli import CLI
 from helpers.config import Config
 
 
 class Setup:
+
     KOBO_DOCKER_BRANCH = "kobo-install"
 
     @classmethod
@@ -17,14 +20,12 @@ class Setup:
         :param config: dict
         """
 
-        if not os.path.isdir("{}/.git".format(config["kobodocker_path"])):
+        if not os.path.isdir(os.path.join(config["kobodocker_path"], ".git")):
             # Move unique id file to /tmp in order to clone without errors
             # (e.g. not empty directory)
-            uniqid_mv_command = [
-                "mv", Config.UNIQUE_ID_FILE,
-                "/tmp"
-            ]
-            CLI.run_command(uniqid_mv_command, cwd=config["kobodocker_path"])
+            tmp_dirpath = tempfile.mkdtemp()
+            os.rename(os.path.join(config["kobodocker_path"], Config.UNIQUE_ID_FILE),
+                      os.path.join(tmp_dirpath, Config.UNIQUE_ID_FILE))
 
             # clone project
             git_command = [
@@ -33,13 +34,11 @@ class Setup:
             ]
             CLI.run_command(git_command, cwd=os.path.dirname(config["kobodocker_path"]))
 
-            uniqid_restore_command = [
-                "mv", "/tmp/{}".format(Config.UNIQUE_ID_FILE),
-                "."
-            ]
-            CLI.run_command(uniqid_restore_command, cwd=config["kobodocker_path"])
+            os.rename(os.path.join(tmp_dirpath, Config.UNIQUE_ID_FILE),
+                      os.path.join(config["kobodocker_path"], Config.UNIQUE_ID_FILE))
+            shutil.rmtree(tmp_dirpath)
 
-        if os.path.isdir("{}/.git".format(config["kobodocker_path"])):
+        if os.path.isdir(os.path.join(config["kobodocker_path"], ".git")):
             # checkout branch
             git_command = ["git", "checkout", "--force", Setup.KOBO_DOCKER_BRANCH]
             CLI.run_command(git_command, cwd=config["kobodocker_path"])
