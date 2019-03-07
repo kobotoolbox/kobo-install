@@ -1065,7 +1065,7 @@ class Config:
             else:
                 full_repo_path = repo_path
 
-            if repo_path and not os.path.isdir(os.path.join(full_repo_path, ".git")):
+            if not os.path.isdir(full_repo_path):
                 # clone repo
                 try:
                     os.makedirs(full_repo_path)
@@ -1073,6 +1073,8 @@ class Config:
                     CLI.colored_print("Please verify permissions.", CLI.COLOR_ERROR)
                     sys.exit()
 
+            # Only clone if folder is empty
+            if not os.path.isdir(os.path.join(full_repo_path, ".git")):
                 git_command = [
                     "git", "clone", "https://github.com/kobotoolbox/{}".format(repo_name),
                     full_repo_path
