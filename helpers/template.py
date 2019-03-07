@@ -86,7 +86,6 @@ class Template:
             "POSTGRES_SETTINGS": config.get("postgres_settings_content", ""),
             "POSTGRES_BACKUP_FROM_SLAVE": "" if config.get("backup_from_master") == Config.FALSE else "#",
             "POSTGRES_PORT": config.get("postgresql_port", "5432"),
-            "RABBIT_MQ_PORT": config.get("rabbit_mq_port", "5672"),
             "MONGO_PORT": config.get("mongo_port", "27017"),
             "REDIS_MAIN_PORT": config.get("redis_main_port", "6739"),
             "REDIS_CACHE_PORT": config.get("redis_cache_port", "6380"),

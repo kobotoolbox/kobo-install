@@ -3,10 +3,6 @@ version: '2.1'
 
 services:
 
-  rabbit:
-    ports:
-      - ${RABBIT_MQ_PORT}:5672
-
   postgres:
     ${OVERRIDE_POSTGRES_SETTINGS}volumes:
     ${OVERRIDE_POSTGRES_SETTINGS}  - ../kobo-deployments/postgres/master/postgres.conf:/kobo-docker-scripts/master/postgres.conf

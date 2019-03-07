@@ -36,13 +36,6 @@ KOBO_POSTGRES_REPLICATION_PASSWORD=${POSTGRES_REPLICATION_PASSWORD}
 ${USE_BACKUP}POSTGRES_BACKUP_SCHEDULE=${POSTGRES_BACKUP_SCHEDULE}
 
 #--------------------------------------------------------------------------------
-# RABBIT
-#--------------------------------------------------------------------------------
-
-KOBO_RABBIT_PORT=${RABBIT_MQ_PORT}
-KOBO_RABBIT_HOST=rabbit.${PRIVATE_DOMAIN_NAME}
-
-#--------------------------------------------------------------------------------
 # REDIS
 #--------------------------------------------------------------------------------
 
