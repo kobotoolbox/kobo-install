@@ -282,7 +282,7 @@ class Config:
             config_file = os.path.join(base_dir, Config.CONFIG_FILE)
             with open(config_file, "r") as f:
                 config = json.loads(f.read())
-        except Exception as e:
+        except IOError:
             pass
 
         self.__config = config
@@ -312,7 +312,6 @@ class Config:
     def write_config(self):
         """
         Writes config to file `Config.CONFIG_FILE`.
-        :return: bool
         """
         # Adds `date_created`. This field will be use to determine first usage of the setup option.
         if self.__config.get("date_created") is None:
@@ -327,11 +326,9 @@ class Config:
 
             os.chmod(config_file, stat.S_IWRITE | stat.S_IREAD)
 
-        except Exception as e:
+        except IOError:
             CLI.colored_print("Could not write configuration file", CLI.COLOR_ERROR)
-            return False
-
-        return True
+            sys.exit()
 
     def write_unique_id(self):
         try:
@@ -340,7 +337,7 @@ class Config:
                 f.write(str(self.__config.get("unique_id")))
 
             os.chmod(unique_id_file, stat.S_IWRITE | stat.S_IREAD)
-        except Exception as e:
+        except (IOError, OSError):
             CLI.colored_print("Could not write unique_id file", CLI.COLOR_ERROR)
             return False
 
@@ -372,7 +369,7 @@ class Config:
                     try:
                         os.makedirs(kobodocker_path)
                         break
-                    except Exception as e:
+                    except OSError:
                         CLI.colored_print("Could not create directory {}!".format(kobodocker_path), CLI.COLOR_ERROR)
                         CLI.colored_print("Please make sure you have permissions and path is correct", CLI.COLOR_ERROR)
 
@@ -1065,7 +1062,7 @@ class Config:
                 # clone repo
                 try:
                     os.makedirs(full_repo_path)
-                except Exception as e:
+                except OSError:
                     CLI.colored_print("Please verify permissions.", CLI.COLOR_ERROR)
                     sys.exit()
 

@@ -157,7 +157,7 @@ class Template:
             if not os.path.isdir(destination_directory):
                 try:
                     os.makedirs(destination_directory)
-                except Exception as e:
+                except OSError:
                     CLI.colored_print("Can not create {}. Please verify permissions!".format(destination_directory),
                                       CLI.COLOR_ERROR)
                     sys.exit()
@@ -177,7 +177,7 @@ class Template:
                 unique_id_file = os.path.join(destination_directory, Template.UNIQUE_ID_FILE)
                 with open(unique_id_file, "r") as f:
                     unique_id = f.read().strip()
-            except Exception as e:
+            except IOError:
                 pass
         else:
             unique_id = None
@@ -196,7 +196,7 @@ class Template:
 
             os.chmod(unique_id_file, stat.S_IWRITE | stat.S_IREAD)
 
-        except Exception as e:
+        except (IOError, OSError):
             CLI.colored_print("Could not write unique_id file", CLI.COLOR_ERROR)
             return False
 
