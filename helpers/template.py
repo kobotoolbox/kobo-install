@@ -150,9 +150,10 @@ class Template:
         if "docker-compose" in path:
             destination_directory = config.get("kobodocker_path")
         else:
-            destination_directory = os.path.join(environment_directory,
+            path = os.path.join(path, "")  # Handle case when path is root and equals "".
+            destination_directory = os.path.realpath(os.path.join(environment_directory,
                                                  path.replace(os.path.join(
-                                                     base_dir, "templates", ""), ""))
+                                                     base_dir, "templates", ""), "")))
             if not os.path.isdir(destination_directory):
                 try:
                     os.makedirs(destination_directory)
