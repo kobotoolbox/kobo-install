@@ -19,7 +19,7 @@ def run(force_setup=False):
     else:
         config = Config()
         current_config = config.get_config()
-        if not current_config:
+        if config.first_time:
             force_setup = True
 
         if force_setup:

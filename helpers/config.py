@@ -18,6 +18,7 @@ from helpers.singleton import Singleton
 
 class Config:
     CONFIG_FILE = ".run.conf"
+    UNIQUE_ID_FILE = ".uniqid"
     TRUE = "1"
     FALSE = "2"
 
@@ -161,8 +162,11 @@ class Config:
                 "workers_max": "2",
                 "workers_start": "1",
                 "debug": Config.FALSE,
-                "kobodocker_path": os.path.realpath("{}/../../kobo-docker".format(
-                    os.path.dirname(os.path.realpath(__file__)))
+                "kobodocker_path": os.path.realpath(os.path.normpath(os.path.join(
+                    os.path.dirname(os.path.realpath(__file__)),
+                    "..",
+                    "..",
+                    "kobo-docker"))
                 ),
                 "internal_domain_name": "docker.internal",
                 "private_domain_name": "kobo.private",
@@ -274,18 +278,40 @@ class Config:
         """
         config = {}
         try:
-            with open(Config.CONFIG_FILE, "r") as f:
+            base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+            config_file = os.path.join(base_dir, Config.CONFIG_FILE)
+            with open(config_file, "r") as f:
                 config = json.loads(f.read())
-        except Exception as e:
+        except IOError:
             pass
 
         self.__config = config
+        unique_id = self.read_unique_id()
+        if not unique_id:
+            self.__config["unique_id"] = int(time.time())
+
         return config
+
+    def read_unique_id(self):
+        """
+        Reads unique id from file `Config.UNIQUE_ID_FILE`
+        :return: str
+        """
+        unique_id = None
+
+        try:
+            unique_id_file = os.path.join(self.__config.get("kobodocker_path"),
+                                          Config.UNIQUE_ID_FILE)
+            with open(unique_id_file, "r") as f:
+                unique_id = f.read().strip()
+        except Exception as e:
+            pass
+
+        return unique_id
 
     def write_config(self):
         """
         Writes config to file `Config.CONFIG_FILE`.
-        :return: bool
         """
         # Adds `date_created`. This field will be use to determine first usage of the setup option.
         if self.__config.get("date_created") is None:
@@ -293,13 +319,26 @@ class Config:
         self.__config["date_modified"] = int(time.time())
 
         try:
-            with open(Config.CONFIG_FILE, "w") as f:
+            base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+            config_file = os.path.join(base_dir, Config.CONFIG_FILE)
+            with open(config_file, "w") as f:
                 f.write(json.dumps(self.__config))
 
-            os.chmod(Config.CONFIG_FILE, stat.S_IWRITE | stat.S_IREAD)
+            os.chmod(config_file, stat.S_IWRITE | stat.S_IREAD)
 
-        except Exception as e:
+        except IOError:
             CLI.colored_print("Could not write configuration file", CLI.COLOR_ERROR)
+            sys.exit()
+
+    def write_unique_id(self):
+        try:
+            unique_id_file = os.path.join(self.__config.get("kobodocker_path"), Config.UNIQUE_ID_FILE)
+            with open(unique_id_file, "w") as f:
+                f.write(str(self.__config.get("unique_id")))
+
+            os.chmod(unique_id_file, stat.S_IWRITE | stat.S_IREAD)
+        except (IOError, OSError):
+            CLI.colored_print("Could not write unique_id file", CLI.COLOR_ERROR)
             return False
 
         return True
@@ -312,16 +351,29 @@ class Config:
         while True:
             kobodocker_path = CLI.colored_input("", CLI.COLOR_SUCCESS,
                                                 self.__config.get("kobodocker_path"))
-            if os.path.isdir(kobodocker_path):
-                break
-            else:
-                try:
-                    os.makedirs(kobodocker_path)
-                    break
-                except Exception as e:
-                    CLI.colored_print("Could not create directory {}!".format(kobodocker_path), CLI.COLOR_ERROR)
-                    CLI.colored_print("Please make sure you have permissions and path is correct", CLI.COLOR_ERROR)
 
+            if kobodocker_path.startswith("."):
+                base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+                kobodocker_path = os.path.normpath(os.path.join(base_dir, kobodocker_path))
+
+            CLI.colored_print("Please confirm path [{}]".format(kobodocker_path),
+                              CLI.COLOR_SUCCESS)
+            CLI.colored_print("\t1) Yes")
+            CLI.colored_print("\t2) No")
+
+            if CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE) == Config.TRUE:
+
+                if os.path.isdir(kobodocker_path):
+                    break
+                else:
+                    try:
+                        os.makedirs(kobodocker_path)
+                        break
+                    except OSError:
+                        CLI.colored_print("Could not create directory {}!".format(kobodocker_path), CLI.COLOR_ERROR)
+                        CLI.colored_print("Please make sure you have permissions and path is correct", CLI.COLOR_ERROR)
+
+        self.write_unique_id()
         self.__config["kobodocker_path"] = kobodocker_path
         self.__validate_installation()
 
@@ -568,17 +620,21 @@ class Config:
             if self.dev_mode or self.staging_mode:
                 CLI.colored_print("╔═══════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
                 CLI.colored_print("║ Where are the files located locally? It can be absolute   ║", CLI.COLOR_WARNING)
-                CLI.colored_print("║ or relative to the directory of the installation.         ║", CLI.COLOR_WARNING)
+                CLI.colored_print("║ or relative to the directory of `kobo-docker`.            ║", CLI.COLOR_WARNING)
                 CLI.colored_print("║ Leave empty if you don't need to overload the repository. ║", CLI.COLOR_WARNING)
                 CLI.colored_print("╚═══════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
                 self.__config["kc_path"] = CLI.colored_input("KoBoCat files location", CLI.COLOR_SUCCESS,
                                                              self.__config.get("kc_path"))
+
+                self.__clone_repo(self.__config["kc_path"], "kobocat")
                 self.__config["kpi_path"] = CLI.colored_input("KPI files location", CLI.COLOR_SUCCESS,
                                                               self.__config.get("kpi_path"))
+                self.__clone_repo(self.__config["kpi_path"], "kpi")
 
                 # Create an unique id to build fresh image when starting containers
                 if (self.__config.get("kc_dev_build_id", "") == "" or
                         self.__config.get("kc_path") != self.__config.get("kc_path")):
+
                     self.__config["kc_dev_build_id"] = "{prefix}{timestamp}".format(
                         prefix="{}.".format(self.__config.get("docker_prefix")) if self.__config.get("docker_prefix") else "",
                         timestamp=str(int(time.time()))
@@ -938,8 +994,8 @@ class Config:
         :return: bool
         """
         if self.first_time:
-            mongo_dir_path = "{}/.vols/mongo".format(self.__config["kobodocker_path"])
-            postgres_dir_path = "{}/.vols/db".format(self.__config["kobodocker_path"])
+            mongo_dir_path = os.path.join(self.__config["kobodocker_path"], ".vols", "mongo")
+            postgres_dir_path = os.path.join(self.__config["kobodocker_path"], ".vols", "db")
             mongo_data_exists = (os.path.exists(mongo_dir_path) and os.path.isdir(mongo_dir_path) and
                                  os.listdir(mongo_dir_path))
             postgres_data_exists = os.path.exists(postgres_dir_path) and os.path.isdir(postgres_dir_path)
@@ -949,8 +1005,8 @@ class Config:
                 # We assume that if `docker-compose.backend.template.yml` is there,
                 # Docker images are the good ones.
                 # TODO Find a better way
-                docker_composer_file_path = "{}/docker-compose.backend.template.yml".format(
-                    self.__config["kobodocker_path"])
+                docker_composer_file_path = os.path.join(self.__config["kobodocker_path"],
+                                                         "docker-compose.backend.template.yml")
                 if not os.path.exists(docker_composer_file_path):
                     CLI.colored_print("╔════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
                     CLI.colored_print("║ WARNING !!!                                        ║", CLI.COLOR_WARNING)
@@ -975,8 +1031,8 @@ class Config:
                         sys.exit()
                     else:
                         # Write kobo_first_run file to run postgres container's entrypoint flawlessly.
-                        os.system("echo $(data) | sudo tee -a {} > /dev/null".format(
-                            "{}/.vols/db/kobo_first_run".format(self.__config["kobodocker_path"])
+                        os.system("echo $(date) | sudo tee -a {} > /dev/null".format(
+                            os.path.join(self.__config["kobodocker_path"], ".vols", "db", "kobo_first_run")
                         ))
 
     def __welcome(self):
@@ -991,3 +1047,33 @@ class Config:
         CLI.colored_print("║ to remove previously entered value.                           ║", CLI.COLOR_WARNING)
         CLI.colored_print("║ Otherwise choose between choices or type your answer.         ║", CLI.COLOR_WARNING)
         CLI.colored_print("╚═══════════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
+
+    def __clone_repo(self, repo_path, repo_name):
+        if repo_path:
+            if repo_path.startswith("."):
+                full_repo_path = os.path.normpath(os.path.join(
+                    self.__config["kobodocker_path"],
+                    repo_path
+                ))
+            else:
+                full_repo_path = repo_path
+
+            if not os.path.isdir(full_repo_path):
+                # clone repo
+                try:
+                    os.makedirs(full_repo_path)
+                except OSError:
+                    CLI.colored_print("Please verify permissions.", CLI.COLOR_ERROR)
+                    sys.exit()
+
+            # Only clone if folder is empty
+            if not os.path.isdir(os.path.join(full_repo_path, ".git")):
+                git_command = [
+                    "git", "clone", "https://github.com/kobotoolbox/{}".format(repo_name),
+                    full_repo_path
+                ]
+
+                CLI.colored_print("Cloning `{}` repository to `{}` ".format(
+                    repo_name,
+                    full_repo_path), CLI.COLOR_INFO)
+                CLI.run_command(git_command, cwd=os.path.dirname(full_repo_path))

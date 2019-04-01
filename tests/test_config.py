@@ -3,6 +3,9 @@ from __future__ import unicode_literals
 
 import json
 import pytest
+import shutil
+import tempfile
+
 try:
     from unittest.mock import patch, mock_open
     builtin_open = "builtins.open"
@@ -51,24 +54,37 @@ def test_installation():
 
 def test_dev_mode():
     config_object = test_read_config()
+    kc_repo_path = tempfile.mkdtemp()
+    kpi_repo_path = tempfile.mkdtemp()
+
     with patch("helpers.cli.CLI.colored_input") as mock_colored_input:
-        mock_colored_input.side_effect = iter([Config.TRUE, "kc_path", "kpi_path"])
+        mock_colored_input.side_effect = iter([Config.TRUE, kc_repo_path, kpi_repo_path])
         config_object._Config__questions_dev_mode()
         config = config_object.get_config()
         assert not config_object.dev_mode
         assert config_object.staging_mode
-        assert config.get("kpi_path") == "kpi_path" and config.get("kc_path") == "kc_path"
+        assert config.get("kpi_path") == kpi_repo_path and config.get("kc_path") == kc_repo_path
+
+    shutil.rmtree(kc_repo_path)
+    shutil.rmtree(kpi_repo_path)
 
     config_object = test_installation()
 
+    kc_repo_path = tempfile.mkdtemp()
+    kpi_repo_path = tempfile.mkdtemp()
+
     with patch("helpers.cli.CLI.colored_input") as mock_colored_input:
-        mock_colored_input.side_effect = iter(["8080", Config.TRUE, "kc_path_dev", "kpi_path_dev", Config.FALSE])
+
+        mock_colored_input.side_effect = iter(["8080", Config.TRUE, kc_repo_path, kpi_repo_path, Config.FALSE])
         config_object._Config__questions_dev_mode()
         config = config_object.get_config()
         assert config_object.dev_mode
         assert not config_object.staging_mode
         assert config_object.get_config().get("exposed_nginx_docker_port") == "8080"
-        assert config.get("kpi_path") == "kpi_path_dev" and config.get("kc_path") == "kc_path_dev"
+        assert config.get("kpi_path") == kpi_repo_path and config.get("kc_path") == kc_repo_path
+
+    shutil.rmtree(kc_repo_path)
+    shutil.rmtree(kpi_repo_path)
 
     with patch.object(CLI, "colored_input", return_value=Config.FALSE) as mock_ci:
         config_object._Config__questions_dev_mode()

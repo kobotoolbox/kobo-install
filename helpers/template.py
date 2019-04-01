@@ -5,6 +5,7 @@ import binascii
 import fnmatch
 import os
 from string import Template as PyTemplate
+import stat
 import sys
 
 from helpers.cli import CLI
@@ -12,6 +13,8 @@ from helpers.config import Config
 
 
 class Template:
+
+    UNIQUE_ID_FILE = ".uniqid"
 
     @classmethod
     def render(cls, config_object):
@@ -108,26 +111,93 @@ class Template:
                 "aws_backup_bucket_deletion_rule_enabled") == Config.FALSE else "True",
         }
 
-        for root, dirnames, filenames in os.walk("./templates"):
-            destination_directory = cls.__create_directory(root, config)
+        environment_directory = os.path.realpath(os.path.normpath(os.path.join(config["kobodocker_path"],
+                                                                               "..",
+                                                                               "kobo-deployments")))
+        unique_id = cls.__read_unique_id(environment_directory)
+        if unique_id is not None and str(config.get("unique_id", "")) != str(unique_id):
+            CLI.colored_print("╔═════════════════════════════════════════════════════════════════════╗",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ WARNING!                                                            ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ Existing environment files are detected. Files will be overwritten. ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("╚═════════════════════════════════════════════════════════════════════╝",
+                              CLI.COLOR_WARNING)
+
+            CLI.colored_print("Do you want to continue?", CLI.COLOR_SUCCESS)
+            CLI.colored_print("\t1) Yes")
+            CLI.colored_print("\t2) No")
+
+            if CLI.get_response([Config.TRUE, Config.FALSE], Config.FALSE) == Config.FALSE:
+                sys.exit()
+
+        cls.__write_unique_id(environment_directory, config.get("unique_id"))
+
+        base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+        templates_path = os.path.join(base_dir, "templates")
+        for root, dirnames, filenames in os.walk(templates_path):
+            destination_directory = cls.__create_directory(environment_directory, root, config, base_dir)
             for filename in fnmatch.filter(filenames, '*.tpl'):
                 with open(os.path.join(root, filename), "r") as template:
                     t = PyTemplate(template.read())
                     with open(os.path.join(destination_directory, filename[:-4]), "w") as f:
                         f.write(t.substitute(template_variables))
 
-    @staticmethod
-    def __create_directory(path, config):
-        environment_directory = os.path.realpath("{}/../kobo-deployments".format(config["kobodocker_path"]))
+    @classmethod
+    def __create_directory(cls, environment_directory, path="", config={}, base_dir=""):
+
         if "docker-compose" in path:
-            destination_directory = config["kobodocker_path"]
+            destination_directory = config.get("kobodocker_path")
         else:
-            destination_directory = path.replace("./templates", environment_directory)
+            path = os.path.join(path, "")  # Handle case when path is root and equals "".
+            destination_directory = os.path.realpath(os.path.join(environment_directory,
+                                                 path.replace(os.path.join(
+                                                     base_dir, "templates", ""), "")))
             if not os.path.isdir(destination_directory):
                 try:
                     os.makedirs(destination_directory)
-                except Exception as e:
-                    CLI.colored_print("Please verify permissions.", CLI.COLOR_ERROR)
+                except OSError:
+                    CLI.colored_print("Can not create {}. Please verify permissions!".format(destination_directory),
+                                      CLI.COLOR_ERROR)
                     sys.exit()
 
         return destination_directory
+
+    @staticmethod
+    def __read_unique_id(destination_directory):
+        """
+        Reads unique id from file `Template.UNIQUE_ID_FILE`
+        :return: str
+        """
+        unique_id = ""
+
+        if os.path.isdir(destination_directory):
+            try:
+                unique_id_file = os.path.join(destination_directory, Template.UNIQUE_ID_FILE)
+                with open(unique_id_file, "r") as f:
+                    unique_id = f.read().strip()
+            except IOError:
+                pass
+        else:
+            unique_id = None
+
+        return unique_id
+
+    @classmethod
+    def __write_unique_id(cls, destination_directory, unique_id):
+        try:
+            unique_id_file = os.path.join(destination_directory, Template.UNIQUE_ID_FILE)
+            # Ensure kobo-deployment is created.
+            cls.__create_directory(destination_directory)
+
+            with open(unique_id_file, "w") as f:
+                f.write(str(unique_id))
+
+            os.chmod(unique_id_file, stat.S_IWRITE | stat.S_IREAD)
+
+        except (IOError, OSError):
+            CLI.colored_print("Could not write unique_id file", CLI.COLOR_ERROR)
+            return False
+
+        return True

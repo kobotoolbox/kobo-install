@@ -87,5 +87,7 @@ class CLI(object):
             try:
                 stdout = subprocess.check_output(command, universal_newlines=True, cwd=cwd)
             except subprocess.CalledProcessError as cpe:
-                cls.colored_print(cpe.output, CLI.COLOR_ERROR)
+                # Error will be display by above command.
+                cls.colored_print("An error has occurred", CLI.COLOR_ERROR)
+                sys.exit()
             return stdout
