@@ -109,6 +109,7 @@ class Template:
             "AWS_BACKUP_UPLOAD_CHUNK_SIZE": config.get("aws_backup_upload_chunk_size"),
             "AWS_BACKUP_BUCKET_DELETION_RULE_ENABLED": "False" if config.get(
                 "aws_backup_bucket_deletion_rule_enabled") == Config.FALSE else "True",
+            "LETSENCRYPT_EMAIL": config.get("letsencrypt_email"),
         }
 
         environment_directory = os.path.realpath(os.path.normpath(os.path.join(config["kobodocker_path"],
@@ -149,6 +150,11 @@ class Template:
 
         if "docker-compose" in path:
             destination_directory = config.get("kobodocker_path")
+        elif "/nginx-certbot" in path:
+            destination_directory = os.path.realpath(os.path.join(
+                config.get("kobodocker_path"),
+                config.get("kobodocker_reverse_proxy_relative_path")
+            ))
         else:
             path = os.path.join(path, "")  # Handle case when path is root and equals "".
             destination_directory = os.path.realpath(os.path.join(environment_directory,

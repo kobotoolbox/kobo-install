@@ -7,23 +7,32 @@ import shutil
 import tempfile
 
 try:
-    from unittest.mock import patch, mock_open
+    from unittest.mock import patch, mock_open, MagicMock
     builtin_open = "builtins.open"
 except ImportError:
-    from mock import patch, mock_open
+    from mock import patch, mock_open, MagicMock
     builtin_open = "__builtin__.open"
 
 from helpers.cli import CLI
 from helpers.config import Config
 
 
+def reset_config(config_object):
+
+    config_dict = dict(Config.get_config_template())
+    config_dict["kobodocker_path"] = "/tmp"
+    config_object.__config = config_dict
+
+
 def test_read_config():
 
-    config_dict = {"kobodocker_path": "/tmp"}
+    config_dict = dict(Config.get_config_template())
+    config_dict["kobodocker_path"] = "/tmp"
     with patch(builtin_open, mock_open(read_data=json.dumps(config_dict))) as mock_file:
         config_object = Config()
         config_object.read_config()
         assert config_object.get_config().get("kobodocker_path") == config_dict.get("kobodocker_path")
+
     return config_object
 
 
@@ -52,6 +61,7 @@ def test_installation():
     return config_object
 
 
+@patch("helpers.config.Config._Config__clone_repo", MagicMock(return_value=True))
 def test_dev_mode():
     config_object = test_read_config()
     kc_repo_path = tempfile.mkdtemp()
@@ -112,3 +122,114 @@ def test_server_roles_questions():
         assert not config_object.frontend_questions
         assert config_object.backend_questions
         assert config_object.slave_backend
+
+
+def test_use_https():
+    config_object = test_read_config()
+
+    assert config_object.is_secure
+
+    with patch.object(CLI, "colored_input", return_value=Config.TRUE) as mock_ci:
+        config_object._Config__questions_https()
+        assert not config_object.local_install
+        assert config_object.is_secure
+
+    with patch.object(CLI, "colored_input", return_value=Config.TRUE) as mock_ci:
+        config_object._Config__questions_installation_type()
+        assert config_object.local_install
+        assert not config_object.is_secure
+
+
+def test_proxy_letsencrypt():
+    config_object = test_read_config()
+
+    assert config_object.proxy
+    assert config_object.use_letsencrypt
+
+
+    with patch("helpers.cli.CLI.colored_input") as mock_colored_input:
+        mock_colored_input.side_effect = iter(["", ""])  # Use default options
+        config_object._Config__question_reverse_proxy()
+        assert config_object.proxy
+        assert config_object.use_letsencrypt
+        assert config_object.block_common_http_ports
+        assert config_object.get_config().get("nginx_proxy_port") == defaut_proxy_port
+
+
+def test_proxy_no_letsencrypt():
+        config_object = test_read_config()
+
+        assert config_object.proxy
+        assert config_object.use_letsencrypt
+        defaut_proxy_port = "80"
+
+        with patch("helpers.cli.CLI.colored_input") as mock_colored_input:
+            mock_colored_input.side_effect = iter([Config.FALSE, Config.FALSE, ""])
+            config_object._Config__question_reverse_proxy()
+            assert config_object.proxy
+            assert not config_object.use_letsencrypt
+            assert not config_object.block_common_http_ports
+            assert config_object.get_config().get("nginx_proxy_port") == defaut_proxy_port
+
+
+def test_no_proxy_no_ssl():
+    config_object = test_read_config()
+
+    assert config_object.is_secure
+    default_proxy_port = "80"
+
+    with patch.object(CLI, "colored_input", return_value=Config.FALSE) as mock_ci:
+        config_object._Config__questions_https()
+        assert not config_object.is_secure
+
+        with patch.object(CLI, "colored_input", return_value=Config.FALSE) as mock_ci_2:
+            config_object._Config__question_reverse_proxy()
+            assert not config_object.proxy
+            assert not config_object.use_letsencrypt
+            assert not config_object.block_common_http_ports
+            assert config_object.get_config().get("nginx_proxy_port") == default_proxy_port
+
+
+def test_proxy_no_ssl():
+    config_object = test_read_config()
+
+    assert config_object.is_secure
+    default_proxy_port = "80"
+    proxy_port = "8080"
+
+    with patch.object(CLI, "colored_input", return_value=Config.FALSE) as mock_ci:
+        config_object._Config__questions_https()
+        assert not config_object.is_secure
+
+        # Proxy - not on the same server
+        with patch("helpers.cli.CLI.colored_input") as mock_colored_input_1:
+            mock_colored_input_1.side_effect = iter([Config.TRUE, Config.FALSE, default_proxy_port])
+            config_object._Config__question_reverse_proxy()
+            assert config_object.proxy
+            assert not config_object.use_letsencrypt
+            assert not config_object.block_common_http_ports
+            assert config_object.get_config().get("nginx_proxy_port") == default_proxy_port
+
+        # Proxy - on the same server
+        with patch("helpers.cli.CLI.colored_input") as mock_colored_input_2:
+            mock_colored_input_2.side_effect = iter([Config.TRUE, Config.TRUE, proxy_port])
+            config_object._Config__question_reverse_proxy()
+            assert config_object.proxy
+            assert not config_object.use_letsencrypt
+            assert config_object.block_common_http_ports
+            assert config_object.get_config().get("nginx_proxy_port") == proxy_port
+
+
+def test__port_allowed():
+    config_object = test_read_config()
+    # Use let's encrypt by default
+    assert not config_object._Config__is_port_allowed("80")
+    assert not config_object._Config__is_port_allowed("443")
+    assert config_object._Config__is_port_allowed("8080")
+
+    # Don't use let's encrypt
+    config_object._Config__config["use_letsencrypt"] = Config.FALSE
+    config_object._Config__config["block_common_http_ports"] = Config.FALSE
+    assert config_object._Config__is_port_allowed("80")
+    assert config_object._Config__is_port_allowed("443")
+
