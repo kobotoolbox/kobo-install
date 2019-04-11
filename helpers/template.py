@@ -13,7 +13,6 @@ from helpers.config import Config
 
 
 class Template:
-
     UNIQUE_ID_FILE = ".uniqid"
 
     @classmethod
@@ -112,9 +111,7 @@ class Template:
             "LETSENCRYPT_EMAIL": config.get("letsencrypt_email"),
         }
 
-        environment_directory = os.path.realpath(os.path.normpath(os.path.join(config["kobodocker_path"],
-                                                                               "..",
-                                                                               "kobo-deployments")))
+        environment_directory = config_object.get_env_files_path()
         unique_id = cls.__read_unique_id(environment_directory)
         if unique_id is not None and str(config.get("unique_id", "")) != str(unique_id):
             CLI.colored_print("╔═════════════════════════════════════════════════════════════════════╗",
@@ -135,38 +132,54 @@ class Template:
 
         cls.__write_unique_id(environment_directory, config.get("unique_id"))
 
-        base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-        templates_path = os.path.join(base_dir, "templates")
-        for root, dirnames, filenames in os.walk(templates_path):
-            destination_directory = cls.__create_directory(environment_directory, root, config, base_dir)
-            for filename in fnmatch.filter(filenames, '*.tpl'):
-                with open(os.path.join(root, filename), "r") as template:
+        def write_templates(root_, destination_directory_, filenames_):
+            for filename in fnmatch.filter(filenames_, '*.tpl'):
+                with open(os.path.join(root_, filename), "r") as template:
                     t = PyTemplate(template.read())
-                    with open(os.path.join(destination_directory, filename[:-4]), "w") as f:
+                    with open(os.path.join(destination_directory_, filename[:-4]), "w") as f:
                         f.write(t.substitute(template_variables))
 
-    @classmethod
-    def __create_directory(cls, environment_directory, path="", config={}, base_dir=""):
+        base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+        templates_path_parent = os.path.join(base_dir, "templates")
 
-        if "docker-compose" in path:
+        # Environment
+        templates_path = os.path.join(templates_path_parent, Config.ENV_FILES_DIR, "")
+        for root, dirnames, filenames in os.walk(templates_path):
+            destination_directory = cls.__create_directory(environment_directory,
+                                                           root,
+                                                           templates_path)
+            write_templates(root, destination_directory, filenames)
+
+        # kobo-docker
+        templates_path = os.path.join(templates_path_parent, "kobo-docker")
+        for root, dirnames, filenames in os.walk(templates_path):
             destination_directory = config.get("kobodocker_path")
-        elif "/nginx-certbot" in path:
-            destination_directory = os.path.realpath(os.path.join(
-                config.get("kobodocker_path"),
-                config.get("kobodocker_reverse_proxy_relative_path")
-            ))
-        else:
-            path = os.path.join(path, "")  # Handle case when path is root and equals "".
-            destination_directory = os.path.realpath(os.path.join(environment_directory,
-                                                 path.replace(os.path.join(
-                                                     base_dir, "templates", ""), "")))
-            if not os.path.isdir(destination_directory):
-                try:
-                    os.makedirs(destination_directory)
-                except OSError:
-                    CLI.colored_print("Can not create {}. Please verify permissions!".format(destination_directory),
-                                      CLI.COLOR_ERROR)
-                    sys.exit()
+            write_templates(root, destination_directory, filenames)
+
+        # nginx-certbox
+        if config_object.use_letsencrypt:
+            templates_path = os.path.join(templates_path_parent, Config.LETSENCRYPT_DOCKER_DIR, "")
+            for root, dirnames, filenames in os.walk(templates_path):
+                destination_directory = cls.__create_directory(config_object.get_letsencrypt_repo_path(),
+                                                               root,
+                                                               templates_path)
+                write_templates(root, destination_directory, filenames)
+
+    @classmethod
+    def __create_directory(cls, template_root_directory, path="", base_dir=""):
+
+        path = os.path.join(path, "")  # Handle case when path is root and equals "".
+        destination_directory = os.path.realpath(os.path.join(
+            template_root_directory,
+            path.replace(base_dir, "")
+        ))
+        if not os.path.isdir(destination_directory):
+            try:
+                os.makedirs(destination_directory)
+            except OSError:
+                CLI.colored_print("Can not create {}. Please verify permissions!".format(destination_directory),
+                                  CLI.COLOR_ERROR)
+                sys.exit()
 
         return destination_directory
 

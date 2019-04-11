@@ -26,6 +26,7 @@ def run(force_setup=False):
             current_config = config.build()
             Setup.run(current_config)
             Template.render(config)
+            config.init_letsencrypt()
             Setup.update_hosts(current_config)
         else:
             if config.auto_detect_network():

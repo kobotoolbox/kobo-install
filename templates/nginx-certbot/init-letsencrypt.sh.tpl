@@ -4,15 +4,17 @@ function join_by { local d=$$1; shift; echo -n "$$1"; shift; printf "%s" "$${@/#
 
 DOMAINS=(${KOBOFORM_SUBDOMAIN}.${PUBLIC_DOMAIN_NAME} ${KOBOCAT_SUBDOMAIN}.${PUBLIC_DOMAIN_NAME} ${ENKETO_SUBDOMAIN}.${PUBLIC_DOMAIN_NAME})
 DOMAINS_CSV=$$(join_by , "$${DOMAINS[@]}")
-CERTS_DIR=${PUBLIC_DOMAIN_NAME}
 RSA_KEY_SIZE=4096
 DATA_PATH="./data/certbot"
-EMAIL="${LETSENCRYPT_EMAIL}" # Adding a valid address is strongly recommended
+EMAIL="" # Adding a valid address is strongly recommended
 STAGING=0 # Set to 1 if you're testing your setup to avoid hitting request limits
+MKDIR_CMD=$$(which mkdir)
+DOCKER_COMPOSE_CMD=$$(which docker-compose)
+CURL_CMD=$$(which curl)
 
 
 if [ -d "$$DATA_PATH" ]; then
-  read -p "Existing data found for $$CERTS_DIR. Continue and replace existing certificate? (y/N) " decision
+  read -p "Existing data found for $$DOMAINS_CSV. Continue and replace existing certificate? (y/N) " decision
   if [ "$$decision" != "Y" ] && [ "$$decision" != "y" ]; then
     exit
   fi
@@ -20,32 +22,32 @@ fi
 
 if [ ! -e "$$DATA_PATH/conf/options-ssl-nginx.conf" ] || [ ! -e "$$DATA_PATH/conf/ssl-dhparams.pem" ]; then
   echo "### Downloading recommended TLS parameters ..."
-  mkdir -p "$$DATA_PATH/conf"
-  curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot-nginx/certbot_nginx/options-ssl-nginx.conf > "$$DATA_PATH/conf/options-ssl-nginx.conf"
-  curl -s https://raw.githubusercontent.com/certbot/certbot/master/certbot/ssl-dhparams.pem > "$$DATA_PATH/conf/ssl-dhparams.pem"
+  $$MKDIR_CMD -p "$$DATA_PATH/conf"
+  $$CURL_CMD -s https://raw.githubusercontent.com/certbot/certbot/master/certbot-nginx/certbot_nginx/options-ssl-nginx.conf > "$$DATA_PATH/conf/options-ssl-nginx.conf"
+  $$CURL_CMD -s https://raw.githubusercontent.com/certbot/certbot/master/certbot/ssl-dhparams.pem > "$$DATA_PATH/conf/ssl-dhparams.pem"
   echo
 fi
 
 echo "### Creating dummy certificate for $${DOMAINS_CSV} ..."
-PATH="/etc/letsencrypt/live/$$CERTS_DIR"
-mkdir -p "$$DATA_PATH/conf/live/$$CERTS_DIR"
-docker-compose run --rm --entrypoint "\
+DOMAINS_PATH="/etc/letsencrypt/live/$$DOMAINS"
+$$MKDIR_CMD -p "$$DATA_PATH/conf/live/$$DOMAINS"
+$$DOCKER_COMPOSE_CMD run --rm --entrypoint "\
   openssl req -x509 -nodes -newkey rsa:1024 -days 1\
-    -keyout '$$PATH/privkey.pem' \
-    -out '$$PATH/fullchain.pem' \
+    -keyout '$$DOMAINS_PATH/privkey.pem' \
+    -out '$$DOMAINS_PATH/fullchain.pem' \
     -subj '/CN=localhost'" certbot
 echo
 
 
 echo "### Starting nginx ..."
-docker-compose up --force-recreate -d nginx
+$$DOCKER_COMPOSE_CMD up --force-recreate -d nginx
 echo
 
 echo "### Deleting dummy certificate for $${DOMAINS_CSV} ..."
-docker-compose run --rm --entrypoint "\
-  rm -Rf /etc/letsencrypt/live/$$CERTS_DIR && \
-  rm -Rf /etc/letsencrypt/archive/$$CERTS_DIR && \
-  rm -Rf /etc/letsencrypt/renewal/$$CERTS_DIR.conf" certbot
+$$DOCKER_COMPOSE_CMD run --rm --entrypoint "\
+  rm -Rf /etc/letsencrypt/live/$$DOMAINS && \
+  rm -Rf /etc/letsencrypt/archive/$$DOMAINS && \
+  rm -Rf /etc/letsencrypt/renewal/$$DOMAINS.conf" certbot
 echo
 
 
@@ -65,7 +67,7 @@ esac
 # Enable staging mode if needed
 if [ $$STAGING != "0" ]; then STAGING_ARG="--staging"; fi
 
-docker-compose run --rm --entrypoint "\
+$$DOCKER_COMPOSE_CMD run --rm --entrypoint "\
   certbot certonly --webroot -w /var/www/certbot \
     $$STAGING_ARG \
     $$EMAIL_ARG \
@@ -76,4 +78,4 @@ docker-compose run --rm --entrypoint "\
 echo
 
 echo "### Reloading nginx ..."
-docker-compose exec nginx nginx -s reload
+$$DOCKER_COMPOSE_CMD exec nginx nginx -s reload

@@ -271,6 +271,21 @@ class Command:
                                    "Please look at docker logs for further information"), CLI.COLOR_WARNING)
 
     @classmethod
+    def start_reverse_proxy(cls):
+        config_object = Config()
+        config = config_object.get_config()
+
+        reverse_proxy_path = os.path.realpath(os.path.join(
+            config.get("kobodocker_path"),
+            config.get("kobodocker_reverse_proxy_relative_path")
+        ))
+        #reverse_proxy_command = [
+        #    "/bin/bash",
+        #    "init-letsencrypt.sh"
+        #]
+        #CLI.run_command(reverse_proxy_command, reverse_proxy_path)
+
+    @classmethod
     def stop(cls, output=True, frontend_only=False):
         """
         Stop containers
@@ -319,3 +334,4 @@ class Command:
         git_command = ["git", "pull", "origin", "master"]
         CLI.run_command(git_command)
         CLI.colored_print("KoBoInstall has been upgraded", CLI.COLOR_SUCCESS)
+

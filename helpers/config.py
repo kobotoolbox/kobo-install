@@ -17,10 +17,14 @@ from helpers.singleton import Singleton
 
 
 class Config:
+
     CONFIG_FILE = ".run.conf"
     UNIQUE_ID_FILE = ".uniqid"
     TRUE = "1"
     FALSE = "2"
+    LETSENCRYPT_DOCKER_DIR = "nginx-certbot"
+    ENV_FILES_DIR = "kobo-deployments"
+
     # Maybe overkill. Use this class as a singleton to get the same configuration
     # for each instantiation.
     __metaclass__ = Singleton
@@ -63,6 +67,20 @@ class Config:
         :return: bool
         """
         return self.__config.get("use_aws") == Config.TRUE
+
+    def get_env_files_path(self):
+        return os.path.realpath(os.path.normpath(os.path.join(
+            self.__config.get("kobodocker_path"),
+            "..",
+            Config.ENV_FILES_DIR
+        )))
+
+    def get_letsencrypt_repo_path(self):
+        return os.path.realpath(os.path.normpath(os.path.join(
+            self.__config.get("kobodocker_path"),
+            "..",
+            Config.LETSENCRYPT_DOCKER_DIR
+        )))
 
     @property
     def master_backend(self):
@@ -125,6 +143,17 @@ class Config:
     def is_secure(self):
         return self.__config.get("https") == Config.TRUE
 
+    def init_letsencrypt(self):
+        if self.use_letsencrypt:
+            # DISPLAY MESSAGE FOR PROXY
+            print("INIT LETSENCRYPT")
+            reverse_proxy_path = self.get_letsencrypt_repo_path()
+            reverse_proxy_command = [
+                "/bin/bash",
+                "init-letsencrypt.sh"
+            ]
+            CLI.run_command(reverse_proxy_command, reverse_proxy_path)
+
     @property
     def use_letsencrypt(self):
         return self.__config["use_letsencrypt"] == Config.TRUE
@@ -174,6 +203,7 @@ class Config:
 
             self.__config = config
             self.__welcome()
+
             self.__create_directory()
             self.__questions_advanced_options()
             self.__questions_installation_type()
@@ -414,10 +444,6 @@ class Config:
                 "..",
                 "..",
                 "kobo-docker"))
-            ),
-            "kobodocker_reverse_proxy_relative_path": os.path.join(
-                "..",
-                "kobo-docker-reverse-proxy"
             ),
             "internal_domain_name": "docker.internal",
             "private_domain_name": "kobo.private",
@@ -674,11 +700,13 @@ class Config:
                                                              self.__config.get("dev_mode", Config.FALSE))
                 self.__config["staging_mode"] = Config.FALSE
             else:
+
                 CLI.colored_print("Staging mode?", CLI.COLOR_SUCCESS)
                 CLI.colored_print("\t1) Yes")
                 CLI.colored_print("\t2) No")
                 self.__config["staging_mode"] = CLI.get_response([Config.TRUE, Config.FALSE],
                                                                  self.__config.get("staging_mode", Config.FALSE))
+                self.__config["dev_mode"] = Config.FALSE
 
             if self.dev_mode or self.staging_mode:
                 CLI.colored_print("╔═══════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
@@ -976,10 +1004,9 @@ class Config:
 
                     if CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE) == Config.TRUE:
                         self.__config["letsencrypt_email"] = letsencrypt_email
-                        rp_path = self.__config.get("kobodocker_reverse_proxy_relative_path")
-                        self.__clone_repo(rp_path, "nginx-certbot")
                         break
 
+                self.__clone_repo(self.get_letsencrypt_repo_path(), "nginx-certbot")
         else:
             CLI.colored_print("Is `KoBoToolbox` behind a reverse-proxy/load-balancer?", CLI.COLOR_SUCCESS)
             CLI.colored_print("\t1) Yes")
