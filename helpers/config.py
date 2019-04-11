@@ -145,8 +145,6 @@ class Config:
 
     def init_letsencrypt(self):
         if self.use_letsencrypt:
-            # DISPLAY MESSAGE FOR PROXY
-            print("INIT LETSENCRYPT")
             reverse_proxy_path = self.get_letsencrypt_repo_path()
             reverse_proxy_command = [
                 "/bin/bash",
@@ -985,6 +983,7 @@ class Config:
             self.__config["proxy"] = Config.TRUE
             self.__config["block_common_http_ports"] = Config.TRUE
             self.__config["nginx_proxy_port"] = "81"
+            self.__config["exposed_nginx_docker_port"] = "80"
 
             if self.use_letsencrypt:
                 CLI.colored_print("╔════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
@@ -1016,6 +1015,9 @@ class Config:
             self.__config["use_letsencrypt"] = Config.FALSE
 
         if self.proxy:
+            # When proxy is enabled, public port is 80 or 443.
+            # @TODO Give the user the possibilty to customize it too.
+            self.__config["exposed_nginx_docker_port"] = "80"
             if not self.use_letsencrypt:
                 CLI.colored_print("Is your reverse-proxy/load-balancer installed on this server?", CLI.COLOR_SUCCESS)
                 CLI.colored_print("\t1) Yes")

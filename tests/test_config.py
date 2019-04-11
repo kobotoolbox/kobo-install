@@ -140,20 +140,28 @@ def test_use_https():
         assert not config_object.is_secure
 
 
+@patch("helpers.config.Config._Config__clone_repo", MagicMock(return_value=True))
 def test_proxy_letsencrypt():
     config_object = test_read_config()
 
     assert config_object.proxy
     assert config_object.use_letsencrypt
-
+    default_exposed_port = "80"
+    le_proxy_port = "81"
+    # Force custom exposed port
+    config_object._Config__config["exposed_nginx_docker_port"] = "8088"
 
     with patch("helpers.cli.CLI.colored_input") as mock_colored_input:
-        mock_colored_input.side_effect = iter(["", ""])  # Use default options
+        mock_colored_input.side_effect = iter([Config.TRUE,
+                                               "test@test.com",
+                                               Config.TRUE,
+                                               le_proxy_port])  # Use default options
         config_object._Config__question_reverse_proxy()
         assert config_object.proxy
         assert config_object.use_letsencrypt
         assert config_object.block_common_http_ports
-        assert config_object.get_config().get("nginx_proxy_port") == defaut_proxy_port
+        assert config_object.get_config().get("nginx_proxy_port") == le_proxy_port
+        assert config_object.get_config().get("exposed_nginx_docker_port") == default_exposed_port
 
 
 def test_proxy_no_letsencrypt():
@@ -164,7 +172,7 @@ def test_proxy_no_letsencrypt():
         defaut_proxy_port = "80"
 
         with patch("helpers.cli.CLI.colored_input") as mock_colored_input:
-            mock_colored_input.side_effect = iter([Config.FALSE, Config.FALSE, ""])
+            mock_colored_input.side_effect = iter([Config.FALSE, Config.FALSE, defaut_proxy_port])
             config_object._Config__question_reverse_proxy()
             assert config_object.proxy
             assert not config_object.use_letsencrypt
@@ -232,4 +240,3 @@ def test__port_allowed():
     config_object._Config__config["block_common_http_ports"] = Config.FALSE
     assert config_object._Config__is_port_allowed("80")
     assert config_object._Config__is_port_allowed("443")
-
