@@ -34,6 +34,8 @@ class Command:
                "                Stop KoBoToolbox\n"
                "          -u, --upgrade\n"
                "                Upgrade KoBoToolbox\n"
+               "          -v, --version\n"
+               "                Display current version\n"
                ))
 
     @classmethod
@@ -261,6 +263,12 @@ class Command:
 
             CLI.run_command(frontend_command, config.get("kobodocker_path"))
 
+            # Start reverse proxy if user uses it.
+            if config_object.use_letsencrypt:
+                proxy_command = ["docker-compose",
+                                 "up", "-d"]
+                CLI.run_command(proxy_command, config_object.get_letsencrypt_repo_path())
+
         if not frontend_only:
             if (config.get("multi") == Config.TRUE and config.get("server_role") == "frontend") or \
                     config.get("multi") != Config.TRUE:
@@ -269,21 +277,6 @@ class Command:
             else:
                 CLI.colored_print(("Backend server should be up & running! "
                                    "Please look at docker logs for further information"), CLI.COLOR_WARNING)
-
-    @classmethod
-    def start_reverse_proxy(cls):
-        config_object = Config()
-        config = config_object.get_config()
-
-        reverse_proxy_path = os.path.realpath(os.path.join(
-            config.get("kobodocker_path"),
-            config.get("kobodocker_reverse_proxy_relative_path")
-        ))
-        #reverse_proxy_command = [
-        #    "/bin/bash",
-        #    "init-letsencrypt.sh"
-        #]
-        #CLI.run_command(reverse_proxy_command, reverse_proxy_path)
 
     @classmethod
     def stop(cls, output=True, frontend_only=False):
@@ -319,6 +312,12 @@ class Command:
                 frontend_command.insert(-1, config.get("docker_prefix"))
             CLI.run_command(frontend_command, config.get("kobodocker_path"))
 
+            # Stop reverse proxy if user uses it.
+            if config_object.use_letsencrypt:
+                proxy_command = ["docker-compose",
+                                 "down"]
+                CLI.run_command(proxy_command, config_object.get_letsencrypt_repo_path())
+
         if output:
             CLI.colored_print("KoBoToolbox has been stopped", CLI.COLOR_SUCCESS)
 
@@ -335,3 +334,8 @@ class Command:
         CLI.run_command(git_command)
         CLI.colored_print("KoBoInstall has been upgraded", CLI.COLOR_SUCCESS)
 
+    @classmethod
+    def version(cls):
+        git_commit_version_command = ["git", "rev-parse", "HEAD"]
+        stdout = CLI.run_command(git_commit_version_command)
+        CLI.colored_print("KoBoInstall Version: {}".format(stdout.strip()[0:7]), CLI.COLOR_SUCCESS)

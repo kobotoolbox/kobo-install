@@ -58,6 +58,8 @@ if __name__ == "__main__":
             Command.build("kf")
         elif sys.argv[1] == "-bkc" or sys.argv[1] == "--build-kobocat":
             Command.build("kc")
+        elif sys.argv[1] == "-v" or sys.argv[1] == "--version":
+            Command.version()
         else:
             CLI.colored_print("Bad syntax. Try 'run.py --help'", CLI.COLOR_ERROR)
     else:
