@@ -146,8 +146,7 @@ def test_proxy_letsencrypt():
 
     assert config_object.proxy
     assert config_object.use_letsencrypt
-    default_exposed_port = "80"
-    le_proxy_port = "81"
+
     # Force custom exposed port
     config_object._Config__config["exposed_nginx_docker_port"] = "8088"
 
@@ -155,36 +154,52 @@ def test_proxy_letsencrypt():
         mock_colored_input.side_effect = iter([Config.TRUE,
                                                "test@test.com",
                                                Config.TRUE,
-                                               le_proxy_port])  # Use default options
+                                               Config.DEFAULT_NGINX_PORT])  # Use default options
         config_object._Config__question_reverse_proxy()
         assert config_object.proxy
         assert config_object.use_letsencrypt
         assert config_object.block_common_http_ports
-        assert config_object.get_config().get("nginx_proxy_port") == le_proxy_port
-        assert config_object.get_config().get("exposed_nginx_docker_port") == default_exposed_port
+        assert config_object.get_config().get("nginx_proxy_port") == Config.DEFAULT_PROXY_PORT
+        assert config_object.get_config().get("exposed_nginx_docker_port") == Config.DEFAULT_NGINX_PORT
 
 
-def test_proxy_no_letsencrypt():
+def test_proxy_no_letsencrypt_advanced():
         config_object = test_read_config()
-
+        # Force advanced options
+        config_object._Config__config["advanced"] = Config.TRUE
+        assert config_object.advanced_options
         assert config_object.proxy
         assert config_object.use_letsencrypt
-        defaut_proxy_port = "80"
+        proxy_port = Config.DEFAULT_NGINX_PORT
 
         with patch("helpers.cli.CLI.colored_input") as mock_colored_input:
-            mock_colored_input.side_effect = iter([Config.FALSE, Config.FALSE, defaut_proxy_port])
+            mock_colored_input.side_effect = iter([Config.FALSE, Config.FALSE, proxy_port])
             config_object._Config__question_reverse_proxy()
             assert config_object.proxy
             assert not config_object.use_letsencrypt
             assert not config_object.block_common_http_ports
-            assert config_object.get_config().get("nginx_proxy_port") == defaut_proxy_port
+            assert config_object.get_config().get("nginx_proxy_port") == proxy_port
+
+
+def test_proxy_no_letsencrypt():
+    config_object = test_read_config()
+
+    assert config_object.proxy
+    assert config_object.use_letsencrypt
+
+    with patch.object(CLI, "colored_input", return_value=Config.FALSE) as mock_ci:
+        config_object._Config__question_reverse_proxy()
+        assert config_object.proxy
+        assert not config_object.use_letsencrypt
+        assert config_object.block_common_http_ports
+        assert config_object.get_config().get("nginx_proxy_port") == Config.DEFAULT_PROXY_PORT
 
 
 def test_no_proxy_no_ssl():
     config_object = test_read_config()
-
     assert config_object.is_secure
-    default_proxy_port = "80"
+
+    proxy_port = Config.DEFAULT_PROXY_PORT
 
     with patch.object(CLI, "colored_input", return_value=Config.FALSE) as mock_ci:
         config_object._Config__questions_https()
@@ -195,30 +210,34 @@ def test_no_proxy_no_ssl():
             assert not config_object.proxy
             assert not config_object.use_letsencrypt
             assert not config_object.block_common_http_ports
-            assert config_object.get_config().get("nginx_proxy_port") == default_proxy_port
+            assert config_object.get_config().get("nginx_proxy_port") == proxy_port
 
 
-def test_proxy_no_ssl():
+def test_proxy_no_ssl_advanced():
     config_object = test_read_config()
-
+    # Force advanced options
+    config_object._Config__config["advanced"] = Config.TRUE
+    assert config_object.advanced_options
     assert config_object.is_secure
-    default_proxy_port = "80"
-    proxy_port = "8080"
 
     with patch.object(CLI, "colored_input", return_value=Config.FALSE) as mock_ci:
         config_object._Config__questions_https()
         assert not config_object.is_secure
 
+
+
         # Proxy - not on the same server
+        proxy_port = Config.DEFAULT_NGINX_PORT
         with patch("helpers.cli.CLI.colored_input") as mock_colored_input_1:
-            mock_colored_input_1.side_effect = iter([Config.TRUE, Config.FALSE, default_proxy_port])
+            mock_colored_input_1.side_effect = iter([Config.TRUE, Config.FALSE, proxy_port])
             config_object._Config__question_reverse_proxy()
             assert config_object.proxy
             assert not config_object.use_letsencrypt
             assert not config_object.block_common_http_ports
-            assert config_object.get_config().get("nginx_proxy_port") == default_proxy_port
+            assert config_object.get_config().get("nginx_proxy_port") == proxy_port
 
         # Proxy - on the same server
+        proxy_port = Config.DEFAULT_PROXY_PORT
         with patch("helpers.cli.CLI.colored_input") as mock_colored_input_2:
             mock_colored_input_2.side_effect = iter([Config.TRUE, Config.TRUE, proxy_port])
             config_object._Config__question_reverse_proxy()
@@ -231,12 +250,12 @@ def test_proxy_no_ssl():
 def test__port_allowed():
     config_object = test_read_config()
     # Use let's encrypt by default
-    assert not config_object._Config__is_port_allowed("80")
+    assert not config_object._Config__is_port_allowed(Config.DEFAULT_NGINX_PORT)
     assert not config_object._Config__is_port_allowed("443")
-    assert config_object._Config__is_port_allowed("8080")
+    assert config_object._Config__is_port_allowed(Config.DEFAULT_PROXY_PORT)
 
     # Don't use let's encrypt
     config_object._Config__config["use_letsencrypt"] = Config.FALSE
     config_object._Config__config["block_common_http_ports"] = Config.FALSE
-    assert config_object._Config__is_port_allowed("80")
+    assert config_object._Config__is_port_allowed(Config.DEFAULT_NGINX_PORT)
     assert config_object._Config__is_port_allowed("443")

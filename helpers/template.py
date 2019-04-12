@@ -21,9 +21,9 @@ class Template:
         config = config_object.get_config()
 
         if config_object.local_install:
-            nginx_port = config.get("exposed_nginx_docker_port", "80")
+            nginx_port = config.get("exposed_nginx_docker_port")
         else:
-            nginx_port = config.get("nginx_proxy_port", "80")
+            nginx_port = config.get("nginx_proxy_port")
 
         template_variables = {
             "PROTOCOL": "https" if config.get("https") == Config.TRUE else "http",
@@ -72,7 +72,7 @@ class Template:
             "USE_KC_DEV_MODE": "#" if config.get("kc_path", "") == "" else "",
             "KC_DEV_BUILD_ID": config.get("kc_dev_build_id", ""),
             "KPI_DEV_BUILD_ID": config.get("kpi_dev_build_id", ""),
-            "NGINX_PUBLIC_PORT": config.get("exposed_nginx_docker_port", "80"),
+            "NGINX_PUBLIC_PORT": config.get("exposed_nginx_docker_port", Config.DEFAULT_NGINX_PORT),
             "NGINX_EXPOSED_PORT": nginx_port,
             "MAX_REQUESTS": config.get("max_requests", "512"),
             "SOFT_LIMIT": int(config.get("soft_limit", "128")) * 1024 * 1024,

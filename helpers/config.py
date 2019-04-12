@@ -24,6 +24,9 @@ class Config:
     FALSE = "2"
     LETSENCRYPT_DOCKER_DIR = "nginx-certbot"
     ENV_FILES_DIR = "kobo-deployments"
+    DEFAULT_PROXY_PORT = "8080"
+    DEFAULT_NGINX_PORT = "80"
+    DEFAULT_NGINX_HTTPS_PORT = "443"
 
     # Maybe overkill. Use this class as a singleton to get the same configuration
     # for each instantiation.
@@ -488,7 +491,8 @@ class Config:
             "use_letsencrypt": Config.TRUE,
             "proxy": Config.TRUE,
             "https": Config.TRUE,
-            "nginx_proxy_port": "80",
+            "nginx_proxy_port": Config.DEFAULT_PROXY_PORT,
+            "exposed_nginx_docker_port": Config.DEFAULT_NGINX_PORT,
             "postgresql_port": "5432",
             "mongo_port": "27017",
             "redis_main_port": "6379",
@@ -690,7 +694,7 @@ class Config:
                 self.__config["exposed_nginx_docker_port"] = CLI.get_response("~^\d+$",
                                                                               self.__config.get(
                                                                                   "exposed_nginx_docker_port",
-                                                                                  "80"))
+                                                                                  Config.DEFAULT_NGINX_PORT))
                 CLI.colored_print("Developer mode?", CLI.COLOR_SUCCESS)
                 CLI.colored_print("\t1) Yes")
                 CLI.colored_print("\t2) No")
@@ -982,8 +986,8 @@ class Config:
                                                                 self.__config.get("use_letsencrypt", Config.TRUE))
             self.__config["proxy"] = Config.TRUE
             self.__config["block_common_http_ports"] = Config.TRUE
-            self.__config["nginx_proxy_port"] = "81"
-            self.__config["exposed_nginx_docker_port"] = "80"
+            self.__config["nginx_proxy_port"] = Config.DEFAULT_PROXY_PORT
+            self.__config["exposed_nginx_docker_port"] = Config.DEFAULT_NGINX_PORT
 
             if self.use_letsencrypt:
                 CLI.colored_print("╔════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
@@ -1017,26 +1021,35 @@ class Config:
         if self.proxy:
             # When proxy is enabled, public port is 80 or 443.
             # @TODO Give the user the possibilty to customize it too.
-            self.__config["exposed_nginx_docker_port"] = "80"
-            if not self.use_letsencrypt:
-                CLI.colored_print("Is your reverse-proxy/load-balancer installed on this server?", CLI.COLOR_SUCCESS)
-                CLI.colored_print("\t1) Yes")
-                CLI.colored_print("\t2) No")
-                self.__config["block_common_http_ports"] = CLI.get_response(
-                    [Config.TRUE, Config.FALSE],
-                    self.__config.get("block_common_http_ports", Config.FALSE))
+            self.__config["exposed_nginx_docker_port"] = Config.DEFAULT_NGINX_PORT
+            if self.advanced_options:
+                if not self.use_letsencrypt:
+                    CLI.colored_print("Is your reverse-proxy/load-balancer installed on this server?",
+                                      CLI.COLOR_SUCCESS)
+                    CLI.colored_print("\t1) Yes")
+                    CLI.colored_print("\t2) No")
+                    self.__config["block_common_http_ports"] = CLI.get_response(
+                        [Config.TRUE, Config.FALSE],
+                        self.__config.get("block_common_http_ports", Config.FALSE))
 
-            CLI.colored_print("Internal port used by reverse proxy?", CLI.COLOR_SUCCESS)
-            while True:
-                self.__config["nginx_proxy_port"] = CLI.get_response("~^\d+$",
-                                                                     self.__config.get("nginx_proxy_port", "80"))
-                if self.__is_port_allowed(self.__config["nginx_proxy_port"]):
-                    break
-                else:
-                    CLI.colored_print("Ports 80 and 443 are reserved !", CLI.COLOR_ERROR)
+                CLI.colored_print("Internal port used by reverse proxy?", CLI.COLOR_SUCCESS)
+                while True:
+                    self.__config["nginx_proxy_port"] = CLI.get_response("~^\d+$",
+                                                                         self.__config.get("nginx_proxy_port"))
+                    if self.__is_port_allowed(self.__config["nginx_proxy_port"]):
+                        break
+                    else:
+                        CLI.colored_print("Ports 80 and 443 are reserved!", CLI.COLOR_ERROR)
+            else:
+                if not self.use_letsencrypt:
+                    CLI.colored_print("Internal port used by reverse proxy is {}.".format(
+                        Config.DEFAULT_PROXY_PORT
+                    ), CLI.COLOR_WARNING)
+                self.__config["nginx_proxy_port"] = Config.DEFAULT_PROXY_PORT
+
         else:
             self.__config["use_letsencrypt"] = Config.FALSE
-            self.__config["nginx_proxy_port"] = "80"
+            self.__config["nginx_proxy_port"] = Config.DEFAULT_PROXY_PORT
             self.__config["block_common_http_ports"] = Config.FALSE
 
     def __questions_roles(self):
@@ -1130,7 +1143,8 @@ class Config:
             self.__config["soft_limit"] = "128"
 
     def __is_port_allowed(self, port):
-        return not (self.block_common_http_ports and port in ["80", "443"])
+        return not (self.block_common_http_ports and port in [Config.DEFAULT_NGINX_PORT,
+                                                              Config.DEFAULT_NGINX_HTTPS_PORT])
 
     def __reset_dev_mode(self, reset_nginx_port=False):
         """
@@ -1146,7 +1160,7 @@ class Config:
         self.__config["kpi_path"] = ""
         self.__config["debug"] = Config.FALSE
         if reset_nginx_port:
-            self.__config["exposed_nginx_docker_port"] = "80"
+            self.__config["exposed_nginx_docker_port"] = Config.DEFAULT_NGINX_PORT
 
     def __validate_installation(self):
         """

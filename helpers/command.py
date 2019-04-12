@@ -101,14 +101,15 @@ class Command:
             config.get("public_domain_name"),
             ":{}".format(config.get("exposed_nginx_docker_port")) if config.get("exposed_nginx_docker_port")
                                                                      and str(
-                config.get("exposed_nginx_docker_port")) != "80" else ""
+                config.get("exposed_nginx_docker_port")) != Config.DEFAULT_NGINX_PORT else ""
         )
 
         stop = False
         start = int(time.time())
         success = False
         hostname = "{}.{}".format(config.get("kpi_subdomain"), config.get("public_domain_name"))
-        nginx_port = 443 if config.get("https") == Config.TRUE else int(config.get("exposed_nginx_docker_port", "80"))
+        nginx_port = int(Config.DEFAULT_NGINX_HTTPS_PORT) if config.get("https") == Config.TRUE \
+            else int(config.get("exposed_nginx_docker_port", Config.DEFAULT_NGINX_PORT))
         https = config.get("https") == Config.TRUE
         already_retried = None if config_object.first_time else False
         while not stop:
