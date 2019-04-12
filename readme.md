@@ -1,10 +1,10 @@
 The purpose of the script is to install `KoBoToolbox ` in minutes without messing with configuration files.  
-It prompts the user to answer some questions to create configuration files automatically and to start docker containers based on `kobo-install` branch of `kobo-docker` [repository](https://github.com/kobotoolbox/kobo-docker "").
+It prompts the user to answer some questions to create configuration files automatically and to start docker containers based on [`kobo-docker`](https://github.com/kobotoolbox/kobo-docker "").
 
 ## Warning
-If you have already installed `KoBoToolbox` with `kobo-docker` from `master` branch,
+If you have already installed `KoBoToolbox` with `kobo-docker` prior March 2019,
 databases are not compatible and and docker images (`PostgreSQL`, `MongoDB`) are not the same.  
-`kobo-install` won't be able to start the app.  
+**`kobo-install` won't be able to start the app.**
 
 
 
@@ -33,6 +33,12 @@ Stop KoBoToolbox:
 Get help:  
 `$kobo-install> python run.py --help`
 
+Get version:  
+`$kobo-install> python run.py --version`
+
+Build kpi and kobocat (dev mode):  
+`$kobo-install> python run.py --build`
+
 
 **Be aware, this utility is a beta release and may still have bugs.**
 
@@ -49,8 +55,8 @@ User can choose between 2 types of installations:
 |Installation directory| **../kobo-docker**  | ✓ | ✓ |
 |SMTP information|  | ✓ | ✓ (frontend only) |
 |Public domain name| **kobo.local** |  | ✓ (frontend only) |
-|Subdomain names| **kpi, kc, ee**  |  | ✓ (frontend only) |
-|Use HTTPS| **No**  |  | ✓ (frontend only) |
+|Subdomain names| **kf, kc, ee**  |  | ✓ (frontend only) |
+|Use HTTPS<sup>1</sup>| **False** (Workstation)<br>**True** (Server)  |  | ✓ (frontend only) |
 |Super user's username| **super_admin** | ✓ | ✓ (frontend only) |
 |Super user's password| **Random string**  | ✓ | ✓ (frontend only) |
 
@@ -59,14 +65,14 @@ User can choose between 2 types of installations:
 |Option|Default|Workstation|Server
 |---|---|---|---|
 |Webserver port| **80**  | ✓ |  |
-|Reverse proxy interal port| **80**  |  | ✓ (frontend only) |
+|Reverse proxy interal port| **8080**  |  | ✓ (frontend only) |
 |Network interface|  **Autodetected**  | ✓ | ✓ (frontend only) |
 |Use separate servers| **No**  |  | ✓ |
 |Use DNS for private routes| **No**  |  | ✓ (frontend only) |
 |Master backend IP _(if previous answer is no)_| **Local IP**  |  | ✓ (frontend only) |
 |Postgres DB|  **kobo**  | ✓ | ✓ |
 |Postgres user|  **kobo**  | ✓ | ✓ |
-|Postgres password|  **kobo**  | ✓ | ✓ |
+|Postgres password|  **Autogenerate**  | ✓ | ✓ |
 |Postgres number of connections|  **100**  | ✓ | ✓ (backend only) |
 |Postgres RAM|  **8**  | ✓ | ✓ (backend only) |
 |Use AWS storage|  **No**  | ✓ | ✓ (frontend only) |
@@ -79,6 +85,9 @@ User can choose between 2 types of installations:
 |Debug|  **False**  | ✓ |  |
 |Developer mode|  **False**  | ✓ | |
 |Staging mode|  **False**  |  | ✓ (frontend only) |
+
+<sup>1)</sup> _HTTPS certificates must be installed on a Reverse Proxy. 
+`kobo-install` can install one and use `Let's Encrypt` to generate certificates thanks to [nginx-certbot project](https://github.com/wmnnd/nginx-certbot "")_
 
 ## Requirements
 
@@ -105,4 +114,3 @@ Tests can be run with `pytest`.
 ## To-Do
 
 - Handle secondary backend
-- Validate users' input
