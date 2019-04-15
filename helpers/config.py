@@ -466,9 +466,10 @@ class Config:
             "local_interface_ip": primary_ip,
             "multi": Config.FALSE,
             "postgres_settings": Config.FALSE,
-            "postgres_ram": "8",
+            "postgres_ram": "2",
             "postgres_profile": "Mixed",
             "postgres_max_connections": "100",
+            "postgres_hard_drive_type": "hdd",
             "postgres_settings_content": "",
             "enketo_api_token": binascii.hexlify(os.urandom(60)).decode("utf-8"),
             "django_secret_key": binascii.hexlify(os.urandom(24)).decode("utf-8"),
@@ -844,30 +845,49 @@ class Config:
 
             if self.__config["postgres_settings"] == Config.TRUE:
                 CLI.colored_print("Total Memory in GB?", CLI.COLOR_SUCCESS)
-                self.__config["postgres_ram"] = CLI.get_response("~^\d+$", self.__config.get("postgres_ram", "8"))
+                self.__config["postgres_ram"] = CLI.get_response("~^\d+$", self.__config.get("postgres_ram"))
+
+                CLI.colored_print("Storage type?", CLI.COLOR_SUCCESS)
+                CLI.colored_print("\thdd) Hard Disk Drive")
+                CLI.colored_print("\tssd) Solid State Drive")
+                CLI.colored_print("\tsan) Storage Area Network")
+                self.__config["postgres_hard_drive_type"] = CLI.get_response(
+                    ["hdd", "ssd", "san"],
+                    self.__config.get("postgres_hard_drive_type").lower())
+
+                CLI.colored_print("Number of connections?", CLI.COLOR_SUCCESS)
+                self.__config["postgres_max_connections"] = CLI.get_response(
+                    "~^\d+$",
+                    self.__config.get("postgres_max_connections"))
 
                 if self.multi_servers:
-                    self.__config["postgres_profile"] = "OLTP"
-                    CLI.colored_print("Number of connections?", CLI.COLOR_SUCCESS)
-                    self.__config["postgres_max_connections"] = CLI.get_response(
-                        "~^\d+$",
-                        self.__config.get("postgres_max_connections", "100"))
+                    multi_servers_profiles = ["web", "oltp", "dw"]
+                    if self.__config["postgres_profile"].lower() not in multi_servers_profiles:
+                        self.__config["postgres_profile"] = "web"
+
+                    CLI.colored_print("Application profile?", CLI.COLOR_SUCCESS)
+                    CLI.colored_print("\tweb) General Web application")
+                    CLI.colored_print("\toltp) ERP or long transaction applications")
+                    CLI.colored_print("\tdw) DataWare house")
+
+                    self.__config["postgres_profile"] = CLI.get_response(["web", "oltp", "dw"],
+                                                                         self.__config.get("postgres_profile").lower())
+
+                    self.__config["postgres_profile"] = self.__config["postgres_profile"].upper()
+
                 elif self.dev_mode:
                     self.__config["postgres_profile"] = "Desktop"
                 else:
                     self.__config["postgres_profile"] = "Mixed"
-                    CLI.colored_print("Number of connections?", CLI.COLOR_SUCCESS)
-                    self.__config["postgres_max_connections"] = CLI.get_response(
-                        "~^\d+$",
-                        self.__config.get("postgres_max_connections", "100"))
 
             # use pgconfig.org API to build postgres config
             endpoint = "https://api.pgconfig.org/v1/tuning/get-config?environment_name={profile}" \
                        "&format=conf&include_pgbadger=false&max_connections={max_connections}&" \
-                       "pg_version=9.5&total_ram={ram}GB&drive_type=SSD".format(
+                       "pg_version=9.5&total_ram={ram}GB&drive_type={drive_type}".format(
                 profile=self.__config["postgres_profile"],
                 ram=self.__config["postgres_ram"],
-                max_connections=self.__config["postgres_max_connections"]
+                max_connections=self.__config["postgres_max_connections"],
+                drive_type=self.__config["postgres_hard_drive_type"].upper()
             )
             response = Network.curl(endpoint)
             if response:

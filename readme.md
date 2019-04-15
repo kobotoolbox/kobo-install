@@ -70,11 +70,13 @@ User can choose between 2 types of installations:
 |Use separate servers| **No**  |  | ✓ |
 |Use DNS for private routes| **No**  |  | ✓ (frontend only) |
 |Master backend IP _(if previous answer is no)_| **Local IP**  |  | ✓ (frontend only) |
-|Postgres DB|  **kobo**  | ✓ | ✓ |
-|Postgres user|  **kobo**  | ✓ | ✓ |
-|Postgres password|  **Autogenerate**  | ✓ | ✓ |
-|Postgres number of connections|  **100**  | ✓ | ✓ (backend only) |
-|Postgres RAM|  **8**  | ✓ | ✓ (backend only) |
+|PostgreSQL DB|  **kobo**  | ✓ | ✓ |
+|PostgreSQL user|  **kobo**  | ✓ | ✓ |
+|PostgreSQL password|  **Autogenerate**  | ✓ | ✓ |
+|PostgreSQL number of connections<sup>2</sup>|  **100**  | ✓ | ✓ (backend only) |
+|PostgreSQL RAM<sup>2</sup>|  **2**  | ✓ | ✓ (backend only) |
+|PostgreSQL Application Profile<sup>2</sup>|  **Mixed**  | ✓ | ✓ (backend only) |
+|PostgreSQL Storage<sup>2</sup>|  **HDD**  | ✓ | ✓ (backend only) |
 |Use AWS storage|  **No**  | ✓ | ✓ (frontend only) |
 |uWGI workers|  **start: 2, max: 4**  | ✓ | ✓ (frontend only) |
 |uWGI memory limit|  **128 MB**  | ✓ | ✓ (frontend only) |
@@ -88,6 +90,8 @@ User can choose between 2 types of installations:
 
 <sup>1)</sup> _HTTPS certificates must be installed on a Reverse Proxy. 
 `KoBoInstall` can install one and use `Let's Encrypt` to generate certificates thanks to [nginx-certbot project](https://github.com/wmnnd/nginx-certbot "")_
+
+<sup>2)</sup> _Custom settings are provided by [PostgreSQL Configuration Tool API](https://github.com/sebastianwebber/pgconfig-api "")_
 
 ## Requirements
 
