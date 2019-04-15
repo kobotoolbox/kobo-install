@@ -4,7 +4,7 @@ It prompts the user to answer some questions to create configuration files autom
 ## Warning
 If you have already installed `KoBoToolbox` with `kobo-docker` prior March 2019,
 databases are not compatible and and docker images (`PostgreSQL`, `MongoDB`) are not the same.  
-**`kobo-install` won't be able to start the app.**
+**`KoBoInstall` won't be able to start the app.**
 
 
 
@@ -87,7 +87,7 @@ User can choose between 2 types of installations:
 |Staging mode|  **False**  |  | ✓ (frontend only) |
 
 <sup>1)</sup> _HTTPS certificates must be installed on a Reverse Proxy. 
-`kobo-install` can install one and use `Let's Encrypt` to generate certificates thanks to [nginx-certbot project](https://github.com/wmnnd/nginx-certbot "")_
+`KoBoInstall` can install one and use `Let's Encrypt` to generate certificates thanks to [nginx-certbot project](https://github.com/wmnnd/nginx-certbot "")_
 
 ## Requirements
 

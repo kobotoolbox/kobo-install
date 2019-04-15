@@ -783,7 +783,7 @@ class Config:
             CLI.colored_print("╔════════════════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
             CLI.colored_print("║ Please note that certificates must be installed on a reverse-proxy ║", CLI.COLOR_WARNING)
             CLI.colored_print("║ or a load balancer.                                                ║", CLI.COLOR_WARNING)
-            CLI.colored_print("║ `kobo-install` can install one, if needed.                         ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║ KoBoInstall can install one, if needed.                            ║", CLI.COLOR_WARNING)
             CLI.colored_print("╚════════════════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
 
     def __questions_intercom(self):
@@ -1176,7 +1176,7 @@ class Config:
             postgres_data_exists = os.path.exists(postgres_dir_path) and os.path.isdir(postgres_dir_path)
 
             if mongo_data_exists or postgres_data_exists:
-                # Not a reliable way to detect whether folder contains `kobo-install` files
+                # Not a reliable way to detect whether folder contains `KoBoInstall` files
                 # We assume that if `docker-compose.backend.template.yml` is there,
                 # Docker images are the good ones.
                 # TODO Find a better way
@@ -1189,9 +1189,9 @@ class Config:
                     CLI.colored_print("║ You are installing over existing data.             ║", CLI.COLOR_WARNING)
                     CLI.colored_print("║                                                    ║", CLI.COLOR_WARNING)
                     CLI.colored_print("║ It's recommended to backup your data and import it ║", CLI.COLOR_WARNING)
-                    CLI.colored_print("║ to a fresh installed (by `kobo-install`) database. ║", CLI.COLOR_WARNING)
+                    CLI.colored_print("║ to a fresh installed (by KoBoInstall) database.    ║", CLI.COLOR_WARNING)
                     CLI.colored_print("║                                                    ║", CLI.COLOR_WARNING)
-                    CLI.colored_print("║ `kobo-install` uses these images:                  ║", CLI.COLOR_WARNING)
+                    CLI.colored_print("║ KoBoInstall uses these images:                     ║", CLI.COLOR_WARNING)
                     CLI.colored_print("║    - MongoDB: mongo:3.4                            ║", CLI.COLOR_WARNING)
                     CLI.colored_print("║    - PostgreSQL: mdillon/postgis:9.5               ║", CLI.COLOR_WARNING)
                     CLI.colored_print("║                                                    ║", CLI.COLOR_WARNING)
@@ -1213,7 +1213,7 @@ class Config:
 
     def __welcome(self):
         CLI.colored_print("╔═══════════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
-        CLI.colored_print("║ Welcome to `kobo-install`!                                    ║", CLI.COLOR_WARNING)
+        CLI.colored_print("║ Welcome to KoBoInstall!                                       ║", CLI.COLOR_WARNING)
         CLI.colored_print("║                                                               ║", CLI.COLOR_WARNING)
         CLI.colored_print("║ You are going to be asked some questions that will            ║", CLI.COLOR_WARNING)
         CLI.colored_print("║ determine how to build the configuration of `KoBoToolBox`.    ║", CLI.COLOR_WARNING)

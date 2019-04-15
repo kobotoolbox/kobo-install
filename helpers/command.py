@@ -91,7 +91,7 @@ class Command:
                 build_image("kobocat")
 
     @classmethod
-    def info(cls, timeout=600):
+    def info(cls, timeout=60):
         config_object = Config()
         config = config_object.get_config()
 
@@ -111,31 +111,39 @@ class Command:
         nginx_port = int(Config.DEFAULT_NGINX_HTTPS_PORT) if config.get("https") == Config.TRUE \
             else int(config.get("exposed_nginx_docker_port", Config.DEFAULT_NGINX_PORT))
         https = config.get("https") == Config.TRUE
-        already_retried = None if config_object.first_time else False
+        already_retried = False
         while not stop:
             if Network.status_check(hostname, "/service_health/", nginx_port, https) == Network.STATUS_OK_200:
                 stop = True
                 success = True
             elif int(time.time()) - start >= timeout:
                 if timeout > 0:
-                    # sometimes frontend can not communicate with backend. docker-compose down/up fixes it.
-                    if already_retried is False:
-                        CLI.colored_print(("\n`KoBoToolbox` has not started yet, sometimes frontend containers "
-                                           "can not communicate with backend containers.\n"
-                                           "Let's restart frontend containers.\n"),
-                                          CLI.COLOR_INFO)
-                        already_retried = True
+                    CLI.colored_print(
+                        "\n`KoBoToolbox` has not started yet. This is can be normal with low CPU/RAM computers.\n",
+                        CLI.COLOR_INFO)
+                    CLI.colored_print("Wait for another {} seconds?".format(timeout), CLI.COLOR_SUCCESS)
+                    CLI.colored_print("\t1) Yes")
+                    CLI.colored_print("\t2) No")
+                    response = CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE)
+
+                    if response == Config.TRUE:
                         start = int(time.time())
-                        cls.restart_frontend()
                         continue
                     else:
-                        if config_object.first_time and already_retried is None:
-                            CLI.colored_print(
-                                "\n`KoBoToolbox` has not started yet, wait for another {} seconds!".format(
-                                    timeout), CLI.COLOR_INFO)
-                            start = int(time.time())
-                            already_retried = False
-                            continue
+                        if already_retried is False:
+                            already_retried = True
+                            CLI.colored_print(("\nSometimes frontend containers "
+                                               "can not communicate with backend containers.\n"
+                                               "Restarting the frontend containers usually fixes it.\n"),
+                                              CLI.COLOR_INFO)
+                            CLI.colored_print("Do you want to try?".format(timeout), CLI.COLOR_SUCCESS)
+                            CLI.colored_print("\t1) Yes")
+                            CLI.colored_print("\t2) No")
+                            response = CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE)
+                            if response == Config.TRUE:
+                                start = int(time.time())
+                                cls.restart_frontend()
+                                continue
                 stop = True
             else:
                 sys.stdout.write(".")
@@ -164,7 +172,7 @@ class Command:
                 password, " " * (max_chars_count - password_chars_count)), CLI.COLOR_WARNING)
             CLI.colored_print("╚═{}═╝".format("═" * max_chars_count), CLI.COLOR_WARNING)
         else:
-            CLI.colored_print("Something went wrong! Please look at docker logs", CLI.COLOR_ERROR)
+            CLI.colored_print("KoBoToolbox could not start! Please try `python run.py --logs` to see the logs.", CLI.COLOR_ERROR)
 
         return success
 
