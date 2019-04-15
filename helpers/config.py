@@ -364,8 +364,8 @@ class Config:
                         CLI.colored_print("Could not create directory {}!".format(kobodocker_path), CLI.COLOR_ERROR)
                         CLI.colored_print("Please make sure you have permissions and path is correct", CLI.COLOR_ERROR)
 
-        self.write_unique_id()
         self.__config["kobodocker_path"] = kobodocker_path
+        self.write_unique_id()
         self.__validate_installation()
 
     def __clone_repo(self, repo_path, repo_name):

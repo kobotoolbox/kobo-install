@@ -3,8 +3,11 @@ from __future__ import unicode_literals
 
 import json
 import pytest
+import random
 import shutil
+import string
 import tempfile
+
 
 try:
     from unittest.mock import patch, mock_open, MagicMock
@@ -247,7 +250,7 @@ def test_proxy_no_ssl_advanced():
             assert config_object.get_config().get("nginx_proxy_port") == proxy_port
 
 
-def test__port_allowed():
+def test_port_allowed():
     config_object = test_read_config()
     # Use let's encrypt by default
     assert not config_object._Config__is_port_allowed(Config.DEFAULT_NGINX_PORT)
@@ -259,3 +262,16 @@ def test__port_allowed():
     config_object._Config__config["block_common_http_ports"] = Config.FALSE
     assert config_object._Config__is_port_allowed(Config.DEFAULT_NGINX_PORT)
     assert config_object._Config__is_port_allowed("443")
+
+
+def test_create_directory():
+    config_object = test_read_config()
+    destination_path = tempfile.mkdtemp()
+
+    with patch("helpers.cli.CLI.colored_input") as mock_colored_input:
+        mock_colored_input.side_effect = iter([destination_path, Config.TRUE])
+        config_object._Config__create_directory()
+        config = config_object.get_config()
+        assert config.get("kobodocker_path") == destination_path
+
+    shutil.rmtree(destination_path)
