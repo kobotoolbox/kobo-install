@@ -114,7 +114,14 @@ Tests can be run with `tox`.
 Be sure it's install before running the tests
 
 ```
+$kobo-install> sudo apt install python-pip
 $kobo-install> pip install tox
+$kobo-install> tox
+```
+or 
+
+```
+$kobo-install> sudo apt install tox
 $kobo-install> tox
 ```
 
