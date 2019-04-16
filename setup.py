@@ -4,7 +4,7 @@ from setuptools import find_packages
 
 setup(
     name='KoBoInstall',
-    version='a71f75d',
+    version='7bcbdee',
     packages=find_packages(exclude=['tests']),  # Include all the python modules except `tests`,
     url='https://github.com/kobotoolbox/kobo-install/',
     license='',
