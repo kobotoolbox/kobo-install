@@ -14,7 +14,7 @@ server {
 
 server {
     listen 443 ssl;
-    server_name example.org;
+    server_name ${KOBOFORM_SUBDOMAIN}.${PUBLIC_DOMAIN_NAME} ${KOBOCAT_SUBDOMAIN}.${PUBLIC_DOMAIN_NAME} ${ENKETO_SUBDOMAIN}.${PUBLIC_DOMAIN_NAME};
     server_tokens off;
 
     ssl_certificate /etc/letsencrypt/live/${KOBOFORM_SUBDOMAIN}.${PUBLIC_DOMAIN_NAME}/fullchain.pem;
