@@ -210,7 +210,6 @@ class Config:
             self.__questions_installation_type()
 
             if not self.local_install:
-
                 if self.advanced_options:
                     self.__questions_multi_servers()
                     if self.multi_servers:
@@ -808,6 +807,7 @@ class Config:
             self.__config["use_private_dns"] = Config.FALSE
             self.__config["https"] = Config.FALSE
             self.__config["proxy"] = Config.FALSE
+            self.__config["nginx_proxy_port"] = Config.DEFAULT_NGINX_PORT
 
     def __questions_multi_servers(self):
         """
@@ -1011,12 +1011,15 @@ class Config:
 
                 self.__clone_repo(self.get_letsencrypt_repo_path(), "nginx-certbot")
         else:
-            CLI.colored_print("Is `KoBoToolbox` behind a reverse-proxy/load-balancer?", CLI.COLOR_SUCCESS)
-            CLI.colored_print("\t1) Yes")
-            CLI.colored_print("\t2) No")
-            self.__config["proxy"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                      self.__config.get("proxy", Config.FALSE))
-            self.__config["use_letsencrypt"] = Config.FALSE
+            if self.advanced_options:
+                CLI.colored_print("Is `KoBoToolbox` behind a reverse-proxy/load-balancer?", CLI.COLOR_SUCCESS)
+                CLI.colored_print("\t1) Yes")
+                CLI.colored_print("\t2) No")
+                self.__config["proxy"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                          self.__config.get("proxy", Config.FALSE))
+                self.__config["use_letsencrypt"] = Config.FALSE
+            else:
+                self.__config["proxy"] = Config.FALSE
 
         if self.proxy:
             # When proxy is enabled, public port is 80 or 443.
@@ -1049,7 +1052,7 @@ class Config:
 
         else:
             self.__config["use_letsencrypt"] = Config.FALSE
-            self.__config["nginx_proxy_port"] = Config.DEFAULT_PROXY_PORT
+            self.__config["nginx_proxy_port"] = Config.DEFAULT_NGINX_PORT
             self.__config["block_common_http_ports"] = Config.FALSE
 
     def __questions_roles(self):

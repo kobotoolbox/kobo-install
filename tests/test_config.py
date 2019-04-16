@@ -201,8 +201,9 @@ def test_proxy_no_letsencrypt():
 def test_no_proxy_no_ssl():
     config_object = test_read_config()
     assert config_object.is_secure
-
-    proxy_port = Config.DEFAULT_PROXY_PORT
+    assert config_object.get_config().get("nginx_proxy_port") == Config.DEFAULT_PROXY_PORT
+    
+    proxy_port = Config.DEFAULT_NGINX_PORT
 
     with patch.object(CLI, "colored_input", return_value=Config.FALSE) as mock_ci:
         config_object._Config__questions_https()
