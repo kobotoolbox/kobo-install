@@ -20,10 +20,10 @@ class Template:
 
         config = config_object.get_config()
 
-        if config_object.local_install:
-            nginx_port = config.get("exposed_nginx_docker_port")
-        else:
+        if config_object.proxy:
             nginx_port = config.get("nginx_proxy_port")
+        else:
+            nginx_port = config.get("exposed_nginx_docker_port")
 
         template_variables = {
             "PROTOCOL": "https" if config.get("https") == Config.TRUE else "http",
