@@ -4,7 +4,7 @@ It prompts the user to answer some questions to create configuration files autom
 ## Warning
 If you have already installed `KoBoToolbox` with `kobo-docker` prior March 2019,
 databases are not compatible and and docker images (`PostgreSQL`, `MongoDB`) are not the same.  
-**`KoBoInstall` won't be able to start the app.**
+**KoBoInstall` won't be able to start the app.**
 
 
 
@@ -96,7 +96,7 @@ User can choose between 2 types of installations:
 ## Requirements
 
 - Linux / macOS
-- Python 2.7+/3.4+
+- Python 2.7+/3.5+
 - [Docker](https://www.docker.com/get-started "") & [Docker Compose](https://docs.docker.com/compose/install/ "")
 - Available TCP Ports:
 
@@ -110,10 +110,14 @@ User can choose between 2 types of installations:
 
 ## Tests
 
-Tests can be run with `pytest`.
+Tests can be run with `tox`.  
+Be sure it's install before running the tests
 
-- virtualenv for python2 can be created with `requirements_py2_tests.txt`
-- virtualenv for python3 can be created with `requirements_py3_tests.txt`
+```
+$kobo-install> pip install tox
+$kobo-install> tox
+```
+
 
 ## To-Do
 
