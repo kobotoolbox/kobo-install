@@ -4,9 +4,7 @@ It prompts the user to answer some questions to create configuration files autom
 ## Warning
 If you have already installed `KoBoToolbox` with `kobo-docker` prior March 2019,
 databases are not compatible and and docker images (`PostgreSQL`, `MongoDB`) are not the same.  
-**KoBoInstall` won't be able to start the app.**
-
-
+**`KoBoInstall` won't be able to start the app.**
 
 ## Usage
 
