@@ -22,6 +22,9 @@ server {
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
+    # Allow 100M upload
+    client_max_body_size 100M;
+
     location / {
         proxy_pass  http://${LOCAL_INTERFACE_IP}:${NGINX_EXPOSED_PORT};
         proxy_set_header    Host                $$http_host;
