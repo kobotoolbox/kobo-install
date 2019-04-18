@@ -55,12 +55,12 @@ class Config:
         :return: bool
         """
         changed = False
-        if self.__config.get("local_installation") == Config.TRUE:
-            local_interfaces = Network.get_local_interfaces(all=True)
-            if self.__config.get("local_interface_ip") not in local_interfaces.values():
-                self.__detect_network()
-                self.write_config()
-                changed = True
+        local_interfaces = Network.get_local_interfaces(all=True)
+
+        if self.__config.get("local_interface_ip") not in local_interfaces.values():
+            self.__detect_network()
+            self.write_config()
+            changed = True
         return changed
 
     @property
@@ -128,7 +128,7 @@ class Config:
         :return: bool
         """
         return not self.multi_servers or \
-               self.__config.get("server_role") == "frontend"
+            self.__config.get("server_role") == "frontend"
 
     @property
     def frontend_questions(self):
@@ -157,7 +157,7 @@ class Config:
 
     @property
     def use_letsencrypt(self):
-        return self.__config["use_letsencrypt"] == Config.TRUE
+        return self.local_install is False and self.__config["use_letsencrypt"] == Config.TRUE
 
     @property
     def local_install(self):
@@ -208,6 +208,7 @@ class Config:
             self.__create_directory()
             self.__questions_advanced_options()
             self.__questions_installation_type()
+            self.__detect_network()
 
             if not self.local_install:
                 if self.advanced_options:
@@ -221,9 +222,6 @@ class Config:
                     self.__questions_public_routes()
                     self.__questions_https()
                     self.__question_reverse_proxy()
-
-            else:
-                self.__detect_network()
 
             if self.frontend_questions:
                 self.__questions_smtp()
@@ -402,10 +400,17 @@ class Config:
         self.__config["local_interface_ip"] = Network.get_primary_ip()
         self.__config["master_backend_ip"] = self.__config["local_interface_ip"]
 
-        if self.__config.get("advanced") == Config.TRUE:
+        if self.advanced_options:
             CLI.colored_print("Please choose which network interface you want to use?", CLI.COLOR_SUCCESS)
             interfaces = Network.get_local_interfaces()
+            all_interfaces = Network.get_local_interfaces(all=True)
+            docker_interface = "docker0"
             interfaces.update({"other": "Other"})
+
+            if self.__config.get("local_interface") == docker_interface and \
+                    docker_interface in all_interfaces:
+                interfaces.update({docker_interface: all_interfaces.get(docker_interface)})
+
             for interface, ip_address in interfaces.items():
                 CLI.colored_print("\t{}) {}".format(interface, ip_address))
 
@@ -782,6 +787,7 @@ class Config:
         """
         Asks for installation type
         """
+
         CLI.colored_print("What kind of installation do you need?", CLI.COLOR_SUCCESS)
         CLI.colored_print("\t1) On your workstation")
         CLI.colored_print("\t2) On a server")
@@ -794,6 +800,7 @@ class Config:
             self.__config["https"] = Config.FALSE
             self.__config["proxy"] = Config.FALSE
             self.__config["nginx_proxy_port"] = Config.DEFAULT_NGINX_PORT
+            self.__config["use_letsencrypt"] = Config.FALSE
 
     def __questions_multi_servers(self):
         """

@@ -60,6 +60,7 @@ def test_installation():
         config_object._Config__questions_installation_type()
         assert config_object.local_install
         assert not config_object.multi_servers
+        assert not config_object.use_letsencrypt
 
     return config_object
 
