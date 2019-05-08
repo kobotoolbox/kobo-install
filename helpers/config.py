@@ -465,9 +465,10 @@ class Config:
             "local_interface_ip": primary_ip,
             "multi": Config.FALSE,
             "postgres_settings": Config.FALSE,
-            "postgres_ram": "8",
+            "postgres_ram": "2",
             "postgres_profile": "Mixed",
             "postgres_max_connections": "100",
+            "postgres_hard_drive_type": "hdd",
             "postgres_settings_content": "",
             "enketo_api_token": binascii.hexlify(os.urandom(60)).decode("utf-8"),
             "django_secret_key": binascii.hexlify(os.urandom(24)).decode("utf-8"),
@@ -549,7 +550,8 @@ class Config:
                     if self.backend_questions and not self.frontend_questions:
                         self.__questions_aws()
 
-                    schedule_regex_pattern = "^((((\d+(,\d+)*)|(\d+-\d+)|(\*(\/\d+)?)))(\s+(((\d+(,\d+)*)|(\d+\-\d+)|(\*(\/\d+)?)))){4})$"
+                    schedule_regex_pattern = (r"^((((\d+(,\d+)*)|(\d+-\d+)|(\*(\/\d+)?)))"
+                                              r"(\s+(((\d+(,\d+)*)|(\d+\-\d+)|(\*(\/\d+)?)))){4})$")
                     CLI.colored_print("╔═════════════════════════════════════════════════════════════════╗",
                                       CLI.COLOR_WARNING)
                     CLI.colored_print("║ Schedules use linux cron syntax with UTC datetimes.             ║",
@@ -612,58 +614,42 @@ class Config:
                                                                                             ""))
                             if self.__config["aws_backup_bucket_name"] != "":
                                 CLI.colored_print("How many yearly backups to keep?", CLI.COLOR_SUCCESS)
-                                self.__config["aws_backup_yearly_retention"] = CLI.get_response("~^\d+$",
-                                                                                                self.__config.get(
-                                                                                                    "aws_backup_yearly_retention",
-                                                                                                    "2"))
+                                self.__config["aws_backup_yearly_retention"] = CLI.get_response(
+                                    r"~^\d+$", self.__config.get("aws_backup_yearly_retention", "2"))
 
                                 CLI.colored_print("How many monthly backups to keep?", CLI.COLOR_SUCCESS)
-                                self.__config["aws_backup_monthly_retention"] = CLI.get_response("~^\d+$",
-                                                                                                 self.__config.get(
-                                                                                                     "aws_backup_monthly_retention",
-                                                                                                     "12"))
+                                self.__config["aws_backup_monthly_retention"] = CLI.get_response(
+                                    r"~^\d+$", self.__config.get("aws_backup_monthly_retention", "12"))
 
                                 CLI.colored_print("How many weekly backups to keep?", CLI.COLOR_SUCCESS)
-                                self.__config["aws_backup_weekly_retention"] = CLI.get_response("~^\d+$",
-                                                                                                self.__config.get(
-                                                                                                    "aws_backup_weekly_retention",
-                                                                                                    "4"))
+                                self.__config["aws_backup_weekly_retention"] = CLI.get_response(
+                                    r"~^\d+$", self.__config.get("aws_backup_weekly_retention", "4"))
 
                                 CLI.colored_print("How many daily backups to keep?", CLI.COLOR_SUCCESS)
-                                self.__config["aws_backup_daily_retention"] = CLI.get_response("~^\d+$",
-                                                                                               self.__config.get(
-                                                                                                   "aws_backup_daily_retention",
-                                                                                                   "30"))
+                                self.__config["aws_backup_daily_retention"] = CLI.get_response(
+                                    r"~^\d+$", self.__config.get("aws_backup_daily_retention", "30"))
 
                                 CLI.colored_print("MongoDB backup minimum size (in MB)?", CLI.COLOR_SUCCESS)
                                 CLI.colored_print("Files below this size will be ignored when rotating backups.",
                                                   CLI.COLOR_INFO)
-                                self.__config["aws_mongo_backup_minimum_size"] = CLI.get_response("~^\d+$",
-                                                                                                  self.__config.get(
-                                                                                                      "aws_mongo_backup_minimum_size",
-                                                                                                      "50"))
+                                self.__config["aws_mongo_backup_minimum_size"] = CLI.get_response(
+                                    r"~^\d+$", self.__config.get("aws_mongo_backup_minimum_size", "50"))
 
                                 CLI.colored_print("PostgresSQL backup minimum size (in MB)?", CLI.COLOR_SUCCESS)
                                 CLI.colored_print("Files below this size will be ignored when rotating backups.",
                                                   CLI.COLOR_INFO)
-                                self.__config["aws_postgres_backup_minimum_size"] = CLI.get_response("~^\d+$",
-                                                                                                     self.__config.get(
-                                                                                                         "aws_postgres_backup_minimum_size",
-                                                                                                         "50"))
+                                self.__config["aws_postgres_backup_minimum_size"] = CLI.get_response(
+                                    r"~^\d+$", self.__config.get("aws_postgres_backup_minimum_size", "50"))
 
                                 CLI.colored_print("Redis backup minimum size (in MB)?", CLI.COLOR_SUCCESS)
                                 CLI.colored_print("Files below this size will be ignored when rotating backups.",
                                                   CLI.COLOR_INFO)
-                                self.__config["aws_redis_backup_minimum_size"] = CLI.get_response("~^\d+$",
-                                                                                                  self.__config.get(
-                                                                                                      "aws_redis_backup_minimum_size",
-                                                                                                      "5"))
+                                self.__config["aws_redis_backup_minimum_size"] = CLI.get_response(
+                                    r"~^\d+$", self.__config.get("aws_redis_backup_minimum_size", "5"))
 
                                 CLI.colored_print("Chunk size of multipart uploads (in MB)?", CLI.COLOR_SUCCESS)
-                                self.__config["aws_backup_upload_chunk_size"] = CLI.get_response("~^\d+$",
-                                                                                                 self.__config.get(
-                                                                                                     "aws_backup_upload_chunk_size",
-                                                                                                     "15"))
+                                self.__config["aws_backup_upload_chunk_size"] = CLI.get_response(
+                                    r"~^\d+$", self.__config.get("aws_backup_upload_chunk_size", "15"))
 
                                 CLI.colored_print("Use AWS LifeCycle deletion rule?", CLI.COLOR_SUCCESS)
                                 CLI.colored_print("\t1) Yes")
@@ -690,7 +676,7 @@ class Config:
             if self.local_install:
                 # NGinX different port
                 CLI.colored_print("Web server port?", CLI.COLOR_SUCCESS)
-                self.__config["exposed_nginx_docker_port"] = CLI.get_response("~^\d+$",
+                self.__config["exposed_nginx_docker_port"] = CLI.get_response(r"~^\d+$",
                                                                               self.__config.get(
                                                                                   "exposed_nginx_docker_port",
                                                                                   Config.DEFAULT_NGINX_PORT))
@@ -844,30 +830,49 @@ class Config:
 
             if self.__config["postgres_settings"] == Config.TRUE:
                 CLI.colored_print("Total Memory in GB?", CLI.COLOR_SUCCESS)
-                self.__config["postgres_ram"] = CLI.get_response("~^\d+$", self.__config.get("postgres_ram", "8"))
+                self.__config["postgres_ram"] = CLI.get_response(r"~^\d+$", self.__config.get("postgres_ram"))
+
+                CLI.colored_print("Storage type?", CLI.COLOR_SUCCESS)
+                CLI.colored_print("\thdd) Hard Disk Drive")
+                CLI.colored_print("\tssd) Solid State Drive")
+                CLI.colored_print("\tsan) Storage Area Network")
+                self.__config["postgres_hard_drive_type"] = CLI.get_response(
+                    ["hdd", "ssd", "san"],
+                    self.__config.get("postgres_hard_drive_type").lower())
+
+                CLI.colored_print("Number of connections?", CLI.COLOR_SUCCESS)
+                self.__config["postgres_max_connections"] = CLI.get_response(
+                    r"~^\d+$",
+                    self.__config.get("postgres_max_connections"))
 
                 if self.multi_servers:
-                    self.__config["postgres_profile"] = "OLTP"
-                    CLI.colored_print("Number of connections?", CLI.COLOR_SUCCESS)
-                    self.__config["postgres_max_connections"] = CLI.get_response(
-                        "~^\d+$",
-                        self.__config.get("postgres_max_connections", "100"))
+                    multi_servers_profiles = ["web", "oltp", "dw"]
+                    if self.__config["postgres_profile"].lower() not in multi_servers_profiles:
+                        self.__config["postgres_profile"] = "web"
+
+                    CLI.colored_print("Application profile?", CLI.COLOR_SUCCESS)
+                    CLI.colored_print("\tweb) General Web application")
+                    CLI.colored_print("\toltp) ERP or long transaction applications")
+                    CLI.colored_print("\tdw) DataWare house")
+
+                    self.__config["postgres_profile"] = CLI.get_response(["web", "oltp", "dw"],
+                                                                         self.__config.get("postgres_profile").lower())
+
+                    self.__config["postgres_profile"] = self.__config["postgres_profile"].upper()
+
                 elif self.dev_mode:
                     self.__config["postgres_profile"] = "Desktop"
                 else:
                     self.__config["postgres_profile"] = "Mixed"
-                    CLI.colored_print("Number of connections?", CLI.COLOR_SUCCESS)
-                    self.__config["postgres_max_connections"] = CLI.get_response(
-                        "~^\d+$",
-                        self.__config.get("postgres_max_connections", "100"))
 
             # use pgconfig.org API to build postgres config
             endpoint = "https://api.pgconfig.org/v1/tuning/get-config?environment_name={profile}" \
                        "&format=conf&include_pgbadger=false&max_connections={max_connections}&" \
-                       "pg_version=9.5&total_ram={ram}GB&drive_type=SSD".format(
+                       "pg_version=9.5&total_ram={ram}GB&drive_type={drive_type}".format(
                 profile=self.__config["postgres_profile"],
                 ram=self.__config["postgres_ram"],
-                max_connections=self.__config["postgres_max_connections"]
+                max_connections=self.__config["postgres_max_connections"],
+                drive_type=self.__config["postgres_hard_drive_type"].upper()
             )
             response = Network.curl(endpoint)
             if response:
@@ -888,16 +893,16 @@ class Config:
                                                                                Config.FALSE))
         if self.__config.get("customized_ports") == Config.TRUE:
             CLI.colored_print("PostgreSQL?", CLI.COLOR_SUCCESS)
-            self.__config["postgresql_port"] = CLI.get_response("~^\d+$", self.__config.get("postgresql_port", "5432"))
+            self.__config["postgresql_port"] = CLI.get_response(r"~^\d+$", self.__config.get("postgresql_port", "5432"))
 
             CLI.colored_print("MongoDB?", CLI.COLOR_SUCCESS)
-            self.__config["mongo_port"] = CLI.get_response("~^\d+$", self.__config.get("mongo_port", "27017"))
+            self.__config["mongo_port"] = CLI.get_response(r"~^\d+$", self.__config.get("mongo_port", "27017"))
 
             CLI.colored_print("Redis (main)?", CLI.COLOR_SUCCESS)
-            self.__config["redis_main_port"] = CLI.get_response("~^\d+$", self.__config.get("redis_main_port", "6379"))
+            self.__config["redis_main_port"] = CLI.get_response(r"~^\d+$", self.__config.get("redis_main_port", "6379"))
 
             CLI.colored_print("Redis (cache)?", CLI.COLOR_SUCCESS)
-            self.__config["redis_cache_port"] = CLI.get_response("~^\d+$",
+            self.__config["redis_cache_port"] = CLI.get_response(r"~^\d+$",
                                                                  self.__config.get("redis_cache_port", "6380"))
         else:
             self.__config["postgresql_port"] = "5432"
@@ -923,7 +928,7 @@ class Config:
         if self.__config["use_private_dns"] == Config.FALSE:
             CLI.colored_print("IP address (IPv4) of backend server?", CLI.COLOR_SUCCESS)
             self.__config["master_backend_ip"] = CLI.get_response(
-                "~\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}",
+                r"~\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}",
                 self.__config.get("master_backend_ip", self.__primary_ip))
         else:
             self.__config["private_domain_name"] = CLI.colored_input("Private domain name",
@@ -1037,7 +1042,7 @@ class Config:
 
                 CLI.colored_print("Internal port used by reverse proxy?", CLI.COLOR_SUCCESS)
                 while True:
-                    self.__config["nginx_proxy_port"] = CLI.get_response("~^\d+$",
+                    self.__config["nginx_proxy_port"] = CLI.get_response(r"~^\d+$",
                                                                          self.__config.get("nginx_proxy_port"))
                     if self.__is_port_allowed(self.__config["nginx_proxy_port"]):
                         break
@@ -1124,20 +1129,20 @@ class Config:
         if self.__config.get("uwsgi_settings") == Config.TRUE:
             CLI.colored_print("Number of uWSGi workers to start?", CLI.COLOR_SUCCESS)
             self.__config["workers_start"] = CLI.get_response(
-                "~^\d+$",
+                r"~^\d+$",
                 self.__config.get("workers_start", "1"))
             CLI.colored_print("Max uWSGi workers?", CLI.COLOR_SUCCESS)
             self.__config["workers_max"] = CLI.get_response(
-                "~^\d+$",
+                r"~^\d+$",
                 self.__config.get("workers_max", "2"))
 
             CLI.colored_print("Max number of requests per worker?", CLI.COLOR_SUCCESS)
             self.__config["max_requests"] = CLI.get_response(
-                "~^\d+$",
+                r"~^\d+$",
                 self.__config.get("max_requests", "512"))
             CLI.colored_print("Max memory per workers in MB?", CLI.COLOR_SUCCESS)
             self.__config["soft_limit"] = CLI.get_response(
-                "~^\d+$",
+                r"~^\d+$",
                 self.__config.get("soft_limit", "128"))
         else:
             self.__config["workers_start"] = "1"

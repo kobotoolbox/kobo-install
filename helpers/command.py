@@ -91,7 +91,7 @@ class Command:
                 build_image("kobocat")
 
     @classmethod
-    def info(cls, timeout=60):
+    def info(cls, timeout=600):
         config_object = Config()
         config = config_object.get_config()
 
