@@ -26,6 +26,7 @@ def run(force_setup=False):
             current_config = config.build()
             Setup.run(current_config)
             Template.render(config)
+            config.init_letsencrypt()
             Setup.update_hosts(current_config)
         else:
             if config.auto_detect_network():
@@ -57,6 +58,8 @@ if __name__ == "__main__":
             Command.build("kf")
         elif sys.argv[1] == "-bkc" or sys.argv[1] == "--build-kobocat":
             Command.build("kc")
+        elif sys.argv[1] == "-v" or sys.argv[1] == "--version":
+            Command.version()
         else:
             CLI.colored_print("Bad syntax. Try 'run.py --help'", CLI.COLOR_ERROR)
     else:

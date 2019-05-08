@@ -10,6 +10,7 @@ from helpers.config import Config
 
 
 class Setup:
+
     KOBO_DOCKER_BRANCH = "master"
 
     @classmethod
