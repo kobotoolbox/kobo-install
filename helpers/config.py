@@ -17,9 +17,16 @@ from helpers.singleton import Singleton
 
 
 class Config:
+
     CONFIG_FILE = ".run.conf"
+    UNIQUE_ID_FILE = ".uniqid"
     TRUE = "1"
     FALSE = "2"
+    LETSENCRYPT_DOCKER_DIR = "nginx-certbot"
+    ENV_FILES_DIR = "kobo-deployments"
+    DEFAULT_PROXY_PORT = "8080"
+    DEFAULT_NGINX_PORT = "80"
+    DEFAULT_NGINX_HTTPS_PORT = "443"
 
     # Maybe overkill. Use this class as a singleton to get the same configuration
     # for each instantiation.
@@ -38,18 +45,22 @@ class Config:
         """
         return self.__config.get("advanced") == Config.TRUE
 
+    @property
+    def block_common_http_ports(self):
+        return self.use_letsencrypt or self.__config.get("block_common_http_ports") == Config.TRUE
+
     def auto_detect_network(self):
         """
         Tries to detect new ip
         :return: bool
         """
         changed = False
-        if self.__config.get("local_installation") == Config.TRUE:
-            local_interfaces = Network.get_local_interfaces(all=True)
-            if self.__config.get("local_interface_ip") not in local_interfaces.values():
-                self.__detect_network()
-                self.write_config()
-                changed = True
+        local_interfaces = Network.get_local_interfaces(all=True)
+
+        if self.__config.get("local_interface_ip") not in local_interfaces.values():
+            self.__detect_network()
+            self.write_config()
+            changed = True
         return changed
 
     @property
@@ -59,6 +70,20 @@ class Config:
         :return: bool
         """
         return self.__config.get("use_aws") == Config.TRUE
+
+    def get_env_files_path(self):
+        return os.path.realpath(os.path.normpath(os.path.join(
+            self.__config.get("kobodocker_path"),
+            "..",
+            Config.ENV_FILES_DIR
+        )))
+
+    def get_letsencrypt_repo_path(self):
+        return os.path.realpath(os.path.normpath(os.path.join(
+            self.__config.get("kobodocker_path"),
+            "..",
+            Config.LETSENCRYPT_DOCKER_DIR
+        )))
 
     @property
     def master_backend(self):
@@ -103,7 +128,7 @@ class Config:
         :return: bool
         """
         return not self.multi_servers or \
-               self.__config.get("server_role") == "frontend"
+            self.__config.get("server_role") == "frontend"
 
     @property
     def frontend_questions(self):
@@ -116,6 +141,23 @@ class Config:
     @property
     def dev_mode(self):
         return self.__config.get("dev_mode") == Config.TRUE
+
+    @property
+    def is_secure(self):
+        return self.__config.get("https") == Config.TRUE
+
+    def init_letsencrypt(self):
+        if self.use_letsencrypt:
+            reverse_proxy_path = self.get_letsencrypt_repo_path()
+            reverse_proxy_command = [
+                "/bin/bash",
+                "init-letsencrypt.sh"
+            ]
+            CLI.run_command(reverse_proxy_command, reverse_proxy_path)
+
+    @property
+    def use_letsencrypt(self):
+        return self.local_install is False and self.__config["use_letsencrypt"] == Config.TRUE
 
     @property
     def local_install(self):
@@ -157,68 +199,19 @@ class Config:
             CLI.colored_print("╚══════════════════════════════════════════════════════╝", CLI.COLOR_ERROR)
             sys.exit()
         else:
-            config = {
-                "workers_max": "2",
-                "workers_start": "1",
-                "debug": Config.FALSE,
-                "kobodocker_path": os.path.realpath("{}/../../kobo-docker".format(
-                    os.path.dirname(os.path.realpath(__file__)))
-                ),
-                "internal_domain_name": "docker.internal",
-                "private_domain_name": "kobo.private",
-                "public_domain_name": "kobo.local",
-                "kpi_subdomain": "kf",
-                "kc_subdomain": "kc",
-                "ee_subdomain": "ee",
-                "kc_postgres_db": "kobocat",
-                "kpi_postgres_db": "koboform",
-                "postgres_user": "kobo",
-                "postgres_password": Config.generate_password(),
-                "kc_path": "",
-                "kpi_path": "",
-                "super_user_username": "super_admin",
-                "super_user_password": Config.generate_password(),
-                "postgres_replication_password": Config.generate_password(),
-                "use_aws": Config.FALSE,
-                "use_private_dns": Config.FALSE,
-                "master_backend_ip": self.__primary_ip,
-                "local_interface_ip": self.__primary_ip,
-                "multi": Config.FALSE,
-                "postgres_settings": Config.FALSE,
-                "postgres_ram": "8",
-                "postgres_profile": "Mixed",
-                "postgres_max_connections": "100",
-                "postgres_settings_content": "",
-                "enketo_api_token": binascii.hexlify(os.urandom(60)).decode("utf-8"),
-                "django_secret_key": binascii.hexlify(os.urandom(24)).decode("utf-8"),
-                "use_backup": Config.FALSE,
-                "kobocat_media_schedule": "0 0 * * 0",
-                "mongo_backup_schedule": "0 1 * * 0",
-                "postgres_backup_schedule": "0 2 * * 0",
-                "redis_backup_schedule": "0 3 * * 0",
-                "aws_backup_bucket_name": "",
-                "aws_backup_yearly_retention": "2",
-                "aws_backup_monthly_retention": "12",
-                "aws_backup_weekly_retention": "4",
-                "aws_backup_daily_retention": "30",
-                "aws_mongo_backup_minimum_size": "50",
-                "aws_postgres_backup_minimum_size": "50",
-                "aws_redis_backup_minimum_size": "5",
-                "aws_backup_upload_chunk_size": "15",
-                "aws_backup_bucket_deletion_rule_enabled": Config.FALSE,
-                "backend_server_role": "master"
-            }
 
+            config = self.get_config_template()
             config.update(self.__config)
 
             self.__config = config
             self.__welcome()
+
             self.__create_directory()
             self.__questions_advanced_options()
             self.__questions_installation_type()
+            self.__detect_network()
 
             if not self.local_install:
-
                 if self.advanced_options:
                     self.__questions_multi_servers()
                     if self.multi_servers:
@@ -228,9 +221,8 @@ class Config:
 
                 if self.frontend_questions:
                     self.__questions_public_routes()
-
-            else:
-                self.__detect_network()
+                    self.__questions_https()
+                    self.__question_reverse_proxy()
 
             if self.frontend_questions:
                 self.__questions_smtp()
@@ -275,18 +267,40 @@ class Config:
         """
         config = {}
         try:
-            with open(Config.CONFIG_FILE, "r") as f:
+            base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+            config_file = os.path.join(base_dir, Config.CONFIG_FILE)
+            with open(config_file, "r") as f:
                 config = json.loads(f.read())
-        except Exception as e:
+        except IOError:
             pass
 
         self.__config = config
+        unique_id = self.read_unique_id()
+        if not unique_id:
+            self.__config["unique_id"] = int(time.time())
+
         return config
+
+    def read_unique_id(self):
+        """
+        Reads unique id from file `Config.UNIQUE_ID_FILE`
+        :return: str
+        """
+        unique_id = None
+
+        try:
+            unique_id_file = os.path.join(self.__config.get("kobodocker_path"),
+                                          Config.UNIQUE_ID_FILE)
+            with open(unique_id_file, "r") as f:
+                unique_id = f.read().strip()
+        except Exception as e:
+            pass
+
+        return unique_id
 
     def write_config(self):
         """
         Writes config to file `Config.CONFIG_FILE`.
-        :return: bool
         """
         # Adds `date_created`. This field will be use to determine first usage of the setup option.
         if self.__config.get("date_created") is None:
@@ -294,13 +308,26 @@ class Config:
         self.__config["date_modified"] = int(time.time())
 
         try:
-            with open(Config.CONFIG_FILE, "w") as f:
+            base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+            config_file = os.path.join(base_dir, Config.CONFIG_FILE)
+            with open(config_file, "w") as f:
                 f.write(json.dumps(self.__config))
 
-            os.chmod(Config.CONFIG_FILE, stat.S_IWRITE | stat.S_IREAD)
+            os.chmod(config_file, stat.S_IWRITE | stat.S_IREAD)
 
-        except Exception as e:
+        except IOError:
             CLI.colored_print("Could not write configuration file", CLI.COLOR_ERROR)
+            sys.exit()
+
+    def write_unique_id(self):
+        try:
+            unique_id_file = os.path.join(self.__config.get("kobodocker_path"), Config.UNIQUE_ID_FILE)
+            with open(unique_id_file, "w") as f:
+                f.write(str(self.__config.get("unique_id")))
+
+            os.chmod(unique_id_file, stat.S_IWRITE | stat.S_IREAD)
+        except (IOError, OSError):
+            CLI.colored_print("Could not write unique_id file", CLI.COLOR_ERROR)
             return False
 
         return True
@@ -313,28 +340,78 @@ class Config:
         while True:
             kobodocker_path = CLI.colored_input("", CLI.COLOR_SUCCESS,
                                                 self.__config.get("kobodocker_path"))
-            if os.path.isdir(kobodocker_path):
-                break
-            else:
-                try:
-                    os.makedirs(kobodocker_path)
+
+            if kobodocker_path.startswith("."):
+                base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+                kobodocker_path = os.path.normpath(os.path.join(base_dir, kobodocker_path))
+
+            CLI.colored_print("Please confirm path [{}]".format(kobodocker_path),
+                              CLI.COLOR_SUCCESS)
+            CLI.colored_print("\t1) Yes")
+            CLI.colored_print("\t2) No")
+
+            if CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE) == Config.TRUE:
+
+                if os.path.isdir(kobodocker_path):
                     break
-                except Exception as e:
-                    CLI.colored_print("Could not create directory {}!".format(kobodocker_path), CLI.COLOR_ERROR)
-                    CLI.colored_print("Please make sure you have permissions and path is correct", CLI.COLOR_ERROR)
+                else:
+                    try:
+                        os.makedirs(kobodocker_path)
+                        break
+                    except OSError:
+                        CLI.colored_print("Could not create directory {}!".format(kobodocker_path), CLI.COLOR_ERROR)
+                        CLI.colored_print("Please make sure you have permissions and path is correct", CLI.COLOR_ERROR)
 
         self.__config["kobodocker_path"] = kobodocker_path
+        self.write_unique_id()
         self.__validate_installation()
+
+    def __clone_repo(self, repo_path, repo_name):
+        if repo_path:
+            if repo_path.startswith("."):
+                full_repo_path = os.path.normpath(os.path.join(
+                    self.__config["kobodocker_path"],
+                    repo_path
+                ))
+            else:
+                full_repo_path = repo_path
+
+            if not os.path.isdir(full_repo_path):
+                # clone repo
+                try:
+                    os.makedirs(full_repo_path)
+                except OSError:
+                    CLI.colored_print("Please verify permissions.", CLI.COLOR_ERROR)
+                    sys.exit()
+
+            # Only clone if folder is empty
+            if not os.path.isdir(os.path.join(full_repo_path, ".git")):
+                git_command = [
+                    "git", "clone", "https://github.com/kobotoolbox/{}".format(repo_name),
+                    full_repo_path
+                ]
+
+                CLI.colored_print("Cloning `{}` repository to `{}` ".format(
+                    repo_name,
+                    full_repo_path), CLI.COLOR_INFO)
+                CLI.run_command(git_command, cwd=os.path.dirname(full_repo_path))
 
     def __detect_network(self):
 
         self.__config["local_interface_ip"] = Network.get_primary_ip()
         self.__config["master_backend_ip"] = self.__config["local_interface_ip"]
 
-        if self.__config.get("advanced") == Config.TRUE:
+        if self.advanced_options:
             CLI.colored_print("Please choose which network interface you want to use?", CLI.COLOR_SUCCESS)
             interfaces = Network.get_local_interfaces()
+            all_interfaces = Network.get_local_interfaces(all=True)
+            docker_interface = "docker0"
             interfaces.update({"other": "Other"})
+
+            if self.__config.get("local_interface") == docker_interface and \
+                    docker_interface in all_interfaces:
+                interfaces.update({docker_interface: all_interfaces.get(docker_interface)})
+
             for interface, ip_address in interfaces.items():
                 CLI.colored_print("\t{}) {}".format(interface, ip_address))
 
@@ -358,6 +435,78 @@ class Config:
 
             self.__config["local_interface_ip"] = interfaces[self.__config.get("local_interface")]
             self.__config["master_backend_ip"] = self.__config.get("local_interface_ip")
+
+    @classmethod
+    def get_config_template(cls):
+
+        primary_ip = Network.get_primary_ip()
+
+        return {
+            "workers_max": "2",
+            "workers_start": "1",
+            "debug": Config.FALSE,
+            "kobodocker_path": os.path.realpath(os.path.normpath(os.path.join(
+                os.path.dirname(os.path.realpath(__file__)),
+                "..",
+                "..",
+                "kobo-docker"))
+            ),
+            "internal_domain_name": "docker.internal",
+            "private_domain_name": "kobo.private",
+            "public_domain_name": "kobo.local",
+            "kpi_subdomain": "kf",
+            "kc_subdomain": "kc",
+            "ee_subdomain": "ee",
+            "kc_postgres_db": "kobocat",
+            "kpi_postgres_db": "koboform",
+            "postgres_user": "kobo",
+            "postgres_password": Config.generate_password(),
+            "kc_path": "",
+            "kpi_path": "",
+            "super_user_username": "super_admin",
+            "super_user_password": Config.generate_password(),
+            "postgres_replication_password": Config.generate_password(),
+            "use_aws": Config.FALSE,
+            "use_private_dns": Config.FALSE,
+            "master_backend_ip": primary_ip,
+            "local_interface_ip": primary_ip,
+            "multi": Config.FALSE,
+            "postgres_settings": Config.FALSE,
+            "postgres_ram": "2",
+            "postgres_profile": "Mixed",
+            "postgres_max_connections": "100",
+            "postgres_hard_drive_type": "hdd",
+            "postgres_settings_content": "",
+            "enketo_api_token": binascii.hexlify(os.urandom(60)).decode("utf-8"),
+            "django_secret_key": binascii.hexlify(os.urandom(24)).decode("utf-8"),
+            "use_backup": Config.FALSE,
+            "kobocat_media_schedule": "0 0 * * 0",
+            "mongo_backup_schedule": "0 1 * * 0",
+            "postgres_backup_schedule": "0 2 * * 0",
+            "redis_backup_schedule": "0 3 * * 0",
+            "aws_backup_bucket_name": "",
+            "aws_backup_yearly_retention": "2",
+            "aws_backup_monthly_retention": "12",
+            "aws_backup_weekly_retention": "4",
+            "aws_backup_daily_retention": "30",
+            "aws_mongo_backup_minimum_size": "50",
+            "aws_postgres_backup_minimum_size": "50",
+            "aws_redis_backup_minimum_size": "5",
+            "aws_backup_upload_chunk_size": "15",
+            "aws_backup_bucket_deletion_rule_enabled": Config.FALSE,
+            "backend_server_role": "master",
+            "use_letsencrypt": Config.TRUE,
+            "proxy": Config.TRUE,
+            "https": Config.TRUE,
+            "nginx_proxy_port": Config.DEFAULT_PROXY_PORT,
+            "exposed_nginx_docker_port": Config.DEFAULT_NGINX_PORT,
+            "postgresql_port": "5432",
+            "mongo_port": "27017",
+            "redis_main_port": "6379",
+            "redis_cache_port": "6380",
+            "local_installation": Config.FALSE,
+            "block_common_http_ports": Config.TRUE
+        }
 
     def __questions_advanced_options(self):
         """
@@ -408,7 +557,8 @@ class Config:
                     if self.backend_questions and not self.frontend_questions:
                         self.__questions_aws()
 
-                    schedule_regex_pattern = "^((((\d+(,\d+)*)|(\d+-\d+)|(\*(\/\d+)?)))(\s+(((\d+(,\d+)*)|(\d+\-\d+)|(\*(\/\d+)?)))){4})$"
+                    schedule_regex_pattern = (r"^((((\d+(,\d+)*)|(\d+-\d+)|(\*(\/\d+)?)))"
+                                              r"(\s+(((\d+(,\d+)*)|(\d+\-\d+)|(\*(\/\d+)?)))){4})$")
                     CLI.colored_print("╔═════════════════════════════════════════════════════════════════╗",
                                       CLI.COLOR_WARNING)
                     CLI.colored_print("║ Schedules use linux cron syntax with UTC datetimes.             ║",
@@ -471,58 +621,42 @@ class Config:
                                                                                             ""))
                             if self.__config["aws_backup_bucket_name"] != "":
                                 CLI.colored_print("How many yearly backups to keep?", CLI.COLOR_SUCCESS)
-                                self.__config["aws_backup_yearly_retention"] = CLI.get_response("~^\d+$",
-                                                                                                self.__config.get(
-                                                                                                    "aws_backup_yearly_retention",
-                                                                                                    "2"))
+                                self.__config["aws_backup_yearly_retention"] = CLI.get_response(
+                                    r"~^\d+$", self.__config.get("aws_backup_yearly_retention", "2"))
 
                                 CLI.colored_print("How many monthly backups to keep?", CLI.COLOR_SUCCESS)
-                                self.__config["aws_backup_monthly_retention"] = CLI.get_response("~^\d+$",
-                                                                                                 self.__config.get(
-                                                                                                     "aws_backup_monthly_retention",
-                                                                                                     "12"))
+                                self.__config["aws_backup_monthly_retention"] = CLI.get_response(
+                                    r"~^\d+$", self.__config.get("aws_backup_monthly_retention", "12"))
 
                                 CLI.colored_print("How many weekly backups to keep?", CLI.COLOR_SUCCESS)
-                                self.__config["aws_backup_weekly_retention"] = CLI.get_response("~^\d+$",
-                                                                                                self.__config.get(
-                                                                                                    "aws_backup_weekly_retention",
-                                                                                                    "4"))
+                                self.__config["aws_backup_weekly_retention"] = CLI.get_response(
+                                    r"~^\d+$", self.__config.get("aws_backup_weekly_retention", "4"))
 
                                 CLI.colored_print("How many daily backups to keep?", CLI.COLOR_SUCCESS)
-                                self.__config["aws_backup_daily_retention"] = CLI.get_response("~^\d+$",
-                                                                                               self.__config.get(
-                                                                                                   "aws_backup_daily_retention",
-                                                                                                   "30"))
+                                self.__config["aws_backup_daily_retention"] = CLI.get_response(
+                                    r"~^\d+$", self.__config.get("aws_backup_daily_retention", "30"))
 
                                 CLI.colored_print("MongoDB backup minimum size (in MB)?", CLI.COLOR_SUCCESS)
                                 CLI.colored_print("Files below this size will be ignored when rotating backups.",
                                                   CLI.COLOR_INFO)
-                                self.__config["aws_mongo_backup_minimum_size"] = CLI.get_response("~^\d+$",
-                                                                                                  self.__config.get(
-                                                                                                      "aws_mongo_backup_minimum_size",
-                                                                                                      "50"))
+                                self.__config["aws_mongo_backup_minimum_size"] = CLI.get_response(
+                                    r"~^\d+$", self.__config.get("aws_mongo_backup_minimum_size", "50"))
 
                                 CLI.colored_print("PostgresSQL backup minimum size (in MB)?", CLI.COLOR_SUCCESS)
                                 CLI.colored_print("Files below this size will be ignored when rotating backups.",
                                                   CLI.COLOR_INFO)
-                                self.__config["aws_postgres_backup_minimum_size"] = CLI.get_response("~^\d+$",
-                                                                                                     self.__config.get(
-                                                                                                         "aws_postgres_backup_minimum_size",
-                                                                                                         "50"))
+                                self.__config["aws_postgres_backup_minimum_size"] = CLI.get_response(
+                                    r"~^\d+$", self.__config.get("aws_postgres_backup_minimum_size", "50"))
 
                                 CLI.colored_print("Redis backup minimum size (in MB)?", CLI.COLOR_SUCCESS)
                                 CLI.colored_print("Files below this size will be ignored when rotating backups.",
                                                   CLI.COLOR_INFO)
-                                self.__config["aws_redis_backup_minimum_size"] = CLI.get_response("~^\d+$",
-                                                                                                  self.__config.get(
-                                                                                                      "aws_redis_backup_minimum_size",
-                                                                                                      "5"))
+                                self.__config["aws_redis_backup_minimum_size"] = CLI.get_response(
+                                    r"~^\d+$", self.__config.get("aws_redis_backup_minimum_size", "5"))
 
                                 CLI.colored_print("Chunk size of multipart uploads (in MB)?", CLI.COLOR_SUCCESS)
-                                self.__config["aws_backup_upload_chunk_size"] = CLI.get_response("~^\d+$",
-                                                                                                 self.__config.get(
-                                                                                                     "aws_backup_upload_chunk_size",
-                                                                                                     "15"))
+                                self.__config["aws_backup_upload_chunk_size"] = CLI.get_response(
+                                    r"~^\d+$", self.__config.get("aws_backup_upload_chunk_size", "15"))
 
                                 CLI.colored_print("Use AWS LifeCycle deletion rule?", CLI.COLOR_SUCCESS)
                                 CLI.colored_print("\t1) Yes")
@@ -549,10 +683,10 @@ class Config:
             if self.local_install:
                 # NGinX different port
                 CLI.colored_print("Web server port?", CLI.COLOR_SUCCESS)
-                self.__config["exposed_nginx_docker_port"] = CLI.get_response("~^\d+$",
+                self.__config["exposed_nginx_docker_port"] = CLI.get_response(r"~^\d+$",
                                                                               self.__config.get(
                                                                                   "exposed_nginx_docker_port",
-                                                                                  "80"))
+                                                                                  Config.DEFAULT_NGINX_PORT))
                 CLI.colored_print("Developer mode?", CLI.COLOR_SUCCESS)
                 CLI.colored_print("\t1) Yes")
                 CLI.colored_print("\t2) No")
@@ -560,26 +694,32 @@ class Config:
                                                              self.__config.get("dev_mode", Config.FALSE))
                 self.__config["staging_mode"] = Config.FALSE
             else:
+
                 CLI.colored_print("Staging mode?", CLI.COLOR_SUCCESS)
                 CLI.colored_print("\t1) Yes")
                 CLI.colored_print("\t2) No")
                 self.__config["staging_mode"] = CLI.get_response([Config.TRUE, Config.FALSE],
                                                                  self.__config.get("staging_mode", Config.FALSE))
+                self.__config["dev_mode"] = Config.FALSE
 
             if self.dev_mode or self.staging_mode:
                 CLI.colored_print("╔═══════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
                 CLI.colored_print("║ Where are the files located locally? It can be absolute   ║", CLI.COLOR_WARNING)
-                CLI.colored_print("║ or relative to the directory of the installation.         ║", CLI.COLOR_WARNING)
+                CLI.colored_print("║ or relative to the directory of `kobo-docker`.            ║", CLI.COLOR_WARNING)
                 CLI.colored_print("║ Leave empty if you don't need to overload the repository. ║", CLI.COLOR_WARNING)
                 CLI.colored_print("╚═══════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
                 self.__config["kc_path"] = CLI.colored_input("KoBoCat files location", CLI.COLOR_SUCCESS,
                                                              self.__config.get("kc_path"))
+
+                self.__clone_repo(self.__config["kc_path"], "kobocat")
                 self.__config["kpi_path"] = CLI.colored_input("KPI files location", CLI.COLOR_SUCCESS,
                                                               self.__config.get("kpi_path"))
+                self.__clone_repo(self.__config["kpi_path"], "kpi")
 
                 # Create an unique id to build fresh image when starting containers
                 if (self.__config.get("kc_dev_build_id", "") == "" or
                         self.__config.get("kc_path") != self.__config.get("kc_path")):
+
                     self.__config["kc_dev_build_id"] = "{prefix}{timestamp}".format(
                         prefix="{}.".format(self.__config.get("docker_prefix")) if self.__config.get("docker_prefix") else "",
                         timestamp=str(int(time.time()))
@@ -621,6 +761,23 @@ class Config:
         self.__config["google_api_key"] = CLI.colored_input("Google API Key", CLI.COLOR_SUCCESS,
                                                             self.__config.get("google_api_key", ""))
 
+    def __questions_https(self):
+        """
+        Asks for HTTPS usage
+        """
+        CLI.colored_print("Do you want to use HTTPS?", CLI.COLOR_SUCCESS)
+        CLI.colored_print("\t1) Yes")
+        CLI.colored_print("\t2) No")
+        self.__config["https"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                  self.__config.get("https", Config.TRUE))
+
+        if self.is_secure:
+            CLI.colored_print("╔════════════════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
+            CLI.colored_print("║ Please note that certificates must be installed on a reverse-proxy ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║ or a load balancer.                                                ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║ KoBoInstall can install one, if needed.                            ║", CLI.COLOR_WARNING)
+            CLI.colored_print("╚════════════════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
+
     def __questions_intercom(self):
         """
         Asks for Intercom API Key if any
@@ -632,6 +789,7 @@ class Config:
         """
         Asks for installation type
         """
+
         CLI.colored_print("What kind of installation do you need?", CLI.COLOR_SUCCESS)
         CLI.colored_print("\t1) On your workstation")
         CLI.colored_print("\t2) On a server")
@@ -641,6 +799,10 @@ class Config:
             # Reset previous choices, in case server role is not the same.
             self.__config["multi"] = Config.FALSE
             self.__config["use_private_dns"] = Config.FALSE
+            self.__config["https"] = Config.FALSE
+            self.__config["proxy"] = Config.FALSE
+            self.__config["nginx_proxy_port"] = Config.DEFAULT_NGINX_PORT
+            self.__config["use_letsencrypt"] = Config.FALSE
 
     def __questions_multi_servers(self):
         """
@@ -679,30 +841,49 @@ class Config:
 
             if self.__config["postgres_settings"] == Config.TRUE:
                 CLI.colored_print("Total Memory in GB?", CLI.COLOR_SUCCESS)
-                self.__config["postgres_ram"] = CLI.get_response("~^\d+$", self.__config.get("postgres_ram", "8"))
+                self.__config["postgres_ram"] = CLI.get_response(r"~^\d+$", self.__config.get("postgres_ram"))
+
+                CLI.colored_print("Storage type?", CLI.COLOR_SUCCESS)
+                CLI.colored_print("\thdd) Hard Disk Drive")
+                CLI.colored_print("\tssd) Solid State Drive")
+                CLI.colored_print("\tsan) Storage Area Network")
+                self.__config["postgres_hard_drive_type"] = CLI.get_response(
+                    ["hdd", "ssd", "san"],
+                    self.__config.get("postgres_hard_drive_type").lower())
+
+                CLI.colored_print("Number of connections?", CLI.COLOR_SUCCESS)
+                self.__config["postgres_max_connections"] = CLI.get_response(
+                    r"~^\d+$",
+                    self.__config.get("postgres_max_connections"))
 
                 if self.multi_servers:
-                    self.__config["postgres_profile"] = "OLTP"
-                    CLI.colored_print("Number of connections?", CLI.COLOR_SUCCESS)
-                    self.__config["postgres_max_connections"] = CLI.get_response(
-                        "~^\d+$",
-                        self.__config.get("postgres_max_connections", "100"))
+                    multi_servers_profiles = ["web", "oltp", "dw"]
+                    if self.__config["postgres_profile"].lower() not in multi_servers_profiles:
+                        self.__config["postgres_profile"] = "web"
+
+                    CLI.colored_print("Application profile?", CLI.COLOR_SUCCESS)
+                    CLI.colored_print("\tweb) General Web application")
+                    CLI.colored_print("\toltp) ERP or long transaction applications")
+                    CLI.colored_print("\tdw) DataWare house")
+
+                    self.__config["postgres_profile"] = CLI.get_response(["web", "oltp", "dw"],
+                                                                         self.__config.get("postgres_profile").lower())
+
+                    self.__config["postgres_profile"] = self.__config["postgres_profile"].upper()
+
                 elif self.dev_mode:
                     self.__config["postgres_profile"] = "Desktop"
                 else:
                     self.__config["postgres_profile"] = "Mixed"
-                    CLI.colored_print("Number of connections?", CLI.COLOR_SUCCESS)
-                    self.__config["postgres_max_connections"] = CLI.get_response(
-                        "~^\d+$",
-                        self.__config.get("postgres_max_connections", "100"))
 
             # use pgconfig.org API to build postgres config
             endpoint = "https://api.pgconfig.org/v1/tuning/get-config?environment_name={profile}" \
                        "&format=conf&include_pgbadger=false&max_connections={max_connections}&" \
-                       "pg_version=9.5&total_ram={ram}GB&drive_type=SSD".format(
+                       "pg_version=9.5&total_ram={ram}GB&drive_type={drive_type}".format(
                 profile=self.__config["postgres_profile"],
                 ram=self.__config["postgres_ram"],
-                max_connections=self.__config["postgres_max_connections"]
+                max_connections=self.__config["postgres_max_connections"],
+                drive_type=self.__config["postgres_hard_drive_type"].upper()
             )
             response = Network.curl(endpoint)
             if response:
@@ -723,16 +904,16 @@ class Config:
                                                                                Config.FALSE))
         if self.__config.get("customized_ports") == Config.TRUE:
             CLI.colored_print("PostgreSQL?", CLI.COLOR_SUCCESS)
-            self.__config["postgresql_port"] = CLI.get_response("~^\d+$", self.__config.get("postgresql_port", "5432"))
+            self.__config["postgresql_port"] = CLI.get_response(r"~^\d+$", self.__config.get("postgresql_port", "5432"))
 
             CLI.colored_print("MongoDB?", CLI.COLOR_SUCCESS)
-            self.__config["mongo_port"] = CLI.get_response("~^\d+$", self.__config.get("mongo_port", "27017"))
+            self.__config["mongo_port"] = CLI.get_response(r"~^\d+$", self.__config.get("mongo_port", "27017"))
 
             CLI.colored_print("Redis (main)?", CLI.COLOR_SUCCESS)
-            self.__config["redis_main_port"] = CLI.get_response("~^\d+$", self.__config.get("redis_main_port", "6379"))
+            self.__config["redis_main_port"] = CLI.get_response(r"~^\d+$", self.__config.get("redis_main_port", "6379"))
 
             CLI.colored_print("Redis (cache)?", CLI.COLOR_SUCCESS)
-            self.__config["redis_cache_port"] = CLI.get_response("~^\d+$",
+            self.__config["redis_cache_port"] = CLI.get_response(r"~^\d+$",
                                                                  self.__config.get("redis_cache_port", "6380"))
         else:
             self.__config["postgresql_port"] = "5432"
@@ -758,7 +939,7 @@ class Config:
         if self.__config["use_private_dns"] == Config.FALSE:
             CLI.colored_print("IP address (IPv4) of backend server?", CLI.COLOR_SUCCESS)
             self.__config["master_backend_ip"] = CLI.get_response(
-                "~\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}",
+                r"~\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}",
                 self.__config.get("master_backend_ip", self.__primary_ip))
         else:
             self.__config["private_domain_name"] = CLI.colored_input("Private domain name",
@@ -767,6 +948,10 @@ class Config:
                                                                          "private_domain_name", ""))
 
     def __questions_public_routes(self):
+        """
+        Asks for public domain names
+        """
+
         self.__config["public_domain_name"] = CLI.colored_input("Public domain name", CLI.COLOR_SUCCESS,
                                                                 self.__config.get("public_domain_name", ""))
         self.__config["kpi_subdomain"] = CLI.colored_input("KPI sub domain", CLI.COLOR_SUCCESS,
@@ -787,28 +972,6 @@ class Config:
                 ".".join(parts[:-1])
             )
 
-        CLI.colored_print("Do you use a reverse proxy or a load balancer?", CLI.COLOR_SUCCESS)
-        CLI.colored_print("\t1) Yes")
-        CLI.colored_print("\t2) No")
-        self.__config["proxy"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                  self.__config.get("proxy", Config.TRUE))
-
-        if self.proxy:
-            CLI.colored_print("Use HTTPS?", CLI.COLOR_SUCCESS)
-            CLI.colored_print("Please note that certificate has to be installed on the load balancer!",
-                              CLI.COLOR_INFO)
-            CLI.colored_print("\t1) Yes")
-            CLI.colored_print("\t2) No")
-            self.__config["https"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                      self.__config.get("https", Config.TRUE))
-
-            CLI.colored_print("Internal port used by reverse proxy?", CLI.COLOR_SUCCESS)
-            self.__config["nginx_proxy_port"] = CLI.get_response("~^\d+$",
-                                                                 self.__config.get("nginx_proxy_port", "80"))
-        else:
-            self.__config["https"] = Config.FALSE
-            self.__config["nginx_proxy_port"] = "80"
-
     def __questions_raven(self):
         CLI.colored_print("Do you want to use Sentry?", CLI.COLOR_SUCCESS)
         CLI.colored_print("\t1) Yes")
@@ -827,6 +990,86 @@ class Config:
             self.__config["kpi_raven"] = ""
             self.__config["kobocat_raven"] = ""
             self.__config["kpi_raven_js"] = ""
+
+    def __question_reverse_proxy(self):
+
+        if self.is_secure:
+
+            CLI.colored_print("Auto-install HTTPS certificates with Let's Encrypt?", CLI.COLOR_SUCCESS)
+            CLI.colored_print("\t1) Yes")
+            CLI.colored_print("\t2) No - Use my own reserve-proxy/load-balancer")
+            self.__config["use_letsencrypt"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                                self.__config.get("use_letsencrypt", Config.TRUE))
+            self.__config["proxy"] = Config.TRUE
+            self.__config["block_common_http_ports"] = Config.TRUE
+            self.__config["nginx_proxy_port"] = Config.DEFAULT_PROXY_PORT
+            self.__config["exposed_nginx_docker_port"] = Config.DEFAULT_NGINX_PORT
+
+            if self.use_letsencrypt:
+                CLI.colored_print("╔════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
+                CLI.colored_print("║ Domain names must be publicly accessible.      ║", CLI.COLOR_WARNING)
+                CLI.colored_print("║ Otherwise Let's Encrypt won't be able to valid ║", CLI.COLOR_WARNING)
+                CLI.colored_print("║ your certificates.                             ║", CLI.COLOR_WARNING)
+                CLI.colored_print("╚════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
+
+                while True:
+                    letsencrypt_email = CLI.colored_input("Email address for Let's Encrypt", CLI.COLOR_SUCCESS,
+                                                          self.__config.get("letsencrypt_email"))
+
+                    CLI.colored_print("Please confirm [{}]".format(letsencrypt_email),
+                                      CLI.COLOR_SUCCESS)
+                    CLI.colored_print("\t1) Yes")
+                    CLI.colored_print("\t2) No")
+
+                    if CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE) == Config.TRUE:
+                        self.__config["letsencrypt_email"] = letsencrypt_email
+                        break
+
+                self.__clone_repo(self.get_letsencrypt_repo_path(), "nginx-certbot")
+        else:
+            if self.advanced_options:
+                CLI.colored_print("Is `KoBoToolbox` behind a reverse-proxy/load-balancer?", CLI.COLOR_SUCCESS)
+                CLI.colored_print("\t1) Yes")
+                CLI.colored_print("\t2) No")
+                self.__config["proxy"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                          self.__config.get("proxy", Config.FALSE))
+                self.__config["use_letsencrypt"] = Config.FALSE
+            else:
+                self.__config["proxy"] = Config.FALSE
+
+        if self.proxy:
+            # When proxy is enabled, public port is 80 or 443.
+            # @TODO Give the user the possibilty to customize it too.
+            self.__config["exposed_nginx_docker_port"] = Config.DEFAULT_NGINX_PORT
+            if self.advanced_options:
+                if not self.use_letsencrypt:
+                    CLI.colored_print("Is your reverse-proxy/load-balancer installed on this server?",
+                                      CLI.COLOR_SUCCESS)
+                    CLI.colored_print("\t1) Yes")
+                    CLI.colored_print("\t2) No")
+                    self.__config["block_common_http_ports"] = CLI.get_response(
+                        [Config.TRUE, Config.FALSE],
+                        self.__config.get("block_common_http_ports", Config.FALSE))
+
+                CLI.colored_print("Internal port used by reverse proxy?", CLI.COLOR_SUCCESS)
+                while True:
+                    self.__config["nginx_proxy_port"] = CLI.get_response(r"~^\d+$",
+                                                                         self.__config.get("nginx_proxy_port"))
+                    if self.__is_port_allowed(self.__config["nginx_proxy_port"]):
+                        break
+                    else:
+                        CLI.colored_print("Ports 80 and 443 are reserved!", CLI.COLOR_ERROR)
+            else:
+                if not self.use_letsencrypt:
+                    CLI.colored_print("Internal port used by reverse proxy is {}.".format(
+                        Config.DEFAULT_PROXY_PORT
+                    ), CLI.COLOR_WARNING)
+                self.__config["nginx_proxy_port"] = Config.DEFAULT_PROXY_PORT
+
+        else:
+            self.__config["use_letsencrypt"] = Config.FALSE
+            self.__config["nginx_proxy_port"] = Config.DEFAULT_NGINX_PORT
+            self.__config["block_common_http_ports"] = Config.FALSE
 
     def __questions_roles(self):
         CLI.colored_print("Which role do you want to assign to this server?", CLI.COLOR_SUCCESS)
@@ -897,26 +1140,30 @@ class Config:
         if self.__config.get("uwsgi_settings") == Config.TRUE:
             CLI.colored_print("Number of uWSGi workers to start?", CLI.COLOR_SUCCESS)
             self.__config["workers_start"] = CLI.get_response(
-                "~^\d+$",
+                r"~^\d+$",
                 self.__config.get("workers_start", "1"))
             CLI.colored_print("Max uWSGi workers?", CLI.COLOR_SUCCESS)
             self.__config["workers_max"] = CLI.get_response(
-                "~^\d+$",
+                r"~^\d+$",
                 self.__config.get("workers_max", "2"))
 
             CLI.colored_print("Max number of requests per worker?", CLI.COLOR_SUCCESS)
             self.__config["max_requests"] = CLI.get_response(
-                "~^\d+$",
+                r"~^\d+$",
                 self.__config.get("max_requests", "512"))
             CLI.colored_print("Max memory per workers in MB?", CLI.COLOR_SUCCESS)
             self.__config["soft_limit"] = CLI.get_response(
-                "~^\d+$",
+                r"~^\d+$",
                 self.__config.get("soft_limit", "128"))
         else:
             self.__config["workers_start"] = "1"
             self.__config["workers_max"] = "2"
             self.__config["max_requests"] = "512"
             self.__config["soft_limit"] = "128"
+
+    def __is_port_allowed(self, port):
+        return not (self.block_common_http_ports and port in [Config.DEFAULT_NGINX_PORT,
+                                                              Config.DEFAULT_NGINX_HTTPS_PORT])
 
     def __reset_dev_mode(self, reset_nginx_port=False):
         """
@@ -932,7 +1179,7 @@ class Config:
         self.__config["kpi_path"] = ""
         self.__config["debug"] = Config.FALSE
         if reset_nginx_port:
-            self.__config["exposed_nginx_docker_port"] = "80"
+            self.__config["exposed_nginx_docker_port"] = Config.DEFAULT_NGINX_PORT
 
     def __validate_installation(self):
         """
@@ -941,19 +1188,19 @@ class Config:
         :return: bool
         """
         if self.first_time:
-            mongo_dir_path = "{}/.vols/mongo".format(self.__config["kobodocker_path"])
-            postgres_dir_path = "{}/.vols/db".format(self.__config["kobodocker_path"])
+            mongo_dir_path = os.path.join(self.__config["kobodocker_path"], ".vols", "mongo")
+            postgres_dir_path = os.path.join(self.__config["kobodocker_path"], ".vols", "db")
             mongo_data_exists = (os.path.exists(mongo_dir_path) and os.path.isdir(mongo_dir_path) and
                                  os.listdir(mongo_dir_path))
             postgres_data_exists = os.path.exists(postgres_dir_path) and os.path.isdir(postgres_dir_path)
 
             if mongo_data_exists or postgres_data_exists:
-                # Not a reliable way to detect whether folder contains `kobo-install` files
+                # Not a reliable way to detect whether folder contains `KoBoInstall` files
                 # We assume that if `docker-compose.backend.template.yml` is there,
                 # Docker images are the good ones.
                 # TODO Find a better way
-                docker_composer_file_path = "{}/docker-compose.backend.template.yml".format(
-                    self.__config["kobodocker_path"])
+                docker_composer_file_path = os.path.join(self.__config["kobodocker_path"],
+                                                         "docker-compose.backend.template.yml")
                 if not os.path.exists(docker_composer_file_path):
                     CLI.colored_print("╔════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
                     CLI.colored_print("║ WARNING !!!                                        ║", CLI.COLOR_WARNING)
@@ -961,9 +1208,9 @@ class Config:
                     CLI.colored_print("║ You are installing over existing data.             ║", CLI.COLOR_WARNING)
                     CLI.colored_print("║                                                    ║", CLI.COLOR_WARNING)
                     CLI.colored_print("║ It's recommended to backup your data and import it ║", CLI.COLOR_WARNING)
-                    CLI.colored_print("║ to a fresh installed (by `kobo-install`) database. ║", CLI.COLOR_WARNING)
+                    CLI.colored_print("║ to a fresh installed (by KoBoInstall) database.    ║", CLI.COLOR_WARNING)
                     CLI.colored_print("║                                                    ║", CLI.COLOR_WARNING)
-                    CLI.colored_print("║ `kobo-install` uses these images:                  ║", CLI.COLOR_WARNING)
+                    CLI.colored_print("║ KoBoInstall uses these images:                     ║", CLI.COLOR_WARNING)
                     CLI.colored_print("║    - MongoDB: mongo:3.4                            ║", CLI.COLOR_WARNING)
                     CLI.colored_print("║    - PostgreSQL: mdillon/postgis:9.5               ║", CLI.COLOR_WARNING)
                     CLI.colored_print("║                                                    ║", CLI.COLOR_WARNING)
@@ -977,14 +1224,15 @@ class Config:
                     if response == "no":
                         sys.exit()
                     else:
+                        CLI.colored_print("Administrator privilege escalation is needed to prepare DB", CLI.COLOR_WARNING)
                         # Write kobo_first_run file to run postgres container's entrypoint flawlessly.
-                        os.system("echo $(data) | sudo tee -a {} > /dev/null".format(
-                            "{}/.vols/db/kobo_first_run".format(self.__config["kobodocker_path"])
+                        os.system("echo $(date) | sudo tee -a {} > /dev/null".format(
+                            os.path.join(self.__config["kobodocker_path"], ".vols", "db", "kobo_first_run")
                         ))
 
     def __welcome(self):
         CLI.colored_print("╔═══════════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
-        CLI.colored_print("║ Welcome to `kobo-install`!                                    ║", CLI.COLOR_WARNING)
+        CLI.colored_print("║ Welcome to KoBoInstall!                                       ║", CLI.COLOR_WARNING)
         CLI.colored_print("║                                                               ║", CLI.COLOR_WARNING)
         CLI.colored_print("║ You are going to be asked some questions that will            ║", CLI.COLOR_WARNING)
         CLI.colored_print("║ determine how to build the configuration of `KoBoToolBox`.    ║", CLI.COLOR_WARNING)
