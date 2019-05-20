@@ -3,6 +3,7 @@ from __future__ import print_function, unicode_literals
 
 import sys
 import time
+import subprocess
 
 from helpers.cli import CLI
 from helpers.config import Config
@@ -34,6 +35,10 @@ class Command:
                "                Stop KoBoToolbox\n"
                "          -u, --upgrade\n"
                "                Upgrade KoBoToolbox\n"
+               "          -cf, --compose-frontend [docker-compose arguments]\n"
+               "                Run a docker-compose command in the front-end environment\n"
+               "          -cb, --compose-backend [docker-compose arguments]\n"
+               "                Run a docker-compose command in the back-end environment\n"
                "          -v, --version\n"
                "                Display current version\n"
                ))
@@ -348,3 +353,30 @@ class Command:
         git_commit_version_command = ["git", "rev-parse", "HEAD"]
         stdout = CLI.run_command(git_commit_version_command)
         CLI.colored_print("KoBoInstall Version: {}".format(stdout.strip()[0:7]), CLI.COLOR_SUCCESS)
+
+    @classmethod
+    def compose_frontend(cls, args):
+        config_object = Config()
+        config = config_object.get_config()
+        command = ["docker-compose",
+                   "-f", "docker-compose.frontend.yml",
+                   "-f", "docker-compose.frontend.override.yml"]
+        if config.get("docker_prefix", "") != "":
+            command.extend(['-p', config.get("docker_prefix")])
+        command.extend(args)
+        subprocess.call(command, cwd=config.get("kobodocker_path"))
+
+    @classmethod
+    def compose_backend(cls, args):
+        config_object = Config()
+        config = config_object.get_config()
+        backend_role = config.get("backend_server_role", "master")
+        command = [
+            "docker-compose",
+            "-f", "docker-compose.backend.{}.yml".format(backend_role),
+            "-f", "docker-compose.backend.{}.override.yml".format(backend_role),
+        ]
+        if config.get("docker_prefix", "") != "":
+            command.extend(['-p', config.get("docker_prefix")])
+        command.extend(args)
+        subprocess.call(command, cwd=config.get("kobodocker_path"))
