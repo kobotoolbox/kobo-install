@@ -310,7 +310,7 @@ class Config:
             base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
             config_file = os.path.join(base_dir, Config.CONFIG_FILE)
             with open(config_file, "w") as f:
-                f.write(json.dumps(self.__config))
+                f.write(json.dumps(self.__config, indent=2, sort_keys=True))
 
             os.chmod(config_file, stat.S_IWRITE | stat.S_IREAD)
 
