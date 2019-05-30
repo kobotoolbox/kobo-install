@@ -80,7 +80,6 @@ User can choose between 2 types of installations:
 |uWGI memory limit|  **128 MB**  | ✓ | ✓ (frontend only) |
 |Google UA|  | ✓ | ✓ (frontend only) |
 |Google API Key|  | ✓ | ✓ (frontend only) |
-|Intercom| | ✓ | ✓ (frontend only) |
 |Raven tokens|   | ✓ | ✓ (frontend only) |
 |Debug|  **False**  | ✓ |  |
 |Developer mode|  **False**  | ✓ | |
@@ -90,6 +89,8 @@ User can choose between 2 types of installations:
 `KoBoInstall` can install one and use `Let's Encrypt` to generate certificates thanks to [nginx-certbot project](https://github.com/wmnnd/nginx-certbot "")_
 
 <sup>2)</sup> _Custom settings are provided by [PostgreSQL Configuration Tool API](https://github.com/sebastianwebber/pgconfig-api "")_
+
+ℹ  Intercom App ID [must now](https://github.com/kobotoolbox/kpi/pull/2285) be configured through "Per user settings" in the Django admin interface of KPI.
 
 ## Requirements
 

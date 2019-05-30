@@ -237,7 +237,6 @@ class Config:
                 if self.frontend_questions:
                     self.__questions_aws()
                     self.__questions_google()
-                    self.__questions_intercom()
                     self.__questions_raven()
                     self.__questions_uwsgi()
 
@@ -775,13 +774,6 @@ class Config:
             CLI.colored_print("║ or a load balancer.                                                ║", CLI.COLOR_WARNING)
             CLI.colored_print("║ KoBoInstall can install one, if needed.                            ║", CLI.COLOR_WARNING)
             CLI.colored_print("╚════════════════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
-
-    def __questions_intercom(self):
-        """
-        Asks for Intercom API Key if any
-        """
-        self.__config["intercom"] = CLI.colored_input("Intercom App ID", CLI.COLOR_SUCCESS,
-                                                      self.__config.get("intercom", ""))
 
     def __questions_installation_type(self):
         """
