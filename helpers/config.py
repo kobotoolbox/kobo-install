@@ -990,10 +990,11 @@ class Config:
                                                                 self.__config.get("use_letsencrypt", Config.TRUE))
             self.__config["proxy"] = Config.TRUE
             self.__config["block_common_http_ports"] = Config.TRUE
-            self.__config["nginx_proxy_port"] = Config.DEFAULT_PROXY_PORT
             self.__config["exposed_nginx_docker_port"] = Config.DEFAULT_NGINX_PORT
 
             if self.use_letsencrypt:
+                self.__config["nginx_proxy_port"] = Config.DEFAULT_PROXY_PORT
+
                 CLI.colored_print("╔════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
                 CLI.colored_print("║ Domain names must be publicly accessible.      ║", CLI.COLOR_WARNING)
                 CLI.colored_print("║ Otherwise Let's Encrypt won't be able to valid ║", CLI.COLOR_WARNING)

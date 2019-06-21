@@ -27,10 +27,12 @@ def reset_config(config_object):
     config_object.__config = config_dict
 
 
-def test_read_config():
+def test_read_config(overrides=None):
 
     config_dict = dict(Config.get_config_template())
     config_dict["kobodocker_path"] = "/tmp"
+    if overrides is not None:
+        config_dict.update(overrides)
     with patch(builtin_open, mock_open(read_data=json.dumps(config_dict))) as mock_file:
         config_object = Config()
         config_object.read_config()
@@ -199,11 +201,27 @@ def test_proxy_no_letsencrypt():
         assert config_object.get_config().get("nginx_proxy_port") == Config.DEFAULT_PROXY_PORT
 
 
+def test_proxy_no_letsencrypt_retains_custom_nginx_proxy_port():
+    CUSTOM_PROXY_PORT = 9090
+    config_object = test_read_config(overrides={
+        'advanced': Config.TRUE,
+        'use_letsencrypt': Config.FALSE,
+        'nginx_proxy_port': str(CUSTOM_PROXY_PORT),
+    })
+    with patch.object(
+            CLI, "colored_input",
+            new=classmethod(lambda cls, message, color, default: default)
+    ) as mock_ci:
+        config_object._Config__question_reverse_proxy()
+        assert(config_object.get_config().get("nginx_proxy_port")
+               == str(CUSTOM_PROXY_PORT))
+
+
 def test_no_proxy_no_ssl():
     config_object = test_read_config()
     assert config_object.is_secure
     assert config_object.get_config().get("nginx_proxy_port") == Config.DEFAULT_PROXY_PORT
-    
+
     proxy_port = Config.DEFAULT_NGINX_PORT
 
     with patch.object(CLI, "colored_input", return_value=Config.FALSE) as mock_ci:
