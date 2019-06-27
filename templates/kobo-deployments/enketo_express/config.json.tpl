@@ -2,7 +2,8 @@
     "app name": "Enketo Express for KoBo Toolbox",
     "linked form and data server": {
         "name": "KoBo Toolbox",
-        "server url": ""
+        "server url": "",
+        "encryption key": "${ENKETO_ENCRYPTION_KEY}"
     },
     "widgets": [
         "note", "select-desktop", "select-mobile", "autocomplete", "geo", "textarea",
