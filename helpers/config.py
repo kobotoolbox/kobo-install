@@ -823,9 +823,10 @@ class Config:
         Settings can be tweaked thanks to pgconfig.org API
         """
         self.__config["kc_postgres_db"] = CLI.colored_input("KoBoCat PostgreSQL database", CLI.COLOR_SUCCESS,
-                                                         self.__config.get("kc_postgres_db"))
+                                                            self.__config.get("postgres_db",
+                                                                              self.__config.get("kc_postgres_db")))
         self.__config["kpi_postgres_db"] = CLI.colored_input("KPI PostgreSQL database", CLI.COLOR_SUCCESS,
-                                                            self.__config.get("kpi_postgres_db"))
+                                                             self.__config.get("kpi_postgres_db"))
         self.__config["postgres_user"] = CLI.colored_input("Postgres user", CLI.COLOR_SUCCESS,
                                                            self.__config.get("postgres_user"))
         self.__config["postgres_password"] = CLI.colored_input("Postgres password", CLI.COLOR_SUCCESS,
