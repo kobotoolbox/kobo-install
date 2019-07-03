@@ -108,6 +108,7 @@ class Template:
             "AWS_BACKUP_BUCKET_DELETION_RULE_ENABLED": "False" if config.get(
                 "aws_backup_bucket_deletion_rule_enabled") == Config.FALSE else "True",
             "LETSENCRYPT_EMAIL": config.get("letsencrypt_email"),
+            "ENKETO_ENCRYPTION_KEY": config.get("enketo_encryption_key")
         }
 
         environment_directory = config_object.get_env_files_path()

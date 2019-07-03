@@ -475,6 +475,7 @@ class Config:
             "postgres_hard_drive_type": "hdd",
             "postgres_settings_content": "",
             "enketo_api_token": binascii.hexlify(os.urandom(60)).decode("utf-8"),
+            "enketo_encryption_key": binascii.hexlify(os.urandom(60)).decode("utf-8"),
             "django_secret_key": binascii.hexlify(os.urandom(24)).decode("utf-8"),
             "use_backup": Config.FALSE,
             "kobocat_media_schedule": "0 0 * * 0",
