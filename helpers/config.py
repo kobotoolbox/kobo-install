@@ -238,7 +238,6 @@ class Config:
                 if self.frontend_questions:
                     self.__questions_aws()
                     self.__questions_google()
-                    self.__questions_intercom()
                     self.__questions_raven()
                     self.__questions_uwsgi()
 
@@ -311,7 +310,7 @@ class Config:
             base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
             config_file = os.path.join(base_dir, Config.CONFIG_FILE)
             with open(config_file, "w") as f:
-                f.write(json.dumps(self.__config))
+                f.write(json.dumps(self.__config, indent=2, sort_keys=True))
 
             os.chmod(config_file, stat.S_IWRITE | stat.S_IREAD)
 
@@ -478,6 +477,7 @@ class Config:
             "postgres_hard_drive_type": "hdd",
             "postgres_settings_content": "",
             "enketo_api_token": binascii.hexlify(os.urandom(60)).decode("utf-8"),
+            "enketo_encryption_key": binascii.hexlify(os.urandom(60)).decode("utf-8"),
             "django_secret_key": binascii.hexlify(os.urandom(24)).decode("utf-8"),
             "use_backup": Config.FALSE,
             "kobocat_media_schedule": "0 0 * * 0",
@@ -778,13 +778,6 @@ class Config:
             CLI.colored_print("║ KoBoInstall can install one, if needed.                            ║", CLI.COLOR_WARNING)
             CLI.colored_print("╚════════════════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
 
-    def __questions_intercom(self):
-        """
-        Asks for Intercom API Key if any
-        """
-        self.__config["intercom"] = CLI.colored_input("Intercom App ID", CLI.COLOR_SUCCESS,
-                                                      self.__config.get("intercom", ""))
-
     def __questions_installation_type(self):
         """
         Asks for installation type
@@ -1003,10 +996,11 @@ class Config:
                                                                 self.__config.get("use_letsencrypt", Config.TRUE))
             self.__config["proxy"] = Config.TRUE
             self.__config["block_common_http_ports"] = Config.TRUE
-            self.__config["nginx_proxy_port"] = Config.DEFAULT_PROXY_PORT
             self.__config["exposed_nginx_docker_port"] = Config.DEFAULT_NGINX_PORT
 
             if self.use_letsencrypt:
+                self.__config["nginx_proxy_port"] = Config.DEFAULT_PROXY_PORT
+
                 CLI.colored_print("╔════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
                 CLI.colored_print("║ Domain names must be publicly accessible.      ║", CLI.COLOR_WARNING)
                 CLI.colored_print("║ Otherwise Let's Encrypt won't be able to valid ║", CLI.COLOR_WARNING)
