@@ -9,11 +9,13 @@ services:
     env_file:
       - ../kobo-deployments/envfile.txt
     environment:
-      - TEMPLATED_VAR_REFS=$${PUBLIC_REQUEST_SCHEME} $${INTERNAL_DOMAIN_NAME} $${PUBLIC_DOMAIN_NAME} $${KOBOFORM_PUBLIC_SUBDOMAIN} $${KOBOCAT_PUBLIC_SUBDOMAIN} $${ENKETO_EXPRESS_PUBLIC_SUBDOMAIN}
+      - ETA=2 hours
+      - DATE_STR=Monday,&nbsp;November&nbsp;26&nbsp;at&nbsp;02:00&nbsp;GMT
+      - DATE_ISO=20181126T02
     ports:
-      - ${NGINX_EXPOSED_PORT}:80
+      - 80:80
     volumes:
-      - ./log/nginx:/var/log/nginx
-      - ./nginx/:/tmp/kobo_nginx/:ro
+        - ./log/nginx:/var/log/nginx
+        - ./nginx/:/tmp/kobo_nginx/:ro
     command: "/bin/bash /tmp/kobo_nginx/maintenance/nginx_command.bash"
     restart: on-failure
