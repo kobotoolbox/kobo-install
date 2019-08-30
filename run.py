@@ -38,7 +38,12 @@ def run(force_setup=False):
 
 if __name__ == "__main__":
     if len(sys.argv) > 2:
-        CLI.colored_print("Bad syntax. Try 'run.py --help'", CLI.COLOR_ERROR)
+        if sys.argv[1] == "-cf" or sys.argv[1] == "--compose-frontend":
+            Command.compose_frontend(sys.argv[2:])
+        elif sys.argv[1] == "-cb" or sys.argv[1] == "--compose-backend":
+            Command.compose_backend(sys.argv[2:])
+        else:
+            CLI.colored_print("Bad syntax. Try 'run.py --help'", CLI.COLOR_ERROR)
     elif len(sys.argv) == 2:
         if sys.argv[1] == "-h" or sys.argv[1] == "--help":
             Command.help()
