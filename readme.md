@@ -22,8 +22,8 @@ Get info:
 Get docker logs:  
 `$kobo-install> python run.py --logs`
 
-Upgrade KoBoToolbox:  
-`$kobo-install> python run.py --upgrade`
+Update KoBoToolbox:  
+`$kobo-install> python run.py --update`
 
 Stop KoBoToolbox:  
 `$kobo-install> python run.py --stop`
@@ -37,8 +37,11 @@ Get version:
 Build kpi and kobocat (dev mode):  
 `$kobo-install> python run.py --build`
 
+Run docker commands on frontend containers:
+`$kobo-install> python run.py ---compose-frontend [docker-compose arguments]`
 
-**Be aware, this utility is a beta release and may still have bugs.**
+Run docker commands on backend containers:
+`$kobo-install> python run.py ---compose-backend [docker-compose arguments]`
 
 ## Build the configuration
 User can choose between 2 types of installations:
