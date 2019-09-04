@@ -14,7 +14,7 @@ class Setup:
     KOBO_DOCKER_BRANCH = 'kobo-install-two-databases'
 
     @classmethod
-    def run(cls, config):
+    def pull_kobodocker(cls, config):
         """
         Clone or pull `kobo-docker` project in installation directory
         :param config: dict
@@ -72,7 +72,7 @@ class Setup:
                         kpi_subdomain=config.get("kpi_subdomain"),
                         kc_subdomain=config.get("kc_subdomain"),
                         ee_subdomain=config.get("ee_subdomain")
-            )
+                     )
 
             tmp_host = ("{bof}"
                         "\n{start_sentence}"
