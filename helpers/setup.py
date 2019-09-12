@@ -14,17 +14,19 @@ class Setup:
     KOBO_DOCKER_BRANCH = 'kobo-install-two-databases'
 
     @classmethod
-    def pull_kobodocker(cls, config):
+    def clone_kobodocker(cls, config_object):
         """
-        Clone or pull `kobo-docker` project in installation directory
-        :param config: dict
+        :param config_object: `Config`
         """
+        config = config_object.get_config()
+        do_update = config_object.first_time
 
         if not os.path.isdir(os.path.join(config["kobodocker_path"], ".git")):
             # Move unique id file to /tmp in order to clone without errors
             # (e.g. not empty directory)
             tmp_dirpath = tempfile.mkdtemp()
-            os.rename(os.path.join(config["kobodocker_path"], Config.UNIQUE_ID_FILE),
+            os.rename(os.path.join(config["kobodocker_path"],
+                                   Config.UNIQUE_ID_FILE),
                       os.path.join(tmp_dirpath, Config.UNIQUE_ID_FILE))
 
             # clone project
@@ -32,12 +34,23 @@ class Setup:
                 "git", "clone", "https://github.com/kobotoolbox/kobo-docker",
                 config["kobodocker_path"]
             ]
-            CLI.run_command(git_command, cwd=os.path.dirname(config["kobodocker_path"]))
+            CLI.run_command(git_command, cwd=os.path.dirname(
+                config["kobodocker_path"]))
 
             os.rename(os.path.join(tmp_dirpath, Config.UNIQUE_ID_FILE),
-                      os.path.join(config["kobodocker_path"], Config.UNIQUE_ID_FILE))
+                      os.path.join(config["kobodocker_path"],
+                                   Config.UNIQUE_ID_FILE))
             shutil.rmtree(tmp_dirpath)
+            do_update = True  # Force update
 
+        if do_update:
+            cls.update_kobodocker(config)
+
+    @classmethod
+    def update_kobodocker(cls, config):
+        """
+        :param config: Config().get_config()
+        """
         if os.path.isdir(os.path.join(config["kobodocker_path"], ".git")):
             # checkout branch
             git_command = ["git", "checkout", "--force", Setup.KOBO_DOCKER_BRANCH]
@@ -46,6 +59,10 @@ class Setup:
             # update code
             git_command = ["git", "pull", "origin", Setup.KOBO_DOCKER_BRANCH]
             CLI.run_command(git_command, cwd=config["kobodocker_path"])
+        else:
+            CLI.colored_print('`kobo-docker` repository is missing!',
+                              CLI.COLOR_ERROR)
+            sys.exit(1)
 
     @classmethod
     def update_hosts(cls, config):
@@ -111,4 +128,4 @@ class Setup:
 
             return_value = os.system("sudo mv /etc/hosts /etc/hosts.old && sudo mv /tmp/etchosts /etc/hosts")
             if return_value != 0:
-                sys.exit()
+                sys.exit(1)

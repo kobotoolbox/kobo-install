@@ -19,13 +19,100 @@ class Template:
     def render(cls, config_object):
 
         config = config_object.get_config()
+        template_variables = cls.__get_template_variables(config_object)
+
+        environment_directory = config_object.get_env_files_path()
+        unique_id = cls.__read_unique_id(environment_directory)
+        if unique_id is not None and str(config.get("unique_id", "")) != str(unique_id):
+            CLI.colored_print("╔═════════════════════════════════════════════════════════════════════╗",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ WARNING!                                                            ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ Existing environment files are detected. Files will be overwritten. ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("╚═════════════════════════════════════════════════════════════════════╝",
+                              CLI.COLOR_WARNING)
+
+            CLI.colored_print("Do you want to continue?", CLI.COLOR_SUCCESS)
+            CLI.colored_print("\t1) Yes")
+            CLI.colored_print("\t2) No")
+
+            if CLI.get_response([Config.TRUE, Config.FALSE], Config.FALSE) == Config.FALSE:
+                sys.exit()
+
+        cls.__write_unique_id(environment_directory, config.get("unique_id"))
+
+        base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+        templates_path_parent = os.path.join(base_dir, "templates")
+
+        # Environment
+        templates_path = os.path.join(templates_path_parent, Config.ENV_FILES_DIR, "")
+        for root, dirnames, filenames in os.walk(templates_path):
+            destination_directory = cls.__create_directory(environment_directory,
+                                                           root,
+                                                           templates_path)
+            cls.__write_templates(template_variables, root, destination_directory, filenames)
+
+        # kobo-docker
+        templates_path = os.path.join(templates_path_parent, "kobo-docker")
+        for root, dirnames, filenames in os.walk(templates_path):
+            destination_directory = config.get("kobodocker_path")
+            cls.__write_templates(template_variables, root, destination_directory, filenames)
+
+        # nginx-certbox
+        if config_object.use_letsencrypt:
+            templates_path = os.path.join(templates_path_parent, Config.LETSENCRYPT_DOCKER_DIR, "")
+            for root, dirnames, filenames in os.walk(templates_path):
+                destination_directory = cls.__create_directory(config_object.get_letsencrypt_repo_path(),
+                                                               root,
+                                                               templates_path)
+                cls.__write_templates(template_variables, root, destination_directory, filenames)
+
+    @classmethod
+    def render_maintenance(cls, config_object):
+
+        config = config_object.get_config()
+        template_variables = cls.__get_template_variables(config_object)
+
+        base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+        templates_path_parent = os.path.join(base_dir, "templates")
+
+        # kobo-docker
+        templates_path = os.path.join(templates_path_parent, "kobo-docker")
+        for root, dirnames, filenames in os.walk(templates_path):
+            filenames = [filename for filename in filenames if 'maintenance' in filename]
+            destination_directory = config.get("kobodocker_path")
+            cls.__write_templates(template_variables, root, destination_directory, filenames)
+
+    @classmethod
+    def __create_directory(cls, template_root_directory, path="", base_dir=""):
+
+        path = os.path.join(path, "")  # Handle case when path is root and equals "".
+        destination_directory = os.path.realpath(os.path.join(
+            template_root_directory,
+            path.replace(base_dir, "")
+        ))
+        if not os.path.isdir(destination_directory):
+            try:
+                os.makedirs(destination_directory)
+            except OSError:
+                CLI.colored_print("Can not create {}. Please verify permissions!".format(destination_directory),
+                                  CLI.COLOR_ERROR)
+                sys.exit(1)
+
+        return destination_directory
+
+    @staticmethod
+    def __get_template_variables(config_object):
+
+        config = config_object.get_config()
 
         if config_object.proxy:
             nginx_port = config.get("nginx_proxy_port")
         else:
             nginx_port = config.get("exposed_nginx_docker_port")
 
-        template_variables = {
+        return {
             "PROTOCOL": "https" if config.get("https") == Config.TRUE else "http",
             "USE_HTTPS": "" if config.get("https") == Config.TRUE else "#",
             "USE_AWS": "" if config.get("use_aws") == Config.TRUE else "#",
@@ -109,80 +196,12 @@ class Template:
             "AWS_BACKUP_BUCKET_DELETION_RULE_ENABLED": "False" if config.get(
                 "aws_backup_bucket_deletion_rule_enabled") == Config.FALSE else "True",
             "LETSENCRYPT_EMAIL": config.get("letsencrypt_email"),
-            "ENKETO_ENCRYPTION_KEY": config.get("enketo_encryption_key")
+            "ENKETO_ENCRYPTION_KEY": config.get("enketo_encryption_key"),
+            "MAINTENANCE_ETA": config.get("maintenance_eta", ""),
+            "MAINTENANCE_DATE_ISO": config.get("maintenance_date_iso", ""),
+            "MAINTENANCE_DATE_STR": config.get("maintenance_date_str", ""),
+            "MAINTENANCE_EMAIL": config.get("maintenance_email", ""),
         }
-
-        environment_directory = config_object.get_env_files_path()
-        unique_id = cls.__read_unique_id(environment_directory)
-        if unique_id is not None and str(config.get("unique_id", "")) != str(unique_id):
-            CLI.colored_print("╔═════════════════════════════════════════════════════════════════════╗",
-                              CLI.COLOR_WARNING)
-            CLI.colored_print("║ WARNING!                                                            ║",
-                              CLI.COLOR_WARNING)
-            CLI.colored_print("║ Existing environment files are detected. Files will be overwritten. ║",
-                              CLI.COLOR_WARNING)
-            CLI.colored_print("╚═════════════════════════════════════════════════════════════════════╝",
-                              CLI.COLOR_WARNING)
-
-            CLI.colored_print("Do you want to continue?", CLI.COLOR_SUCCESS)
-            CLI.colored_print("\t1) Yes")
-            CLI.colored_print("\t2) No")
-
-            if CLI.get_response([Config.TRUE, Config.FALSE], Config.FALSE) == Config.FALSE:
-                sys.exit()
-
-        cls.__write_unique_id(environment_directory, config.get("unique_id"))
-
-        def write_templates(root_, destination_directory_, filenames_):
-            for filename in fnmatch.filter(filenames_, '*.tpl'):
-                with open(os.path.join(root_, filename), "r") as template:
-                    t = PyTemplate(template.read())
-                    with open(os.path.join(destination_directory_, filename[:-4]), "w") as f:
-                        f.write(t.substitute(template_variables))
-
-        base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-        templates_path_parent = os.path.join(base_dir, "templates")
-
-        # Environment
-        templates_path = os.path.join(templates_path_parent, Config.ENV_FILES_DIR, "")
-        for root, dirnames, filenames in os.walk(templates_path):
-            destination_directory = cls.__create_directory(environment_directory,
-                                                           root,
-                                                           templates_path)
-            write_templates(root, destination_directory, filenames)
-
-        # kobo-docker
-        templates_path = os.path.join(templates_path_parent, "kobo-docker")
-        for root, dirnames, filenames in os.walk(templates_path):
-            destination_directory = config.get("kobodocker_path")
-            write_templates(root, destination_directory, filenames)
-
-        # nginx-certbox
-        if config_object.use_letsencrypt:
-            templates_path = os.path.join(templates_path_parent, Config.LETSENCRYPT_DOCKER_DIR, "")
-            for root, dirnames, filenames in os.walk(templates_path):
-                destination_directory = cls.__create_directory(config_object.get_letsencrypt_repo_path(),
-                                                               root,
-                                                               templates_path)
-                write_templates(root, destination_directory, filenames)
-
-    @classmethod
-    def __create_directory(cls, template_root_directory, path="", base_dir=""):
-
-        path = os.path.join(path, "")  # Handle case when path is root and equals "".
-        destination_directory = os.path.realpath(os.path.join(
-            template_root_directory,
-            path.replace(base_dir, "")
-        ))
-        if not os.path.isdir(destination_directory):
-            try:
-                os.makedirs(destination_directory)
-            except OSError:
-                CLI.colored_print("Can not create {}. Please verify permissions!".format(destination_directory),
-                                  CLI.COLOR_ERROR)
-                sys.exit()
-
-        return destination_directory
 
     @staticmethod
     def __read_unique_id(destination_directory):
@@ -203,6 +222,14 @@ class Template:
             unique_id = None
 
         return unique_id
+
+    @staticmethod
+    def __write_templates(template_variables_, root_, destination_directory_, filenames_):
+        for filename in fnmatch.filter(filenames_, '*.tpl'):
+            with open(os.path.join(root_, filename), "r") as template:
+                t = PyTemplate(template.read())
+                with open(os.path.join(destination_directory_, filename[:-4]), "w") as f:
+                    f.write(t.substitute(template_variables_))
 
     @classmethod
     def __write_unique_id(cls, destination_directory, unique_id):

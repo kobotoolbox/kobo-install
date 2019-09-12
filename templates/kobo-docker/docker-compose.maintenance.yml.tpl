@@ -9,13 +9,20 @@ services:
     env_file:
       - ../kobo-deployments/envfile.txt
     environment:
-      - ETA=2 hours
-      - DATE_STR=Monday,&nbsp;November&nbsp;26&nbsp;at&nbsp;02:00&nbsp;GMT
-      - DATE_ISO=20181126T02
+      - ETA=${MAINTENANCE_ETA}
+      - DATE_STR=${MAINTENANCE_DATE_STR}
+      - DATE_ISO=${MAINTENANCE_DATE_ISO}
+      - EMAIL=${MAINTENANCE_EMAIL}
     ports:
-      - 80:80
+      - ${NGINX_EXPOSED_PORT}:80
     volumes:
         - ./log/nginx:/var/log/nginx
         - ./nginx/:/tmp/kobo_nginx/:ro
     command: "/bin/bash /tmp/kobo_nginx/maintenance/nginx_command.bash"
     restart: on-failure
+    networks:
+      - kobo-maintenance-network
+
+networks:
+  kobo-maintenance-network:
+    driver: bridge

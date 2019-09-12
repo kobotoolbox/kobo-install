@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function, unicode_literals
+from __future__ import print_function, unicode_literals, division
 
 import binascii
 import json
 import os
-from random import choice, randint
 import re
 import stat
 import string
 import sys
 import time
+from datetime import datetime
+from random import choice, randint
 
 from helpers.cli import CLI
 from helpers.network import Network
@@ -197,7 +198,7 @@ class Config:
             CLI.colored_print("║ No valid networks detected. Can not continue!        ║", CLI.COLOR_ERROR)
             CLI.colored_print("║ Please connect to a network and re-run the command.  ║", CLI.COLOR_ERROR)
             CLI.colored_print("╚══════════════════════════════════════════════════════╝", CLI.COLOR_ERROR)
-            sys.exit()
+            sys.exit(1)
         else:
 
             config = self.get_config_template()
@@ -259,6 +260,9 @@ class Config:
         characters = string.ascii_letters + "!$%+-^~" + string.digits
         return "".join(choice(characters) for x in range(randint(10, 16)))
 
+    def maintenance(self):
+        self.__questions_maintenance()
+
     def read_config(self):
         """
         Reads config from file `Config.CONFIG_FILE` if exists
@@ -316,7 +320,7 @@ class Config:
 
         except IOError:
             CLI.colored_print("Could not write configuration file", CLI.COLOR_ERROR)
-            sys.exit()
+            sys.exit(1)
 
     def write_unique_id(self):
         try:
@@ -381,7 +385,7 @@ class Config:
                     os.makedirs(full_repo_path)
                 except OSError:
                     CLI.colored_print("Please verify permissions.", CLI.COLOR_ERROR)
-                    sys.exit()
+                    sys.exit(1)
 
             # Only clone if folder is empty
             if not os.path.isdir(os.path.join(full_repo_path, ".git")):
@@ -797,6 +801,41 @@ class Config:
             self.__config["nginx_proxy_port"] = Config.DEFAULT_NGINX_PORT
             self.__config["use_letsencrypt"] = Config.FALSE
 
+    def __questions_maintenance(self):
+        if self.first_time:
+            CLI.colored_print("╔═══════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
+            CLI.colored_print("║ You must run setup first: `python run.py --setup` ║", CLI.COLOR_WARNING)
+            CLI.colored_print("╚═══════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
+            sys.exit(1)
+
+        def _round_nearest_quarter(dt):
+            return datetime(dt.year, dt.month, dt.day, dt.hour,
+                            int(15 * round((float(dt.minute) + float(dt.second) / 60) / 15)))
+
+        CLI.colored_print("How long do you plan to this maintenance will last?",
+                          CLI.COLOR_SUCCESS)
+        self.__config["maintenance_eta"] = CLI.get_response(r"~^[\w\ ]+$",
+                                                            self.__config.get("maintenance_eta", "2 hours"))
+
+        date_start = _round_nearest_quarter(datetime.utcnow())
+        iso_format = '%Y%m%dT%H%M'
+        CLI.colored_print("Start Date/Time (ISO format) GMT?",
+                          CLI.COLOR_SUCCESS)
+        self.__config["maintenance_date_iso"] = CLI.get_response(
+            r"~^\d{8}T\d{4}$", date_start.strftime(iso_format))
+        self.__config["maintenance_date_iso"] = self.__config["maintenance_date_iso"].upper()
+
+        date_iso = self.__config["maintenance_date_iso"]
+        self.__config["maintenance_date_str"] = datetime.strptime(date_iso, iso_format).\
+            strftime('%A,&nbsp;%B&nbsp;%d&nbsp;at&nbsp;%H:%M&nbsp;GMT')
+
+        self.__config["maintenance_email"] = CLI.colored_input("Contact during maintenance?",
+                                                               CLI.COLOR_SUCCESS,
+                                                               self.__config.get(
+                                                                   "maintenance_email",
+                                                                   self.__config.get("default_from_email")))
+        self.write_config()
+
     def __questions_multi_servers(self):
         """
         Asks if installation is for only one server
@@ -874,11 +913,11 @@ class Config:
             endpoint = "https://api.pgconfig.org/v1/tuning/get-config?environment_name={profile}" \
                        "&format=conf&include_pgbadger=false&max_connections={max_connections}&" \
                        "pg_version=9.5&total_ram={ram}GB&drive_type={drive_type}".format(
-                profile=self.__config["postgres_profile"],
-                ram=self.__config["postgres_ram"],
-                max_connections=self.__config["postgres_max_connections"],
-                drive_type=self.__config["postgres_hard_drive_type"].upper()
-            )
+                           profile=self.__config["postgres_profile"],
+                           ram=self.__config["postgres_ram"],
+                           max_connections=self.__config["postgres_max_connections"],
+                           drive_type=self.__config["postgres_hard_drive_type"].upper()
+                       )
             response = Network.curl(endpoint)
             if response:
                 self.__config["postgres_settings_content"] = re.sub(r"(log|lc_).+(\n|$)", "", response)

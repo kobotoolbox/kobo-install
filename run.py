@@ -24,10 +24,7 @@ def run(force_setup=False):
 
         if force_setup:
             current_config = config.build()
-            # Only pull `kobo-docker` when we run `kobo-install` for the first
-            # time
-            if config.first_time:
-                Setup.pull_kobodocker(current_config)
+            Setup.clone_kobodocker(config)
             Template.render(config)
             config.init_letsencrypt()
             Setup.update_hosts(current_config)
@@ -68,6 +65,10 @@ if __name__ == "__main__":
             Command.build("kc")
         elif sys.argv[1] == "-v" or sys.argv[1] == "--version":
             Command.version()
+        elif sys.argv[1] == "-m" or sys.argv[1] == "--maintenance":
+            Command.maintenance()
+        elif sys.argv[1] == "-sm" or sys.argv[1] == "--stop-maintenance":
+            Command.stop_maintenance()
         else:
             CLI.colored_print("Bad syntax. Try 'run.py --help'", CLI.COLOR_ERROR)
     else:

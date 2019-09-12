@@ -25,19 +25,23 @@ class CLI(object):
     @classmethod
     def get_response(cls, validators=None, default=""):
     
-        response = None
         while True:
             try:
                 response = cls.colored_input("", cls.COLOR_WARNING, default)
 
-                if response.lower() in map(lambda x:x.lower(), validators) or validators is None or \
+                if (response.lower() in map(lambda x: x.lower(), validators) or
+                    validators is None or
                     (isinstance(validators, string_type) and
-                        validators.startswith("~") and re.match(validators[1:], response)):
+                     validators.startswith("~") and
+                     re.match(validators[1:], response)
+                     )):
                     break
                 else:
-                    cls.colored_print("Sorry, I didn't understand that!", cls.COLOR_ERROR)
+                    cls.colored_print("Sorry, I didn't understand that!",
+                                      cls.COLOR_ERROR)
             except ValueError:
-                cls.colored_print("Sorry, I didn't understand that.", cls.COLOR_ERROR)
+                cls.colored_print("Sorry, I didn't understand that.",
+                                  cls.COLOR_ERROR)
     
         return response.lower()
 
@@ -64,7 +68,8 @@ class CLI(object):
     @classmethod
     def get_message_with_default(cls, message, default):
         message = "{} ".format(message) if message else ""
-        default = "{}[{}]{}: ".format(cls.COLOR_WARNING, default, cls.NO_COLOR) if default else ""
+        default = "{}[{}]{}: ".format(cls.COLOR_WARNING, default, cls.NO_COLOR) \
+            if default else ""
 
         if message:
             message = "{}: ".format(message.strip()) if not default else message
@@ -83,11 +88,12 @@ class CLI(object):
                     print(output.strip())
             return process.poll()
         else:
-            stdout = None
             try:
-                stdout = subprocess.check_output(command, universal_newlines=True, cwd=cwd)
+                stdout = subprocess.check_output(command,
+                                                 universal_newlines=True,
+                                                 cwd=cwd)
             except subprocess.CalledProcessError as cpe:
                 # Error will be display by above command.
                 cls.colored_print("An error has occurred", CLI.COLOR_ERROR)
-                sys.exit()
+                sys.exit(1)
             return stdout

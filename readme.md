@@ -31,17 +31,20 @@ Stop KoBoToolbox:
 Get help:  
 `$kobo-install> python run.py --help`
 
-Get version:  
+Get version:
 `$kobo-install> python run.py --version`
 
 Build kpi and kobocat (dev mode):  
 `$kobo-install> python run.py --build`
 
 Run docker commands on frontend containers:
-`$kobo-install> python run.py ---compose-frontend [docker-compose arguments]`
+`$kobo-install> python run.py --compose-frontend [docker-compose arguments]`
 
 Run docker commands on backend containers:
-`$kobo-install> python run.py ---compose-backend [docker-compose arguments]`
+`$kobo-install> python run.py --compose-backend [docker-compose arguments]`
+
+Activate maintenance mode:
+`$kobo-install> python run.py --maintenance`
 
 ## Build the configuration
 User can choose between 2 types of installations:
