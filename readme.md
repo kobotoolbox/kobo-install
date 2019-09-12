@@ -1,10 +1,15 @@
 The purpose of the script is to install `KoBoToolbox ` in minutes without messing with configuration files.  
 It prompts the user to answer some questions to create configuration files automatically and to start docker containers based on [`kobo-docker`](https://github.com/kobotoolbox/kobo-docker "").
 
-## Warning
+## Important notice when upgrading from `[TODO: INSERT FINAL 1DB RELEASE HERE]` or earlier
+
+Up to and including release `[TODO: INSERT FINAL 1DB RELEASE HERE]`, [KPI](https://github.com/kobotoolbox/kpi) and [KoBoCAT](https://github.com/kobotoolbox/kobocat) both shared a common Postgres database. They now each have their own. **If you are upgrading an existing single-database installation, you must follow [these instructions](`TODO: LINK`)** to migrate the (smaller) KPI tables to a new database and adjust your configuration appropriately.
+
+## Warning for `kobo-docker` installations made prior to March 2019
+
 If you have already installed `KoBoToolbox` with `kobo-docker` prior March 2019,
-databases are not compatible and and docker images (`PostgreSQL`, `MongoDB`) are not the same.  
-**`KoBoInstall` won't be able to start the app.**
+you **must** complete [a manual upgrade process](https://github.com/kobotoolbox/kobo-docker/#caution-if-your-last-kobo-docker-upgrade-was-prior-to-march-2019)
+before using this repository. **If you do not, `kobo-install` will not be able to start.**
 
 ## Usage
 
