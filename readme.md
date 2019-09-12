@@ -43,8 +43,11 @@ Run docker commands on frontend containers:
 Run docker commands on backend containers:
 `$kobo-install> python run.py --compose-backend [docker-compose arguments]`
 
-Activate maintenance mode:
+Start maintenance mode:
 `$kobo-install> python run.py --maintenance`
+
+Stop maintenance mode:
+`$kobo-install> python run.py --stop-maintenance`
 
 ## Build the configuration
 User can choose between 2 types of installations:
