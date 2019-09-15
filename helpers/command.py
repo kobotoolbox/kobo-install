@@ -242,7 +242,7 @@ class Command:
             CLI.run_command(frontend_command, config.get("kobodocker_path"), True)
 
     @classmethod
-    def maintenance(cls):
+    def configure_maintenance(cls):
         config_object = Config()
         config = config_object.get_config()
 
@@ -250,27 +250,41 @@ class Command:
 
             config_object.maintenance()
             Template.render_maintenance(config_object)
+            config['maintenance_enabled'] = True
+            config_object.write_config()
+            cls.stop_nginx()
+            cls.start_maintenance()
 
-            nginx_stop_command = ["docker-compose",
-                                  "-f", "docker-compose.frontend.yml",
-                                  "-f", "docker-compose.frontend.override.yml",
-                                  "stop", "nginx"]
-            if config.get("docker_prefix", "") != "":
-                nginx_stop_command.insert(-2, "-p")
-                nginx_stop_command.insert(-2, config.get("docker_prefix"))
+    @classmethod
+    def stop_nginx(cls):
+        config_object = Config()
+        config = config_object.get_config()
 
-            CLI.run_command(nginx_stop_command, config.get("kobodocker_path"), True)
+        nginx_stop_command = ["docker-compose",
+                              "-f", "docker-compose.frontend.yml",
+                              "-f", "docker-compose.frontend.override.yml",
+                              "stop", "nginx"]
+        if config.get("docker_prefix", "") != "":
+            nginx_stop_command.insert(-2, "-p")
+            nginx_stop_command.insert(-2, config.get("docker_prefix"))
 
-            frontend_command = ["docker-compose",
-                                "-f", "docker-compose.maintenance.yml",
-                                "up", "-d", "maintenance"]
-            if config.get("docker_prefix", "") != "":
-                frontend_command.insert(-3, "-p")
-                frontend_command.insert(-3, config.get("docker_prefix"))
+        CLI.run_command(nginx_stop_command, config.get("kobodocker_path"))
 
-            CLI.run_command(frontend_command, config.get("kobodocker_path"), True)
-            CLI.colored_print("Maintenance mode has been started",
-                              CLI.COLOR_SUCCESS)
+    @classmethod
+    def start_maintenance(cls):
+        config_object = Config()
+        config = config_object.get_config()
+
+        frontend_command = ["docker-compose",
+                            "-f", "docker-compose.maintenance.yml",
+                            "up", "-d", "maintenance"]
+        if config.get("docker_prefix", "") != "":
+            frontend_command.insert(-3, "-p")
+            frontend_command.insert(-3, config.get("docker_prefix"))
+
+        CLI.run_command(frontend_command, config.get("kobodocker_path"))
+        CLI.colored_print("Maintenance mode has been started",
+                          CLI.COLOR_SUCCESS)
 
     @classmethod
     def restart_frontend(cls):
@@ -342,6 +356,13 @@ class Command:
                 frontend_command.insert(-2, "-p")
                 frontend_command.insert(-2, config.get("docker_prefix"))
 
+            if config.get('maintenance_enabled', False):
+                cls.start_maintenance()
+                # Start all front-end services except the non-maintenance NGINX
+                frontend_command.extend([
+                    s for s in config_object.get_service_names() if s != 'nginx'
+                ])
+
             CLI.run_command(frontend_command, config.get("kobodocker_path"))
 
             # Start reverse proxy if user uses it.
@@ -351,7 +372,11 @@ class Command:
                 CLI.run_command(proxy_command,
                                 config_object.get_letsencrypt_repo_path())
 
-        if not frontend_only:
+        if config.get('maintenance_enabled', False):
+                CLI.colored_print("Maintenance mode is enabled. To resume "
+                                  "normal operation, use `--stop-maintenance`",
+                                  CLI.COLOR_INFO)
+        elif not frontend_only:
             if not config_object.multi_servers or config_object.frontend:
                 CLI.colored_print("Waiting for environment to be ready. "
                                   "It can take a few minutes.", CLI.COLOR_SUCCESS)
@@ -442,11 +467,11 @@ class Command:
             CLI.run_command(maintenance_down_command,
                             config.get("kobodocker_path"))
 
-            # Shut down frontend containers
+            # Create and start NGINX container
             frontend_command = ["docker-compose",
                                 "-f", "docker-compose.frontend.yml",
                                 "-f", "docker-compose.frontend.override.yml",
-                                "start", "nginx"]
+                                "up", "-d", "nginx"]
             if config.get("docker_prefix", "") != "":
                 frontend_command.insert(-2, "-p")
                 frontend_command.insert(-2, config.get("docker_prefix"))
@@ -454,6 +479,9 @@ class Command:
 
             CLI.colored_print("Maintenance mode has been stopped",
                               CLI.COLOR_SUCCESS)
+
+            config['maintenance_enabled'] = False
+            config_object.write_config()
 
     @classmethod
     def update(cls):

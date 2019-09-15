@@ -66,7 +66,7 @@ if __name__ == "__main__":
         elif sys.argv[1] == "-v" or sys.argv[1] == "--version":
             Command.version()
         elif sys.argv[1] == "-m" or sys.argv[1] == "--maintenance":
-            Command.maintenance()
+            Command.configure_maintenance()
         elif sys.argv[1] == "-sm" or sys.argv[1] == "--stop-maintenance":
             Command.stop_maintenance()
         else:
