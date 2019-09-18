@@ -473,8 +473,8 @@ class Command:
                                 "-f", "docker-compose.frontend.override.yml",
                                 "up", "-d", "nginx"]
             if config.get("docker_prefix", "") != "":
-                frontend_command.insert(-2, "-p")
-                frontend_command.insert(-2, config.get("docker_prefix"))
+                frontend_command.insert(-3, "-p")
+                frontend_command.insert(-3, config.get("docker_prefix"))
             CLI.run_command(frontend_command, config.get("kobodocker_path"))
 
             CLI.colored_print("Maintenance mode has been stopped",

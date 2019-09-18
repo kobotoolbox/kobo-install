@@ -9,7 +9,6 @@ import stat
 import string
 import sys
 import time
-import yaml
 from datetime import datetime
 from random import choice, randint
 
@@ -337,14 +336,13 @@ class Config:
         return True
 
     def get_service_names(self):
-        yml_dump_command = ["docker-compose",
-                              "-f", "docker-compose.frontend.yml",
-                              "-f", "docker-compose.frontend.override.yml",
-                              "config"]
+        service_list_command = ["docker-compose",
+                                "-f", "docker-compose.frontend.yml",
+                                "-f", "docker-compose.frontend.override.yml",
+                                "config", "--services"]
 
-        yml = CLI.run_command(yml_dump_command, self.__config["kobodocker_path"])
-        combined_config = yaml.load(yml)
-        return list(combined_config['services'].keys())
+        services = CLI.run_command(service_list_command, self.__config["kobodocker_path"])
+        return services.strip().split('\n')
 
     def __create_directory(self):
         """
