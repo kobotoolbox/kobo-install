@@ -46,11 +46,12 @@
             "port": "${REDIS_MAIN_PORT}"
         }
     },
-     "google": {
+    "google": {
         "api key": "${GOOGLE_API_KEY}",
         "analytics": {
             "ua": "${GOOGLE_UA}",
             "domain": "${ENKETO_SUBDOMAIN}.${PUBLIC_DOMAIN_NAME}"
         }
-    }
+    },
+    "payload limit": "1mb"
 }

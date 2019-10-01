@@ -1,5 +1,5 @@
 # For public, HTTPS servers.
-version: '2.1'
+version: '2.2'
 
 services:
   postgres:
