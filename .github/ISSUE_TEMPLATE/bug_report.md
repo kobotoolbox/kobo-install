@@ -22,7 +22,7 @@ NOTE: IF YOU HAVE ANY PROBLEMS DURING THE INSTALLATION PLEASE VISIT OUR COMMUNIT
 <!--- A clear and concise description of what you expected to happen. --->
 
 
-**Desktop **
+**Desktop**
 <!---(please complete the following information): --->
 
  - OS:  
