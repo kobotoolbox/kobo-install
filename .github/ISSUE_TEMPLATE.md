@@ -1,10 +1,3 @@
----
-name: Bug report
-about: Visit https://community.kobotoolbox.org to post questions or issues
-title: ''
-labels: ''
-assignees: ''
-
 <!--- 
 NOTE: IF YOU HAVE ANY PROBLEMS DURING THE INSTALLATION PLEASE VISIT OUR COMMUNITY FORUM AND POST YOUR DETAILED QUESTION THERE:  https://community.kobotoolbox.org/c/kobo-install. Due to the small size of our team and large volume of users, we cannot provide support or guidance via GitHub issues. Please only create an issue for reporting an actual bug in the installation script 
 -->
