@@ -1,35 +1,34 @@
 ---
 name: Bug report
-about: Visit https://community.kobotoolbox.org first
+about: Visit https://community.kobotoolbox.org to post questions or issues
 title: ''
 labels: ''
 assignees: ''
 
-Due to the small nature of our team and large volume of users, we cannot provide support or
- guidance for all github issues requests.  
-Please visit https://community.kobotoolbox.org/c/kobo-install for help.
+<!--- 
+NOTE: IF YOU HAVE ANY PROBLEMS DURING THE INSTALLATION PLEASE VISIT OUR COMMUNITY FORUM AND POST YOUR DETAILED QUESTION THERE:  https://community.kobotoolbox.org/c/kobo-install. Due to the small size of our team and large volume of users, we cannot provide support or guidance via GitHub issues. Please only create an issue for reporting an actual bug in the installation script 
+-->
 
+**Description**
+<!--- A clear and concise description of what the bug is. Provide logs and `.run.conf`. --> 
 
-If you really want to report a bug, please fill out the template below:
-
-**Describe the bug**
-A clear and concise description of what the bug is.  
-Provide logs and `.run.conf`.  
 **Do you share confidential information**
 
 
-**To Reproduce**
-Steps to reproduce the behavior:
+**Steps to Reproduce**
+<!--- Steps to reproduce the behavior --->
 
 **Expected behavior**
-A clear and concise description of what you expected to happen.
+<!--- A clear and concise description of what you expected to happen. --->
 
 
-**Desktop (please complete the following information):**
+**Desktop **
+<!---(please complete the following information): --->
+
  - OS:  
  - Python Version: 
  - Docker Version: 
  - Docker Compose Version:
  
 **Additional context**
-Add any other context about the problem here.
+<!--- Add any other context about the problem here. --->
