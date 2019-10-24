@@ -5,7 +5,8 @@ import re
 import subprocess
 import sys
 
-if sys.version_info.major < 3:
+PY2 = sys.version_info[0] == 2
+if PY2:
     input = raw_input
     string_type = unicode
 else:
@@ -85,7 +86,10 @@ class CLI(object):
                 if output == "" and process.poll() is not None:
                     break
                 if output:
-                    print(output.strip())
+                    if PY2:
+                        print(output.strip())
+                    else:
+                        print(output.decode().strip())
             return process.poll()
         else:
             try:
