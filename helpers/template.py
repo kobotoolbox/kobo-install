@@ -164,8 +164,8 @@ class Template:
             "MAX_REQUESTS": config.get("max_requests", "512"),
             "SOFT_LIMIT": int(config.get("soft_limit", "128")) * 1024 * 1024,
             "POSTGRES_REPLICATION_PASSWORD": config.get("postgres_replication_password"),
-            "WSGI_SERVER": "runserver_plus" if config.get("dev_mode") == Config.TRUE else "uWSGI",
-            "USE_X_FORWARDED_HOST": "" if config.get("dev_mode") == Config.TRUE else "#",
+            "WSGI_SERVER": "runserver_plus" if config_object.dev_mode else "uWSGI",
+            "USE_X_FORWARDED_HOST": "" if config_object.dev_mode else "#",
             "OVERRIDE_POSTGRES_SETTINGS": "" if config.get("postgres_settings") == Config.TRUE else "#",
             "POSTGRES_APP_PROFILE": config.get("postgres_profile", ""),
             "POSTGRES_RAM": config.get("postgres_ram", ""),
@@ -201,6 +201,7 @@ class Template:
             "MAINTENANCE_DATE_ISO": config.get("maintenance_date_iso", ""),
             "MAINTENANCE_DATE_STR": config.get("maintenance_date_str", ""),
             "MAINTENANCE_EMAIL": config.get("maintenance_email", ""),
+            "USE_NPM_FROM_HOST": "" if config_object.dev_mode and config.get("npm_container") == Config.FALSE else "#",
         }
 
     @staticmethod

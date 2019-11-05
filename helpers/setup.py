@@ -11,7 +11,7 @@ from helpers.config import Config
 
 class Setup:
 
-    KOBO_DOCKER_BRANCH = 'kobo-install-two-databases'
+    KOBO_DOCKER_BRANCH = 'kobo-install-two-databases-py3'
 
     @classmethod
     def clone_kobodocker(cls, config_object):

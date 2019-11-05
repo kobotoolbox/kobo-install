@@ -71,6 +71,8 @@ class Command:
 
                 CLI.run_command(frontend_command, config.get("kobodocker_path"))
 
+            # ToDo When Python3 container is released.
+            # ToDo Move this to `kobocat` build as `kpi` doesn't use it anymore.
             pull_base_command = ["docker",
                                  "pull",
                                  "kobotoolbox/koboform_base"]
@@ -492,7 +494,7 @@ class Command:
         CLI.colored_print("KoBoToolbox has been updated", CLI.COLOR_SUCCESS)
 
         # update itself
-        git_command = ["git", "pull", "origin", "master"]
+        git_command = ["git", "pull", "origin", "two-databases-py3"]
         CLI.run_command(git_command)
         CLI.colored_print("KoBoInstall has been updated", CLI.COLOR_SUCCESS)
 
