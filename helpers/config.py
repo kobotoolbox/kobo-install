@@ -518,7 +518,8 @@ class Config:
             "redis_main_port": "6379",
             "redis_cache_port": "6380",
             "local_installation": Config.FALSE,
-            "block_common_http_ports": Config.TRUE
+            "block_common_http_ports": Config.TRUE,
+            "npm_container": Config.TRUE,
         }
 
     def __questions_advanced_options(self):
@@ -750,6 +751,13 @@ class Config:
                     CLI.colored_print("\t2) False")
                     self.__config["debug"] = CLI.get_response([Config.TRUE, Config.FALSE],
                                                               self.__config.get("debug", Config.TRUE))
+
+                    # Frontend development
+                    CLI.colored_print("How do you want to run `npm`?", CLI.COLOR_SUCCESS)
+                    CLI.colored_print("\t1) From within the container")
+                    CLI.colored_print("\t2) Locally")
+                    self.__config["npm_container"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                                      self.__config.get("npm_container", Config.TRUE))
             else:
                 # Force reset paths
                 self.__reset_dev_mode(self.staging_mode)
