@@ -31,6 +31,7 @@ class Config:
 
     KOBO_DOCKER_BRANCH = 'kobo-install-two-databases'
     KOBO_INSTALL_BRANCH = 'two-databases'
+    KOBO_INSTALL_VERSION = '2.0.0'
 
     # Maybe overkill. Use this class as a singleton to get the same configuration
     # for each instantiation.

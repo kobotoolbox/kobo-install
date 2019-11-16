@@ -529,5 +529,7 @@ class Command:
     def version(cls):
         git_commit_version_command = ["git", "rev-parse", "HEAD"]
         stdout = CLI.run_command(git_commit_version_command)
-        CLI.colored_print("KoBoInstall Version: {}".format(stdout.strip()[0:7]),
-                          CLI.COLOR_SUCCESS)
+        CLI.colored_print("KoBoInstall Version: {} (build {})".format(
+            Config.KOBO_INSTALL_VERSION,
+            stdout.strip()[0:7],
+        ), CLI.COLOR_SUCCESS)
