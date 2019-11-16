@@ -494,7 +494,7 @@ class Command:
         CLI.colored_print("KoBoToolbox has been updated", CLI.COLOR_SUCCESS)
 
         # update itself
-        git_command = ["git", "pull", "origin", "two-databases-py3"]
+        git_command = ['git', 'pull', 'origin', Config.KOBO_INSTALL_BRANCH]
         CLI.run_command(git_command)
         CLI.colored_print("KoBoInstall has been updated", CLI.COLOR_SUCCESS)
 

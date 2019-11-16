@@ -11,8 +11,6 @@ from helpers.config import Config
 
 class Setup:
 
-    KOBO_DOCKER_BRANCH = 'kobo-install-two-databases-py3'
-
     @classmethod
     def clone_kobodocker(cls, config_object):
         """
@@ -53,11 +51,11 @@ class Setup:
         """
         if os.path.isdir(os.path.join(config["kobodocker_path"], ".git")):
             # checkout branch
-            git_command = ["git", "checkout", "--force", Setup.KOBO_DOCKER_BRANCH]
+            git_command = ["git", "checkout", "--force", Config.KOBO_DOCKER_BRANCH]
             CLI.run_command(git_command, cwd=config["kobodocker_path"])
 
             # update code
-            git_command = ["git", "pull", "origin", Setup.KOBO_DOCKER_BRANCH]
+            git_command = ["git", "pull", "origin", Config.KOBO_DOCKER_BRANCH]
             CLI.run_command(git_command, cwd=config["kobodocker_path"])
         else:
             CLI.colored_print('`kobo-docker` repository is missing!',

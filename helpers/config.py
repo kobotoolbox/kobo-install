@@ -29,6 +29,9 @@ class Config:
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
 
+    KOBO_DOCKER_BRANCH = 'kobo-install-two-databases'
+    KOBO_INSTALL_BRANCH = 'two-databases'
+
     # Maybe overkill. Use this class as a singleton to get the same configuration
     # for each instantiation.
     __metaclass__ = Singleton
