@@ -23,9 +23,9 @@ class Setup:
             # Move unique id file to /tmp in order to clone without errors
             # (e.g. not empty directory)
             tmp_dirpath = tempfile.mkdtemp()
-            os.rename(os.path.join(config["kobodocker_path"],
-                                   Config.UNIQUE_ID_FILE),
-                      os.path.join(tmp_dirpath, Config.UNIQUE_ID_FILE))
+            shutil.move(os.path.join(config["kobodocker_path"],
+                                     Config.UNIQUE_ID_FILE),
+                        os.path.join(tmp_dirpath, Config.UNIQUE_ID_FILE))
 
             # clone project
             git_command = [
@@ -35,9 +35,9 @@ class Setup:
             CLI.run_command(git_command, cwd=os.path.dirname(
                 config["kobodocker_path"]))
 
-            os.rename(os.path.join(tmp_dirpath, Config.UNIQUE_ID_FILE),
-                      os.path.join(config["kobodocker_path"],
-                                   Config.UNIQUE_ID_FILE))
+            shutil.move(os.path.join(tmp_dirpath, Config.UNIQUE_ID_FILE),
+                        os.path.join(config["kobodocker_path"],
+                                     Config.UNIQUE_ID_FILE))
             shutil.rmtree(tmp_dirpath)
             do_update = True  # Force update
 
