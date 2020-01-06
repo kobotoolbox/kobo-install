@@ -23,8 +23,8 @@ fi
 if [ ! -e "$$DATA_PATH/conf/options-ssl-nginx.conf" ] || [ ! -e "$$DATA_PATH/conf/ssl-dhparams.pem" ]; then
   echo "### Downloading recommended TLS parameters ..."
   $$MKDIR_CMD -p "$$DATA_PATH/conf"
-  $$CURL_CMD -s https://raw.githubusercontent.com/certbot/certbot/master/certbot-nginx/certbot_nginx/tls_configs/options-ssl-nginx.conf > "$$DATA_PATH/conf/options-ssl-nginx.conf"
-  $$CURL_CMD -s https://raw.githubusercontent.com/certbot/certbot/master/certbot/ssl-dhparams.pem > "$$DATA_PATH/conf/ssl-dhparams.pem"
+  $$CURL_CMD -s https://raw.githubusercontent.com/kobotoolbox/nginx-certbot/master/certbot/options-ssl-nginx.conf > "$$DATA_PATH/conf/options-ssl-nginx.conf"
+  $$CURL_CMD -s https://raw.githubusercontent.com/kobotoolbox/nginx-certbot/master/certbot/ssl-dhparams.pem > "$$DATA_PATH/conf/ssl-dhparams.pem"
   echo
 fi
 
