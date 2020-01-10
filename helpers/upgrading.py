@@ -81,6 +81,18 @@ def migrate_single_to_two_databases():
             CLI.colored_print("An error has occurred", CLI.COLOR_ERROR)
             sys.exit(1)
 
+        # The Whoosh search index created under Python 2 doesn't seem to work
+        # with Python 3, so rebuild it now that we've upgraded
+        CLI.colored_print(
+            "Rebuilding Whoosh search index for Python 3 compatibility",
+            CLI.COLOR_INFO
+        )
+        frontend_command = kpi_run_command + _kpi_db_alias_kludge(" ".join([
+                               "python", "manage.py",
+                               "rebuild_index", "--noinput"
+                           ]))
+        CLI.run_command(frontend_command, config.get("kobodocker_path"))
+
     elif kpi_kc_db_empty not in [
         "True\tTrue",
         "False\tTrue",
