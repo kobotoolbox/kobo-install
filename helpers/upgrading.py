@@ -30,11 +30,10 @@ def migrate_single_to_two_databases():
 
     kpi_run_command = ["docker-compose",
                        "-f", "docker-compose.frontend.yml",
-                       "-f", "docker-compose.frontend.override.yml",
-                       "run", "--rm", "kpi"]
+                       "-f", "docker-compose.frontend.override.yml"]
     if config.get("docker_prefix", "") != "":
-        kpi_run_command.insert(-3, "-p")
-        kpi_run_command.insert(-3, config.get("docker_prefix"))
+        kpi_run_command += ["-p", config.get("docker_prefix")]
+    kpi_run_command += ["run", "--rm", "kpi"]
 
     # Make sure Postgres is running
     frontend_command = kpi_run_command + _kpi_db_alias_kludge(" ".join([
@@ -65,7 +64,11 @@ def migrate_single_to_two_databases():
             "-f",
             "docker-compose.backend.{}.yml".format(backend_role),
             "-f",
-            "docker-compose.backend.{}.override.yml".format(backend_role),
+            "docker-compose.backend.{}.override.yml".format(backend_role)
+        ]
+        if config.get("docker_prefix", "") != "":
+            backend_command += ["-p", config.get("docker_prefix")]
+        backend_command += [
             "exec", "postgres", "bash",
             "/kobo-docker-scripts/master/clone_data_from_kc_to_kpi.sh",
             "--noinput"
