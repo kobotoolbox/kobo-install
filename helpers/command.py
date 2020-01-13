@@ -10,6 +10,7 @@ from helpers.config import Config
 from helpers.network import Network
 from helpers.setup import Setup
 from helpers.template import Template
+from helpers.upgrading import migrate_single_to_two_databases
 
 
 class Command:
@@ -40,7 +41,7 @@ class Command:
                "          -cb, --compose-backend [docker-compose arguments]\n"
                "                Run a docker-compose command in the back-end environment\n"
                "          -m, --maintenance\n"
-               "                Activate maintenance mode. All traffic is redirected to maintenance page\n"               
+               "                Activate maintenance mode. All traffic is redirected to maintenance page\n"
                "          -v, --version\n"
                "                Display current version\n"
                ))
@@ -328,7 +329,7 @@ class Command:
                                   CLI.COLOR_ERROR)
                 sys.exit(1)
 
-        # Make them up
+        # Start the back-end containers
         if not frontend_only:
             if not config_object.multi_servers or \
                     config_object.master_backend or config_object.slave_backend:
@@ -348,6 +349,11 @@ class Command:
 
                 CLI.run_command(backend_command, config.get("kobodocker_path"))
 
+        # If this was previously a shared-database setup, migrate to separate
+        # databases for KPI and KoBoCAT
+        migrate_single_to_two_databases()
+
+        # Start the front-end containers
         if not config_object.multi_servers or config_object.frontend:
             frontend_command = ["docker-compose",
                                 "-f", "docker-compose.frontend.yml",

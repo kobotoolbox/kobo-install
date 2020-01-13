@@ -98,6 +98,9 @@ class CLI(object):
                                                  cwd=cwd)
             except subprocess.CalledProcessError as cpe:
                 # Error will be display by above command.
+                # ^^^ this doesn't seem to be true? let's write it explicitly
+                # see https://docs.python.org/3/library/subprocess.html#subprocess.check_output
+                sys.stderr.write(cpe.output)
                 cls.colored_print("An error has occurred", CLI.COLOR_ERROR)
                 sys.exit(1)
             return stdout
