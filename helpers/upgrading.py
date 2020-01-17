@@ -7,6 +7,7 @@ import sys
 from helpers.cli import CLI
 from helpers.config import Config
 
+
 def migrate_single_to_two_databases():
     """
     Check the contents of the databases. If KPI's is empty or doesn't exist
@@ -59,6 +60,32 @@ def migrate_single_to_two_databases():
             "for KPI and KoBoCAT",
             CLI.COLOR_INFO
         )
+        _message_lines = [
+            "╔══════════════════════════════════════════════════════════════╗",
+            "║  Upgrading to separate databases is required to run the      ║",
+            "║  latest release of KoBoToolbox, but it may be a slow process ║",
+            "║  if you have a lot of data. Expect at least one minute of    ║",
+            "║  downtime for every 1,500 KPI assets. Assets are surveys and ║",
+            "║  library items: questions, blocks, and templates.            ║",
+            "║  Survey *submissions* are not involved.                      ║",
+            "║                                                              ║",
+            "║  To postpone this process, downgrade to the last             ║",
+            "║  single-database release by stopping this script and         ║",
+            "║  executing the following command:                            ║",
+            "║                                                              ║",
+            "║       git checkout 2.019.52-final-shared-database            ║",
+            "║                                                              ║",
+            "║  Then, re-run this script.                                   ║",
+            "╚══════════════════════════════════════════════════════════════╝",
+        ]
+        CLI.colored_print('\n'.join(_message_lines), CLI.COLOR_WARNING)
+        CLI.colored_print("Do you want to proceed?", CLI.COLOR_SUCCESS)
+        CLI.colored_print("\t1) Yes")
+        CLI.colored_print("\t2) No")
+        response = CLI.get_response([Config.TRUE, Config.FALSE], Config.FALSE)
+        if response != Config.TRUE:
+            sys.exit(0)
+
         backend_command = [
             "docker-compose",
             "-f",
