@@ -29,9 +29,9 @@ class Config:
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
 
-    KOBO_DOCKER_BRANCH = 'kobo-install-two-databases'
-    KOBO_INSTALL_BRANCH = 'two-databases'
-    KOBO_INSTALL_VERSION = '2.0.0'
+    KOBO_DOCKER_BRANCH = 'two-databases-secured-backend'
+    KOBO_INSTALL_BRANCH = 'secured-backend'
+    KOBO_INSTALL_VERSION = '2.1.0'
 
     # Maybe overkill. Use this class as a singleton to get the same configuration
     # for each instantiation.
@@ -76,6 +76,10 @@ class Config:
         """
         return self.__config.get("use_aws") == Config.TRUE
 
+    @property
+    def expose_backend_ports(self):
+        return self.__config.get("expose_backend_ports") == Config.TRUE
+
     def get_env_files_path(self):
         return os.path.realpath(os.path.normpath(os.path.join(
             self.__config.get("kobodocker_path"),
@@ -90,23 +94,24 @@ class Config:
             Config.LETSENCRYPT_DOCKER_DIR
         )))
 
-    @property
-    def master_backend(self):
-        """
-        Checks whether setup is running on a master backend server
-        :return: bool
-        """
-        return self.multi_servers and \
-               self.__config.get("backend_server_role") == "master"
+    def get_prefix(self, role):
+        roles = {
+            'frontend': 'kobofe',
+            'backend': 'kobobe',
+            'maintenance': 'kobomaintenance'
+        }
 
-    @property
-    def slave_backend(self):
-        """
-        Checks whether setup is running on a slave backend server
-        :return: bool
-        """
-        return self.multi_servers and \
-               self.__config.get("backend_server_role") == "slave"
+        try:
+            prefix_ = roles[role]
+        except KeyError:
+            CLI.colored_print("Invalid composer file", CLI.COLOR_ERROR)
+            sys.exit(-1)
+
+        if not self.__config.get("docker_prefix"):
+            return prefix_
+
+        return "{}-{}".format(self.__config.get("docker_prefix"),
+                              prefix_)
 
     @property
     def backend_questions(self):
@@ -115,82 +120,6 @@ class Config:
         :return: bool
         """
         return not self.multi_servers or not self.frontend
-
-    @property
-    def first_time(self):
-        """
-        Checks whether setup is running for the first time
-        :return: bool
-        """
-        if self.__first_time is None:
-            self.__first_time = self.__config.get("date_created") is None
-        return self.__first_time
-
-    @property
-    def frontend(self):
-        """
-        Checks whether setup is running on a frontend server
-        :return: bool
-        """
-        return not self.multi_servers or \
-            self.__config.get("server_role") == "frontend"
-
-    @property
-    def frontend_questions(self):
-        """
-        Checks whether questions are frontend only
-        :return: bool
-        """
-        return not self.multi_servers or self.frontend
-
-    @property
-    def dev_mode(self):
-        return self.__config.get("dev_mode") == Config.TRUE
-
-    @property
-    def is_secure(self):
-        return self.__config.get("https") == Config.TRUE
-
-    def init_letsencrypt(self):
-        if self.use_letsencrypt:
-            reverse_proxy_path = self.get_letsencrypt_repo_path()
-            reverse_proxy_command = [
-                "/bin/bash",
-                "init-letsencrypt.sh"
-            ]
-            CLI.run_command(reverse_proxy_command, reverse_proxy_path)
-
-    @property
-    def use_letsencrypt(self):
-        return self.local_install is False and self.__config["use_letsencrypt"] == Config.TRUE
-
-    @property
-    def local_install(self):
-        """
-        Checks whether installation is for `Workstation`s
-        :return: bool
-        """
-        return self.__config.get("local_installation") == Config.TRUE
-
-    @property
-    def multi_servers(self):
-        """
-        Checks whether installation is for separate frontend and backend servers
-        :return: bool
-        """
-        return self.__config.get("multi") == Config.TRUE
-
-    @property
-    def proxy(self):
-        """
-        Checks whether installation is using a proxy or a load balancer
-        :return: bool
-        """
-        return self.__config.get("proxy") == Config.TRUE
-
-    @property
-    def staging_mode(self):
-        return self.__config.get("staging_mode") == Config.TRUE
 
     def build(self):
         """
@@ -223,11 +152,13 @@ class Config:
                         self.__questions_roles()
                         if self.frontend:
                             self.__questions_private_routes()
+                    else:
+                        self.__reset(private_dns=True)
 
                 if self.frontend_questions:
                     self.__questions_public_routes()
                     self.__questions_https()
-                    self.__question_reverse_proxy()
+                    self.__questions_reverse_proxy()
 
             if self.frontend_questions:
                 self.__questions_smtp()
@@ -252,8 +183,36 @@ class Config:
             self.write_config()
             return config
 
-    def get_config(self):
-        return self.__config
+    @property
+    def dev_mode(self):
+        return self.__config.get("dev_mode") == Config.TRUE
+
+    @property
+    def first_time(self):
+        """
+        Checks whether setup is running for the first time
+        :return: bool
+        """
+        if self.__first_time is None:
+            self.__first_time = self.__config.get("date_created") is None
+        return self.__first_time
+
+    @property
+    def frontend(self):
+        """
+        Checks whether setup is running on a frontend server
+        :return: bool
+        """
+        return not self.multi_servers or \
+            self.__config.get("server_role") == "frontend"
+
+    @property
+    def frontend_questions(self):
+        """
+        Checks whether questions are frontend only
+        :return: bool
+        """
+        return not self.multi_servers or self.frontend
 
     @staticmethod
     def generate_password():
@@ -264,8 +223,141 @@ class Config:
         characters = string.ascii_letters + "!$%+-^~" + string.digits
         return "".join(choice(characters) for x in range(randint(10, 16)))
 
+    def get_config(self):
+        return self.__config
+
+    @classmethod
+    def get_config_template(cls):
+
+        primary_ip = Network.get_primary_ip()
+
+        return {
+            "workers_max": "2",
+            "workers_start": "1",
+            "debug": Config.FALSE,
+            "kobodocker_path": os.path.realpath(os.path.normpath(os.path.join(
+                os.path.dirname(os.path.realpath(__file__)),
+                "..",
+                "..",
+                "kobo-docker"))
+            ),
+            "internal_domain_name": "docker.internal",
+            "private_domain_name": "kobo.private",
+            "public_domain_name": "kobo.local",
+            "kpi_subdomain": "kf",
+            "kc_subdomain": "kc",
+            "ee_subdomain": "ee",
+            "kc_postgres_db": "kobocat",
+            "kpi_postgres_db": "koboform",
+            "postgres_user": "kobo",
+            "postgres_password": Config.generate_password(),
+            "kc_path": "",
+            "kpi_path": "",
+            "super_user_username": "super_admin",
+            "super_user_password": Config.generate_password(),
+            "postgres_replication_password": Config.generate_password(),
+            "use_aws": Config.FALSE,
+            "use_private_dns": Config.FALSE,
+            "master_backend_ip": primary_ip,
+            "local_interface_ip": primary_ip,
+            "multi": Config.FALSE,
+            "postgres_settings": Config.FALSE,
+            "postgres_ram": "2",
+            "postgres_profile": "Mixed",
+            "postgres_max_connections": "100",
+            "postgres_hard_drive_type": "hdd",
+            "postgres_settings_content": "",
+            "enketo_api_token": binascii.hexlify(os.urandom(60)).decode("utf-8"),
+            "enketo_encryption_key": binascii.hexlify(os.urandom(60)).decode("utf-8"),
+            "django_secret_key": binascii.hexlify(os.urandom(24)).decode("utf-8"),
+            "use_backup": Config.FALSE,
+            "kobocat_media_schedule": "0 0 * * 0",
+            "mongo_backup_schedule": "0 1 * * 0",
+            "postgres_backup_schedule": "0 2 * * 0",
+            "redis_backup_schedule": "0 3 * * 0",
+            "aws_backup_bucket_name": "",
+            "aws_backup_yearly_retention": "2",
+            "aws_backup_monthly_retention": "12",
+            "aws_backup_weekly_retention": "4",
+            "aws_backup_daily_retention": "30",
+            "aws_mongo_backup_minimum_size": "50",
+            "aws_postgres_backup_minimum_size": "50",
+            "aws_redis_backup_minimum_size": "5",
+            "aws_backup_upload_chunk_size": "15",
+            "aws_backup_bucket_deletion_rule_enabled": Config.FALSE,
+            "backend_server_role": "master",
+            "use_letsencrypt": Config.TRUE,
+            "proxy": Config.TRUE,
+            "https": Config.TRUE,
+            "nginx_proxy_port": Config.DEFAULT_PROXY_PORT,
+            "exposed_nginx_docker_port": Config.DEFAULT_NGINX_PORT,
+            "expose_backend_ports": Config.FALSE,
+            "postgresql_port": "5432",
+            "mongo_port": "27017",
+            "redis_main_port": "6379",
+            "redis_cache_port": "6380",
+            "local_installation": Config.FALSE,
+            "block_common_http_ports": Config.TRUE,
+            "npm_container": Config.TRUE,
+        }
+
+    def get_service_names(self):
+        service_list_command = ["docker-compose",
+                                "-f", "docker-compose.frontend.yml",
+                                "-f", "docker-compose.frontend.override.yml",
+                                "config", "--services"]
+
+        services = CLI.run_command(service_list_command, self.__config["kobodocker_path"])
+        return services.strip().split('\n')
+
+    @property
+    def is_secure(self):
+        return self.__config.get("https") == Config.TRUE
+
+    def init_letsencrypt(self):
+        if self.use_letsencrypt:
+            reverse_proxy_path = self.get_letsencrypt_repo_path()
+            reverse_proxy_command = [
+                "/bin/bash",
+                "init-letsencrypt.sh"
+            ]
+            CLI.run_command(reverse_proxy_command, reverse_proxy_path)
+
+    @property
+    def local_install(self):
+        """
+        Checks whether installation is for `Workstation`s
+        :return: bool
+        """
+        return self.__config.get("local_installation") == Config.TRUE
+
     def maintenance(self):
         self.__questions_maintenance()
+
+    @property
+    def master_backend(self):
+        """
+        Checks whether setup is running on a master backend server
+        :return: bool
+        """
+        return self.multi_servers and \
+               self.__config.get("backend_server_role") == "master"
+
+    @property
+    def multi_servers(self):
+        """
+        Checks whether installation is for separate frontend and backend servers
+        :return: bool
+        """
+        return self.__config.get("multi") == Config.TRUE
+
+    @property
+    def proxy(self):
+        """
+        Checks whether installation is using a proxy or a load balancer
+        :return: bool
+        """
+        return self.__config.get("proxy") == Config.TRUE
 
     def read_config(self):
         """
@@ -305,6 +397,28 @@ class Config:
 
         return unique_id
 
+    @property
+    def slave_backend(self):
+        """
+        Checks whether setup is running on a slave backend server
+        :return: bool
+        """
+        return self.multi_servers and \
+               self.__config.get("backend_server_role") == "slave"
+
+    @property
+    def staging_mode(self):
+        return self.__config.get("staging_mode") == Config.TRUE
+
+    @property
+    def use_letsencrypt(self):
+        return self.local_install is False and \
+               self.__config["use_letsencrypt"] == Config.TRUE
+
+    @property
+    def use_private_dns(self):
+        return self.__config["use_private_dns"] == Config.TRUE
+
     def write_config(self):
         """
         Writes config to file `Config.CONFIG_FILE`.
@@ -338,15 +452,6 @@ class Config:
             return False
 
         return True
-
-    def get_service_names(self):
-        service_list_command = ["docker-compose",
-                                "-f", "docker-compose.frontend.yml",
-                                "-f", "docker-compose.frontend.override.yml",
-                                "config", "--services"]
-
-        services = CLI.run_command(service_list_command, self.__config["kobodocker_path"])
-        return services.strip().split('\n')
 
     def __create_directory(self):
         """
@@ -451,80 +556,6 @@ class Config:
 
             self.__config["local_interface_ip"] = interfaces[self.__config.get("local_interface")]
             self.__config["master_backend_ip"] = self.__config.get("local_interface_ip")
-
-    @classmethod
-    def get_config_template(cls):
-
-        primary_ip = Network.get_primary_ip()
-
-        return {
-            "workers_max": "2",
-            "workers_start": "1",
-            "debug": Config.FALSE,
-            "kobodocker_path": os.path.realpath(os.path.normpath(os.path.join(
-                os.path.dirname(os.path.realpath(__file__)),
-                "..",
-                "..",
-                "kobo-docker"))
-            ),
-            "internal_domain_name": "docker.internal",
-            "private_domain_name": "kobo.private",
-            "public_domain_name": "kobo.local",
-            "kpi_subdomain": "kf",
-            "kc_subdomain": "kc",
-            "ee_subdomain": "ee",
-            "kc_postgres_db": "kobocat",
-            "kpi_postgres_db": "koboform",
-            "postgres_user": "kobo",
-            "postgres_password": Config.generate_password(),
-            "kc_path": "",
-            "kpi_path": "",
-            "super_user_username": "super_admin",
-            "super_user_password": Config.generate_password(),
-            "postgres_replication_password": Config.generate_password(),
-            "use_aws": Config.FALSE,
-            "use_private_dns": Config.FALSE,
-            "master_backend_ip": primary_ip,
-            "local_interface_ip": primary_ip,
-            "multi": Config.FALSE,
-            "postgres_settings": Config.FALSE,
-            "postgres_ram": "2",
-            "postgres_profile": "Mixed",
-            "postgres_max_connections": "100",
-            "postgres_hard_drive_type": "hdd",
-            "postgres_settings_content": "",
-            "enketo_api_token": binascii.hexlify(os.urandom(60)).decode("utf-8"),
-            "enketo_encryption_key": binascii.hexlify(os.urandom(60)).decode("utf-8"),
-            "django_secret_key": binascii.hexlify(os.urandom(24)).decode("utf-8"),
-            "use_backup": Config.FALSE,
-            "kobocat_media_schedule": "0 0 * * 0",
-            "mongo_backup_schedule": "0 1 * * 0",
-            "postgres_backup_schedule": "0 2 * * 0",
-            "redis_backup_schedule": "0 3 * * 0",
-            "aws_backup_bucket_name": "",
-            "aws_backup_yearly_retention": "2",
-            "aws_backup_monthly_retention": "12",
-            "aws_backup_weekly_retention": "4",
-            "aws_backup_daily_retention": "30",
-            "aws_mongo_backup_minimum_size": "50",
-            "aws_postgres_backup_minimum_size": "50",
-            "aws_redis_backup_minimum_size": "5",
-            "aws_backup_upload_chunk_size": "15",
-            "aws_backup_bucket_deletion_rule_enabled": Config.FALSE,
-            "backend_server_role": "master",
-            "use_letsencrypt": Config.TRUE,
-            "proxy": Config.TRUE,
-            "https": Config.TRUE,
-            "nginx_proxy_port": Config.DEFAULT_PROXY_PORT,
-            "exposed_nginx_docker_port": Config.DEFAULT_NGINX_PORT,
-            "postgresql_port": "5432",
-            "mongo_port": "27017",
-            "redis_main_port": "6379",
-            "redis_cache_port": "6380",
-            "local_installation": Config.FALSE,
-            "block_common_http_ports": Config.TRUE,
-            "npm_container": Config.TRUE,
-        }
 
     def __questions_advanced_options(self):
         """
@@ -739,13 +770,13 @@ class Config:
                         self.__config.get("kc_path") != self.__config.get("kc_path")):
 
                     self.__config["kc_dev_build_id"] = "{prefix}{timestamp}".format(
-                        prefix="{}.".format(self.__config.get("docker_prefix")) if self.__config.get("docker_prefix") else "",
+                        prefix=self.get_prefix("frontend"),
                         timestamp=str(int(time.time()))
                     )
                 if (self.__config.get("kpi_dev_build_id", "") == "" or
                         self.__config.get("kpi_path") != self.__config.get("kpi_path")):
                     self.__config["kpi_dev_build_id"] = "{prefix}{timestamp}".format(
-                        prefix="{}.".format(self.__config.get("docker_prefix")) if self.__config.get("docker_prefix") else "",
+                        prefix=self.get_prefix("frontend"),
                         timestamp=str(int(time.time()))
                     )
                 if self.dev_mode:
@@ -764,7 +795,7 @@ class Config:
                                                                       self.__config.get("npm_container", Config.TRUE))
             else:
                 # Force reset paths
-                self.__reset_dev_mode(self.staging_mode)
+                self.__reset(dev=True, reset_nginx_port=self.staging_mode)
 
     def __questions_docker_prefix(self):
         """
@@ -815,12 +846,7 @@ class Config:
                                                                self.__config.get("local_installation", Config.FALSE))
         if self.local_install:
             # Reset previous choices, in case server role is not the same.
-            self.__config["multi"] = Config.FALSE
-            self.__config["use_private_dns"] = Config.FALSE
-            self.__config["https"] = Config.FALSE
-            self.__config["proxy"] = Config.FALSE
-            self.__config["nginx_proxy_port"] = Config.DEFAULT_NGINX_PORT
-            self.__config["use_letsencrypt"] = Config.FALSE
+            self.__reset(local_install=True, private_dns=True)
 
     def __questions_maintenance(self):
         if self.first_time:
@@ -956,30 +982,66 @@ class Config:
         """
         Customize services ports
         """
-        CLI.colored_print("Do you want to customize service ports?", CLI.COLOR_SUCCESS)
-        CLI.colored_print("\t1) Yes")
-        CLI.colored_print("\t2) No")
-        self.__config["customized_ports"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                             self.__config.get("customized_ports",
-                                                                               Config.FALSE))
-        if self.__config.get("customized_ports") == Config.TRUE:
-            CLI.colored_print("PostgreSQL?", CLI.COLOR_SUCCESS)
-            self.__config["postgresql_port"] = CLI.get_response(r"~^\d+$", self.__config.get("postgresql_port", "5432"))
-
-            CLI.colored_print("MongoDB?", CLI.COLOR_SUCCESS)
-            self.__config["mongo_port"] = CLI.get_response(r"~^\d+$", self.__config.get("mongo_port", "27017"))
-
-            CLI.colored_print("Redis (main)?", CLI.COLOR_SUCCESS)
-            self.__config["redis_main_port"] = CLI.get_response(r"~^\d+$", self.__config.get("redis_main_port", "6379"))
-
-            CLI.colored_print("Redis (cache)?", CLI.COLOR_SUCCESS)
-            self.__config["redis_cache_port"] = CLI.get_response(r"~^\d+$",
-                                                                 self.__config.get("redis_cache_port", "6380"))
-        else:
+        def reset_ports():
             self.__config["postgresql_port"] = "5432"
             self.__config["mongo_port"] = "27017"
             self.__config["redis_main_port"] = "6379"
             self.__config["redis_cache_port"] = "6380"
+
+        if not self.multi_servers:
+            CLI.colored_print("Do you want to expose backend container ports "
+                              "(`PostgreSQL`, `MongoDB`, `redis`) ?",
+                              CLI.COLOR_SUCCESS)
+            CLI.colored_print("\t1) Yes")
+            CLI.colored_print("\t2) No")
+            self.__config["expose_backend_ports"] = CLI.get_response(
+                [Config.TRUE, Config.FALSE], self.__config.get("expose_backend_ports",
+                                                               Config.FALSE))
+        else:
+            self.__config["expose_backend_ports"] = Config.TRUE
+
+        if not self.expose_backend_ports:
+            reset_ports()
+            return
+
+        CLI.colored_print("╔═════════════════════════════════════════════════╗",
+                          CLI.COLOR_WARNING)
+        CLI.colored_print("║ WARNING! When exposing backend container ports, ║",
+                          CLI.COLOR_WARNING)
+        CLI.colored_print("║ it's STRONGLY recommended to use a firewall to  ║",
+                          CLI.COLOR_WARNING)
+        CLI.colored_print("║ grant access to frontend containers only.       ║",
+                          CLI.COLOR_WARNING)
+        CLI.colored_print("╚═════════════════════════════════════════════════╝",
+                          CLI.COLOR_WARNING)
+
+        CLI.colored_print("Do you want to customize service ports?",
+                          CLI.COLOR_SUCCESS)
+        CLI.colored_print("\t1) Yes")
+        CLI.colored_print("\t2) No")
+        self.__config["customized_ports"] = CLI.get_response(
+            [Config.TRUE, Config.FALSE], self.__config.get("customized_ports",
+                                                           Config.FALSE))
+
+        if self.__config.get("customized_ports") == Config.FALSE:
+            reset_ports()
+            return
+
+        CLI.colored_print("PostgreSQL?", CLI.COLOR_SUCCESS)
+        self.__config["postgresql_port"] = CLI.get_response(
+            r"~^\d+$", self.__config.get("postgresql_port", "5432"))
+
+        CLI.colored_print("MongoDB?", CLI.COLOR_SUCCESS)
+        self.__config["mongo_port"] = CLI.get_response(
+            r"~^\d+$", self.__config.get("mongo_port", "27017"))
+
+        CLI.colored_print("Redis (main)?", CLI.COLOR_SUCCESS)
+        self.__config["redis_main_port"] = CLI.get_response(
+            r"~^\d+$", self.__config.get("redis_main_port", "6379"))
+
+        CLI.colored_print("Redis (cache)?", CLI.COLOR_SUCCESS)
+        self.__config["redis_cache_port"] = CLI.get_response(
+            r"~^\d+$", self.__config.get("redis_cache_port", "6380"))
 
     def __questions_private_routes(self):
         """
@@ -1027,7 +1089,7 @@ class Config:
             ".".join(parts[:-1])
         )
         if not self.multi_servers or \
-                (self.multi_servers and self.__config.get("use_private_dns") == Config.FALSE):
+                (self.multi_servers and not self.use_private_dns):
             self.__config["private_domain_name"] = "{}.private".format(
                 ".".join(parts[:-1])
             )
@@ -1051,7 +1113,7 @@ class Config:
             self.__config["kobocat_raven"] = ""
             self.__config["kpi_raven_js"] = ""
 
-    def __question_reverse_proxy(self):
+    def __questions_reverse_proxy(self):
 
         if self.is_secure:
 
@@ -1192,55 +1254,74 @@ class Config:
         self.__config["super_user_password"] = password
 
     def __questions_uwsgi(self):
-        CLI.colored_print("Do you want to tweak uWSGI settings?", CLI.COLOR_SUCCESS)
-        CLI.colored_print("\t1) Yes")
-        CLI.colored_print("\t2) No")
-        self.__config["uwsgi_settings"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                           self.__config.get("uwsgi_settings", Config.FALSE))
 
-        if self.__config.get("uwsgi_settings") == Config.TRUE:
-            CLI.colored_print("Number of uWSGi workers to start?", CLI.COLOR_SUCCESS)
-            self.__config["workers_start"] = CLI.get_response(
-                r"~^\d+$",
-                self.__config.get("workers_start", "1"))
-            CLI.colored_print("Max uWSGi workers?", CLI.COLOR_SUCCESS)
-            self.__config["workers_max"] = CLI.get_response(
-                r"~^\d+$",
-                self.__config.get("workers_max", "2"))
+        if not self.dev_mode:
+            CLI.colored_print("Do you want to tweak uWSGI settings?", CLI.COLOR_SUCCESS)
+            CLI.colored_print("\t1) Yes")
+            CLI.colored_print("\t2) No")
+            self.__config["uwsgi_settings"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                               self.__config.get("uwsgi_settings", Config.FALSE))
 
-            CLI.colored_print("Max number of requests per worker?", CLI.COLOR_SUCCESS)
-            self.__config["max_requests"] = CLI.get_response(
-                r"~^\d+$",
-                self.__config.get("max_requests", "512"))
-            CLI.colored_print("Max memory per workers in MB?", CLI.COLOR_SUCCESS)
-            self.__config["soft_limit"] = CLI.get_response(
-                r"~^\d+$",
-                self.__config.get("soft_limit", "128"))
-        else:
-            self.__config["workers_start"] = "1"
-            self.__config["workers_max"] = "2"
-            self.__config["max_requests"] = "512"
-            self.__config["soft_limit"] = "128"
+            if self.__config.get("uwsgi_settings") == Config.TRUE:
+                CLI.colored_print("Number of uWSGi workers to start?", CLI.COLOR_SUCCESS)
+                self.__config["workers_start"] = CLI.get_response(
+                    r"~^\d+$",
+                    self.__config.get("workers_start", "1"))
+                CLI.colored_print("Max uWSGi workers?", CLI.COLOR_SUCCESS)
+                self.__config["workers_max"] = CLI.get_response(
+                    r"~^\d+$",
+                    self.__config.get("workers_max", "2"))
+
+                CLI.colored_print("Max number of requests per worker?", CLI.COLOR_SUCCESS)
+                self.__config["max_requests"] = CLI.get_response(
+                    r"~^\d+$",
+                    self.__config.get("max_requests", "512"))
+                CLI.colored_print("Max memory per workers in MB?", CLI.COLOR_SUCCESS)
+                self.__config["soft_limit"] = CLI.get_response(
+                    r"~^\d+$",
+                    self.__config.get("soft_limit", "128"))
+
+                return
+
+        self.__config["workers_start"] = "1"
+        self.__config["workers_max"] = "2"
+        self.__config["max_requests"] = "512"
+        self.__config["soft_limit"] = "128"
 
     def __is_port_allowed(self, port):
         return not (self.block_common_http_ports and port in [Config.DEFAULT_NGINX_PORT,
                                                               Config.DEFAULT_NGINX_HTTPS_PORT])
 
-    def __reset_dev_mode(self, reset_nginx_port=False):
+    def __reset(self, **kwargs):
         """
-        Resets several properties to their default to avoid developer mode.
+        Resets several properties to their default.
         It can be useful, if user changes the type of installation on the same server
-
-        :param reset_nginx_port: bool
         :return: bool
         """
-        self.__config["dev_mode"] = Config.FALSE
-        self.__config["staging_mode"] = Config.FALSE
-        self.__config["kc_path"] = ""
-        self.__config["kpi_path"] = ""
-        self.__config["debug"] = Config.FALSE
-        if reset_nginx_port:
-            self.__config["exposed_nginx_docker_port"] = Config.DEFAULT_NGINX_PORT
+        all = True if not kwargs else False
+        dev_mode = kwargs.get("dev", False)
+        local_install = kwargs.get("local_install", False)
+        private_dns = kwargs.get("private_dns", False)
+        reset_nginx_port = kwargs.get("reset_nginx_port", False)
+
+        if dev_mode or all:
+            self.__config["dev_mode"] = Config.FALSE
+            self.__config["staging_mode"] = Config.FALSE
+            self.__config["kc_path"] = ""
+            self.__config["kpi_path"] = ""
+            self.__config["debug"] = Config.FALSE
+            if reset_nginx_port:
+                self.__config["exposed_nginx_docker_port"] = Config.DEFAULT_NGINX_PORT
+
+        if private_dns or all:
+            self.__config["use_private_dns"] = Config.FALSE
+
+        if local_install or all:
+            self.__config["multi"] = Config.FALSE
+            self.__config["https"] = Config.FALSE
+            self.__config["proxy"] = Config.FALSE
+            self.__config["nginx_proxy_port"] = Config.DEFAULT_NGINX_PORT
+            self.__config["use_letsencrypt"] = Config.FALSE
 
     def __validate_installation(self):
         """

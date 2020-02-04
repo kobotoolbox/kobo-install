@@ -168,7 +168,7 @@ def test_proxy_letsencrypt():
                                                "test@test.com",
                                                Config.TRUE,
                                                Config.DEFAULT_NGINX_PORT])  # Use default options
-        config_object._Config__question_reverse_proxy()
+        config_object._Config__questions_reverse_proxy()
         assert config_object.proxy
         assert config_object.use_letsencrypt
         assert config_object.block_common_http_ports
@@ -187,7 +187,7 @@ def test_proxy_no_letsencrypt_advanced():
 
         with patch("helpers.cli.CLI.colored_input") as mock_colored_input:
             mock_colored_input.side_effect = iter([Config.FALSE, Config.FALSE, proxy_port])
-            config_object._Config__question_reverse_proxy()
+            config_object._Config__questions_reverse_proxy()
             assert config_object.proxy
             assert not config_object.use_letsencrypt
             assert not config_object.block_common_http_ports
@@ -201,7 +201,7 @@ def test_proxy_no_letsencrypt():
     assert config_object.use_letsencrypt
 
     with patch.object(CLI, "colored_input", return_value=Config.FALSE) as mock_ci:
-        config_object._Config__question_reverse_proxy()
+        config_object._Config__questions_reverse_proxy()
         assert config_object.proxy
         assert not config_object.use_letsencrypt
         assert config_object.block_common_http_ports
@@ -219,7 +219,7 @@ def test_proxy_no_letsencrypt_retains_custom_nginx_proxy_port():
             CLI, "colored_input",
             new=classmethod(lambda cls, message, color, default: default)
     ) as mock_ci:
-        config_object._Config__question_reverse_proxy()
+        config_object._Config__questions_reverse_proxy()
         assert(config_object.get_config().get("nginx_proxy_port")
                == str(CUSTOM_PROXY_PORT))
 
@@ -236,7 +236,7 @@ def test_no_proxy_no_ssl():
         assert not config_object.is_secure
 
         with patch.object(CLI, "colored_input", return_value=Config.FALSE) as mock_ci_2:
-            config_object._Config__question_reverse_proxy()
+            config_object._Config__questions_reverse_proxy()
             assert not config_object.proxy
             assert not config_object.use_letsencrypt
             assert not config_object.block_common_http_ports
@@ -258,7 +258,7 @@ def test_proxy_no_ssl_advanced():
         proxy_port = Config.DEFAULT_NGINX_PORT
         with patch("helpers.cli.CLI.colored_input") as mock_colored_input_1:
             mock_colored_input_1.side_effect = iter([Config.TRUE, Config.FALSE, proxy_port])
-            config_object._Config__question_reverse_proxy()
+            config_object._Config__questions_reverse_proxy()
             assert config_object.proxy
             assert not config_object.use_letsencrypt
             assert not config_object.block_common_http_ports
@@ -268,7 +268,7 @@ def test_proxy_no_ssl_advanced():
         proxy_port = Config.DEFAULT_PROXY_PORT
         with patch("helpers.cli.CLI.colored_input") as mock_colored_input_2:
             mock_colored_input_2.side_effect = iter([Config.TRUE, Config.TRUE, proxy_port])
-            config_object._Config__question_reverse_proxy()
+            config_object._Config__questions_reverse_proxy()
             assert config_object.proxy
             assert not config_object.use_letsencrypt
             assert config_object.block_common_http_ports
@@ -326,3 +326,34 @@ def test_maintenance():
         expected_str = 'Tuesday,&nbsp;January&nbsp;01&nbsp;at&nbsp;02:00&nbsp;GMT'
         assert config.get('maintenance_date_str') == expected_str
 
+
+def test_exposed_ports():
+    config_object = test_read_config()
+    with patch.object(CLI, "colored_input", return_value=Config.TRUE) as mock_ci:
+        # Choose multi servers options
+        config_object._Config__questions_multi_servers()
+
+        with patch("helpers.cli.CLI.colored_input") as mock_ci:
+            # Choose to customize ports
+            mock_ci.side_effect = iter([Config.TRUE, "5532", "27117", "6479", "6480"])
+            config_object._Config__questions_ports()
+
+            assert config_object._Config__config["postgresql_port"] == "5532"
+            assert config_object._Config__config["mongo_port"] == "27117"
+            assert config_object._Config__config["redis_main_port"] == "6479"
+            assert config_object._Config__config["redis_cache_port"] == "6480"
+            assert config_object.expose_backend_ports
+
+    with patch.object(CLI, "colored_input", return_value=Config.FALSE) as mock_ci_1:
+        # Choose to single server
+        config_object._Config__questions_multi_servers()
+
+        with patch.object(CLI, "colored_input", return_value=Config.FALSE) as mock_ci_2:
+            # Choose to not expose ports
+            config_object._Config__questions_ports()
+
+            assert config_object._Config__config["postgresql_port"] == "5432"
+            assert config_object._Config__config["mongo_port"] == "27017"
+            assert config_object._Config__config["redis_main_port"] == "6379"
+            assert config_object._Config__config["redis_cache_port"] == "6380"
+            assert not config_object.expose_backend_ports
