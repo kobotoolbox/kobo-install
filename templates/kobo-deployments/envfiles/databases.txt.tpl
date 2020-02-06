@@ -1,11 +1,16 @@
 #--------------------------------------------------------------------------------
 # MONGO
 #--------------------------------------------------------------------------------
-# These `KOBO_POSTGRES_` settings only affect the postgres container itself and the
+# These `KOBO_MONGO_` settings only affect the mongo container itself and the
 # `wait_for_mongo.bash` init script that runs within the kpi and kobocat.
 # Please see kobocat.txt to set container variables
 KOBO_MONGO_PORT=${MONGO_PORT}
 KOBO_MONGO_HOST=mongo.${PRIVATE_DOMAIN_NAME}
+MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USERNAME}
+MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
+MONGO_INITDB_DATABASE=formhub
+KOBO_MONGO_USERNAME=${MONGO_USER_USERNAME}
+KOBO_MONGO_PASSWORD=${MONGO_USER_PASSWORD}
 
 # Default MongoDB backup schedule is weekly at 01:00 AM UTC on Sunday.
 ${USE_BACKUP}MONGO_BACKUP_SCHEDULE=${MONGO_BACKUP_SCHEDULE}
@@ -45,5 +50,5 @@ ${USE_BACKUP}POSTGRES_BACKUP_SCHEDULE=${POSTGRES_BACKUP_SCHEDULE}
 # Default Redis backup schedule is weekly at 03:00 AM UTC on Sunday.
 ${USE_BACKUP}REDIS_BACKUP_SCHEDULE=${REDIS_BACKUP_SCHEDULE}
 
-REDIS_SESSION_URL=redis://redis-cache.${PRIVATE_DOMAIN_NAME}:${REDIS_CACHE_PORT}/2
-
+REDIS_SESSION_URL=redis://${REDIS_PASSWORD_URL}redis-cache.${PRIVATE_DOMAIN_NAME}:${REDIS_CACHE_PORT}/2
+REDIS_PASSWORD=${REDIS_PASSWORD}

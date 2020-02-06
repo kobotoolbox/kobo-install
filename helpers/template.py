@@ -242,7 +242,12 @@ class Template:
             "USE_EXTRA_HOSTS": "" if (config_object.local_install or
                                       config_object.expose_backend_ports and
                                       not config_object.use_private_dns) else "#",
-
+            "MONGO_ROOT_USERNAME": config.get("mongo_root_username"),
+            "MONGO_ROOT_PASSWORD": config.get("mongo_root_password"),
+            "MONGO_USER_USERNAME": config.get("mongo_user_username"),
+            "MONGO_USER_PASSWORD": config.get("mongo_user_password"),
+            "REDIS_PASSWORD": config.get("redis_password"),
+            "REDIS_PASSWORD_URL": ":{}@".format(config.get("redis_password")),
         }
 
     @staticmethod

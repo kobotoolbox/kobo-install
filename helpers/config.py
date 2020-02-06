@@ -28,6 +28,10 @@ class Config:
     DEFAULT_PROXY_PORT = "8080"
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
+    PASSWORD_ALLOWED_CHARACTERS = string.ascii_letters + "!$%+-_^~" + string.digits
+    REGEX_PASSWORD_ALLOWED_CHARACTERS = string.ascii_letters \
+                                        + r"\!\$\%\+\-\_\^\~" \
+                                        + string.digits
 
     KOBO_DOCKER_BRANCH = 'two-databases-secured-backend'
     KOBO_INSTALL_BRANCH = 'secured-backend'
@@ -169,6 +173,8 @@ class Config:
                 self.__questions_docker_prefix()
                 self.__questions_dev_mode()
                 self.__questions_postgres()
+                self.__questions_mongo()
+                self.__questions_redis()
                 self.__questions_ports()
 
                 if self.frontend_questions:
@@ -214,14 +220,14 @@ class Config:
         """
         return not self.multi_servers or self.frontend
 
-    @staticmethod
-    def generate_password():
+    @classmethod
+    def generate_password(cls):
         """
         Generate random password between 8 to 16 characters
         :return: str
         """
-        characters = string.ascii_letters + "!$%+-^~" + string.digits
-        return "".join(choice(characters) for x in range(randint(10, 16)))
+        return "".join(choice(cls.PASSWORD_ALLOWED_CHARACTERS)
+                       for x in range(randint(10, 16)))
 
     def get_config(self):
         return self.__config
@@ -299,6 +305,11 @@ class Config:
             "local_installation": Config.FALSE,
             "block_common_http_ports": Config.TRUE,
             "npm_container": Config.TRUE,
+            "mongo_root_username": "root",
+            "mongo_root_password": Config.generate_password(),
+            "mongo_user_username": "kobo",
+            "mongo_user_password": Config.generate_password(),
+            "redis_password": Config.generate_password(),
         }
 
     def get_service_names(self):
@@ -861,8 +872,9 @@ class Config:
 
         CLI.colored_print("How long do you plan to this maintenance will last?",
                           CLI.COLOR_SUCCESS)
-        self.__config["maintenance_eta"] = CLI.get_response(r"~^[\w\ ]+$",
-                                                            self.__config.get("maintenance_eta", "2 hours"))
+        self.__config["maintenance_eta"] = CLI.get_response(
+            r"~^[\w\ ]+$",
+            self.__config.get("maintenance_eta", "2 hours"))
 
         date_start = _round_nearest_quarter(datetime.utcnow())
         iso_format = '%Y%m%dT%H%M'
@@ -876,12 +888,61 @@ class Config:
         self.__config["maintenance_date_str"] = datetime.strptime(date_iso, iso_format).\
             strftime('%A,&nbsp;%B&nbsp;%d&nbsp;at&nbsp;%H:%M&nbsp;GMT')
 
-        self.__config["maintenance_email"] = CLI.colored_input("Contact during maintenance?",
-                                                               CLI.COLOR_SUCCESS,
-                                                               self.__config.get(
-                                                                   "maintenance_email",
-                                                                   self.__config.get("default_from_email")))
+        self.__config["maintenance_email"] = CLI.colored_input(
+            "Contact during maintenance?",
+            CLI.COLOR_SUCCESS,
+            self.__config.get("maintenance_email",
+                              self.__config.get("default_from_email")))
         self.write_config()
+
+    def __questions_mongo(self):
+        """
+        Mongo credentials.
+        """
+        CLI.colored_print("MongoDB root's username?",
+                          CLI.COLOR_SUCCESS)
+        mongo_root_username = CLI.get_response(
+            r"~^\w+$",
+            self.__config.get("mongo_root_username"))
+
+        CLI.colored_print("MongoDB root's password?", CLI.COLOR_SUCCESS)
+        mongo_root_password = CLI.get_response(
+            r"~^[{}]+$".format(self.REGEX_PASSWORD_ALLOWED_CHARACTERS),
+            self.__config.get("mongo_root_password"))
+
+        CLI.colored_print("MongoDB user's username?",
+                          CLI.COLOR_SUCCESS)
+        mongo_user_username = CLI.get_response(
+            r"~^\w+$",
+            self.__config.get("mongo_user_username"))
+
+        CLI.colored_print("MongoDB user's password?", CLI.COLOR_SUCCESS)
+        mongo_user_password = CLI.get_response(
+            r"~^[{}]+$".format(self.REGEX_PASSWORD_ALLOWED_CHARACTERS),
+            self.__config.get("mongo_user_password"))
+
+        if (mongo_user_username != self.__config.get("mongo_user_username") or
+            mongo_user_password != self.__config.get("mongo_user_password") or
+            mongo_root_username != self.__config.get("mongo_root_username") or
+            mongo_root_password != self.__config.get("mongo_root_password")) and \
+                not self.first_time:
+            CLI.colored_print("╔════════════════════════════════════════════════════════╗",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ MongoDB root's and/or user's credentials have changed! ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ Do NOT forget to apply these changes in MongoDB too.   ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ Credentials will NOT be updated if the database has    ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ been previously created.                               ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("╚════════════════════════════════════════════════════════╝",
+                              CLI.COLOR_WARNING)
+
+        self.__config["mongo_user_username"] = mongo_user_username
+        self.__config["mongo_user_password"] = mongo_user_password
+        self.__config["mongo_root_username"] = mongo_root_username
+        self.__config["mongo_root_password"] = mongo_root_password
 
     def __questions_multi_servers(self):
         """
@@ -901,21 +962,55 @@ class Config:
 
         Settings can be tweaked thanks to pgconfig.org API
         """
-        self.__config["kc_postgres_db"] = CLI.colored_input("KoBoCat PostgreSQL database", CLI.COLOR_SUCCESS,
-                                                            self.__config.get("postgres_db",
-                                                                              self.__config.get("kc_postgres_db")))
-        self.__config["kpi_postgres_db"] = CLI.colored_input("KPI PostgreSQL database", CLI.COLOR_SUCCESS,
-                                                             self.__config.get("kpi_postgres_db"))
+        CLI.colored_print("KoBoCat PostgreSQL database name?",
+                          CLI.COLOR_SUCCESS)
+        self.__config["kc_postgres_db"] = CLI.get_response(
+            r"~^\w+$",
+            self.__config.get("postgres_db", self.__config.get("kc_postgres_db")))
+
+        CLI.colored_print("KPI PostgreSQL database name?",
+                          CLI.COLOR_SUCCESS)
+        self.__config["kpi_postgres_db"] = CLI.get_response(
+            r"~^\w+$",
+            self.__config.get("kpi_postgres_db"))
+
         while self.__config["kc_postgres_db"] == self.__config["kpi_postgres_db"]:
             self.__config["kpi_postgres_db"] = CLI.colored_input(
-                "KPI must use its own PostgreSQL database, not share one with KoBoCAT. Please enter another database",
+                "KPI must use its own PostgreSQL database, not share one with "
+                "KoBoCAT. Please enter another database",
                 CLI.COLOR_ERROR,
                 Config.get_config_template()["kpi_postgres_db"],
             )
-        self.__config["postgres_user"] = CLI.colored_input("Postgres user", CLI.COLOR_SUCCESS,
-                                                           self.__config.get("postgres_user"))
-        self.__config["postgres_password"] = CLI.colored_input("Postgres password", CLI.COLOR_SUCCESS,
-                                                               self.__config.get("postgres_password"))
+
+        CLI.colored_print("PostgreSQL user's username?",
+                          CLI.COLOR_SUCCESS)
+        postgres_user = CLI.get_response(
+            r"~^\w+$",
+            self.__config.get("postgres_user"))
+
+        CLI.colored_print("PostgreSQL user's password?", CLI.COLOR_SUCCESS)
+        postgres_password = CLI.get_response(
+            r"~^[{}]+$".format(self.REGEX_PASSWORD_ALLOWED_CHARACTERS),
+            self.__config.get("postgres_password"))
+
+        if (postgres_user != self.__config.get("postgres_user") or
+            postgres_password != self.__config.get("postgres_password")) and \
+                not self.first_time:
+            CLI.colored_print("╔═════════════════════════════════════════════════════════╗",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ PostgreSQL user's credentials have changed!             ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ Do NOT forget to apply these changes in PostgreSQL too. ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ Credentials will NOT be updated if the database has     ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ been previously created.                                ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("╚═════════════════════════════════════════════════════════╝",
+                              CLI.COLOR_WARNING)
+
+        self.__config["postgres_user"] = postgres_user
+        self.__config["postgres_password"] = postgres_password
 
         if self.backend_questions and self.advanced_options:
             # Postgres settings
@@ -1113,6 +1208,12 @@ class Config:
             self.__config["kobocat_raven"] = ""
             self.__config["kpi_raven_js"] = ""
 
+    def __questions_redis(self):
+        CLI.colored_print("Redis password?", CLI.COLOR_SUCCESS)
+        self.__config["redis_password"] = CLI.get_response(
+            r"~^[{}]+$".format(self.REGEX_PASSWORD_ALLOWED_CHARACTERS),
+            self.__config.get("redis_password"))
+
     def __questions_reverse_proxy(self):
 
         if self.is_secure:
@@ -1243,12 +1344,12 @@ class Config:
         if username == self.__config.get("super_user_username") and \
             password != self.__config.get("super_user_password") and \
                 not self.first_time:
-            CLI.colored_print("╔══════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
-            CLI.colored_print("║ Super user's password has been changed!              ║", CLI.COLOR_WARNING)
-            CLI.colored_print("║ Don't forget to apply these changes in Postgres too. ║", CLI.COLOR_WARNING)
-            CLI.colored_print("║ Super user's password won't be updated if the        ║", CLI.COLOR_WARNING)
-            CLI.colored_print("║ database already exists.                             ║", CLI.COLOR_WARNING)
-            CLI.colored_print("╚══════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
+            CLI.colored_print("╔═════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
+            CLI.colored_print("║ Super user's password has been changed!                 ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║ Do NOT forget to apply these changes in PostgreSQL too. ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║ Super user's password will NOT be updated if the        ║", CLI.COLOR_WARNING)
+            CLI.colored_print("║ database has been previously created exists.            ║", CLI.COLOR_WARNING)
+            CLI.colored_print("╚═════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
 
         self.__config["super_user_username"] = username
         self.__config["super_user_password"] = password

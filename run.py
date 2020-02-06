@@ -37,39 +37,44 @@ def run(force_setup=False):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 2:
-        if sys.argv[1] == "-cf" or sys.argv[1] == "--compose-frontend":
-            Command.compose_frontend(sys.argv[2:])
-        elif sys.argv[1] == "-cb" or sys.argv[1] == "--compose-backend":
-            Command.compose_backend(sys.argv[2:])
+    try:
+
+        if len(sys.argv) > 2:
+            if sys.argv[1] == "-cf" or sys.argv[1] == "--compose-frontend":
+                Command.compose_frontend(sys.argv[2:])
+            elif sys.argv[1] == "-cb" or sys.argv[1] == "--compose-backend":
+                Command.compose_backend(sys.argv[2:])
+            else:
+                CLI.colored_print("Bad syntax. Try 'run.py --help'", CLI.COLOR_ERROR)
+        elif len(sys.argv) == 2:
+            if sys.argv[1] == "-h" or sys.argv[1] == "--help":
+                Command.help()
+            elif sys.argv[1] == "-u" or sys.argv[1] == "--update":
+                Command.update()
+            elif sys.argv[1] == "-i" or sys.argv[1] == "--info":
+                Command.info(0)
+            elif sys.argv[1] == "-s" or sys.argv[1] == "--setup":
+                run(force_setup=True)
+            elif sys.argv[1] == "-S" or sys.argv[1] == "--stop":
+                Command.stop()
+            elif sys.argv[1] == "-l" or sys.argv[1] == "--logs":
+                Command.logs()
+            elif sys.argv[1] == "-b" or sys.argv[1] == "--build":
+                Command.build()
+            elif sys.argv[1] == "-bkf" or sys.argv[1] == "--build-kpi":
+                Command.build("kf")
+            elif sys.argv[1] == "-bkc" or sys.argv[1] == "--build-kobocat":
+                Command.build("kc")
+            elif sys.argv[1] == "-v" or sys.argv[1] == "--version":
+                Command.version()
+            elif sys.argv[1] == "-m" or sys.argv[1] == "--maintenance":
+                Command.configure_maintenance()
+            elif sys.argv[1] == "-sm" or sys.argv[1] == "--stop-maintenance":
+                Command.stop_maintenance()
+            else:
+                CLI.colored_print("Bad syntax. Try 'run.py --help'", CLI.COLOR_ERROR)
         else:
-            CLI.colored_print("Bad syntax. Try 'run.py --help'", CLI.COLOR_ERROR)
-    elif len(sys.argv) == 2:
-        if sys.argv[1] == "-h" or sys.argv[1] == "--help":
-            Command.help()
-        elif sys.argv[1] == "-u" or sys.argv[1] == "--update":
-            Command.update()
-        elif sys.argv[1] == "-i" or sys.argv[1] == "--info":
-            Command.info(0)
-        elif sys.argv[1] == "-s" or sys.argv[1] == "--setup":
-            run(force_setup=True)
-        elif sys.argv[1] == "-S" or sys.argv[1] == "--stop":
-            Command.stop()
-        elif sys.argv[1] == "-l" or sys.argv[1] == "--logs":
-            Command.logs()
-        elif sys.argv[1] == "-b" or sys.argv[1] == "--build":
-            Command.build()
-        elif sys.argv[1] == "-bkf" or sys.argv[1] == "--build-kpi":
-            Command.build("kf")
-        elif sys.argv[1] == "-bkc" or sys.argv[1] == "--build-kobocat":
-            Command.build("kc")
-        elif sys.argv[1] == "-v" or sys.argv[1] == "--version":
-            Command.version()
-        elif sys.argv[1] == "-m" or sys.argv[1] == "--maintenance":
-            Command.configure_maintenance()
-        elif sys.argv[1] == "-sm" or sys.argv[1] == "--stop-maintenance":
-            Command.stop_maintenance()
-        else:
-            CLI.colored_print("Bad syntax. Try 'run.py --help'", CLI.COLOR_ERROR)
-    else:
-        run()
+            run()
+
+    except KeyboardInterrupt:
+        CLI.colored_print("\nUser interrupted execution", CLI.COLOR_INFO)
