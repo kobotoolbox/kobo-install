@@ -3,10 +3,16 @@ from __future__ import print_function, unicode_literals
 
 import binascii
 import fnmatch
+import json
 import os
-from string import Template as PyTemplate
 import stat
 import sys
+try:
+    from urllib.parse import quote_plus
+except ImportError:
+    from urllib import quote_plus
+
+from string import Template as PyTemplate
 
 from helpers.cli import CLI
 from helpers.config import Config
@@ -162,6 +168,7 @@ class Template:
             "KPI_POSTGRES_DB": config.get("kpi_postgres_db", ""),
             "POSTGRES_USER": config.get("postgres_user", ""),
             "POSTGRES_PASSWORD": config.get("postgres_password", ""),
+            "POSTGRES_PASSWORD_URL_ENCODED": quote_plus(config.get("postgres_password", "")),
             "DEBUG": config.get("debug", False) == Config.TRUE,
             "SMTP_HOST": config.get("smtp_host", ""),
             "SMTP_PORT": config.get("smtp_port", ""),
@@ -247,7 +254,8 @@ class Template:
             "MONGO_USER_USERNAME": config.get("mongo_user_username"),
             "MONGO_USER_PASSWORD": config.get("mongo_user_password"),
             "REDIS_PASSWORD": config.get("redis_password"),
-            "REDIS_PASSWORD_URL": ":{}@".format(config.get("redis_password")),
+            "REDIS_PASSWORD_URL_ENCODED": quote_plus(config.get("redis_password")),
+            "REDIS_PASSWORD_JS_ENCODED": json.dumps(config.get("redis_password")),
         }
 
     @staticmethod

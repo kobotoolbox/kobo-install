@@ -28,11 +28,9 @@ class Config:
     DEFAULT_PROXY_PORT = "8080"
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
-    PASSWORD_ALLOWED_CHARACTERS = string.ascii_letters + "!$%+-_^~" + string.digits
-    REGEX_PASSWORD_ALLOWED_CHARACTERS = string.ascii_letters \
-                                        + r"\!\$\%\+\-\_\^\~" \
-                                        + string.digits
-
+    PASSWORD_ALLOWED_CHARACTERS = string.ascii_letters \
+                                  + "!$%+-_^~@#{}[]()/\'\"`~,;:.<>" \
+                                  + string.digits
     KOBO_DOCKER_BRANCH = 'two-databases-secured-backend'
     KOBO_INSTALL_BRANCH = 'secured-backend'
     KOBO_INSTALL_VERSION = '2.1.0'
@@ -903,23 +901,27 @@ class Config:
                           CLI.COLOR_SUCCESS)
         mongo_root_username = CLI.get_response(
             r"~^\w+$",
-            self.__config.get("mongo_root_username"))
+            self.__config.get("mongo_root_username"),
+            to_lower=False)
 
         CLI.colored_print("MongoDB root's password?", CLI.COLOR_SUCCESS)
         mongo_root_password = CLI.get_response(
-            r"~^[{}]+$".format(self.REGEX_PASSWORD_ALLOWED_CHARACTERS),
-            self.__config.get("mongo_root_password"))
+            r"~^.{8,}$",
+            self.__config.get("mongo_root_password"),
+            to_lower=False)
 
         CLI.colored_print("MongoDB user's username?",
                           CLI.COLOR_SUCCESS)
         mongo_user_username = CLI.get_response(
             r"~^\w+$",
-            self.__config.get("mongo_user_username"))
+            self.__config.get("mongo_user_username"),
+            to_lower=False)
 
         CLI.colored_print("MongoDB user's password?", CLI.COLOR_SUCCESS)
         mongo_user_password = CLI.get_response(
-            r"~^[{}]+$".format(self.REGEX_PASSWORD_ALLOWED_CHARACTERS),
-            self.__config.get("mongo_user_password"))
+            r"~^.{8,}$",
+            self.__config.get("mongo_user_password"),
+            to_lower=False)
 
         if (mongo_user_username != self.__config.get("mongo_user_username") or
             mongo_user_password != self.__config.get("mongo_user_password") or
@@ -966,13 +968,16 @@ class Config:
                           CLI.COLOR_SUCCESS)
         self.__config["kc_postgres_db"] = CLI.get_response(
             r"~^\w+$",
-            self.__config.get("postgres_db", self.__config.get("kc_postgres_db")))
+            self.__config.get("postgres_db", self.__config.get("kc_postgres_db")),
+            to_lower=False
+        )
 
         CLI.colored_print("KPI PostgreSQL database name?",
                           CLI.COLOR_SUCCESS)
         self.__config["kpi_postgres_db"] = CLI.get_response(
             r"~^\w+$",
-            self.__config.get("kpi_postgres_db"))
+            self.__config.get("kpi_postgres_db"),
+            to_lower=False)
 
         while self.__config["kc_postgres_db"] == self.__config["kpi_postgres_db"]:
             self.__config["kpi_postgres_db"] = CLI.colored_input(
@@ -986,12 +991,14 @@ class Config:
                           CLI.COLOR_SUCCESS)
         postgres_user = CLI.get_response(
             r"~^\w+$",
-            self.__config.get("postgres_user"))
+            self.__config.get("postgres_user"),
+            to_lower=False)
 
         CLI.colored_print("PostgreSQL user's password?", CLI.COLOR_SUCCESS)
         postgres_password = CLI.get_response(
-            r"~^[{}]+$".format(self.REGEX_PASSWORD_ALLOWED_CHARACTERS),
-            self.__config.get("postgres_password"))
+            r"~^.{8,}$",
+            self.__config.get("postgres_password"),
+            to_lower=False)
 
         if (postgres_user != self.__config.get("postgres_user") or
             postgres_password != self.__config.get("postgres_password")) and \
@@ -1211,8 +1218,9 @@ class Config:
     def __questions_redis(self):
         CLI.colored_print("Redis password?", CLI.COLOR_SUCCESS)
         self.__config["redis_password"] = CLI.get_response(
-            r"~^[{}]+$".format(self.REGEX_PASSWORD_ALLOWED_CHARACTERS),
-            self.__config.get("redis_password"))
+            r"~^.{8,}$",
+            self.__config.get("redis_password"),
+            to_lower=False)
 
     def __questions_reverse_proxy(self):
 

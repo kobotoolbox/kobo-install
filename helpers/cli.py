@@ -24,7 +24,7 @@ class CLI(object):
     EMPTY_CHARACTER = "-"
 
     @classmethod
-    def get_response(cls, validators=None, default=""):
+    def get_response(cls, validators=None, default="", to_lower=True):
     
         while True:
             try:
@@ -44,7 +44,7 @@ class CLI(object):
                 cls.colored_print("Sorry, I didn't understand that.",
                                   cls.COLOR_ERROR)
     
-        return response.lower()
+        return response.lower() if to_lower else response
 
     @classmethod
     def colored_print(cls, message, color=NO_COLOR):
