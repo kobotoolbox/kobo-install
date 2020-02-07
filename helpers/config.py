@@ -28,9 +28,6 @@ class Config:
     DEFAULT_PROXY_PORT = "8080"
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
-    PASSWORD_ALLOWED_CHARACTERS = string.ascii_letters \
-                                  + "!$%+-_^~@#{}[]()/\'\"`~,;:.<>" \
-                                  + string.digits
     KOBO_DOCKER_BRANCH = 'two-databases-secured-backend'
     KOBO_INSTALL_BRANCH = 'secured-backend'
     KOBO_INSTALL_VERSION = '2.1.0'
@@ -224,8 +221,25 @@ class Config:
         Generate random password between 8 to 16 characters
         :return: str
         """
-        return "".join(choice(cls.PASSWORD_ALLOWED_CHARACTERS)
-                       for x in range(randint(10, 16)))
+        characters = string.ascii_letters \
+                     + "!$%+-_^~@#{}[]()/\'\"`~,;:.<>" \
+                     + string.digits
+        required_chars_count = 12
+        stop = False
+        tmp_pwd = set()
+
+        while not stop:
+            tmp_pwd_len = len(tmp_pwd)
+            if tmp_pwd_len == required_chars_count:
+                stop = True
+            else:
+                range_ = required_chars_count - tmp_pwd_len
+                tmp_pwd = set(
+                    list(tmp_pwd) +
+                    list(set([choice(characters) for _ in range(range_)]))
+                )
+
+        return "".join(tmp_pwd)
 
     def get_config(self):
         return self.__config
