@@ -1,14 +1,14 @@
 The purpose of the script is to install `KoBoToolbox ` in minutes without messing with configuration files.  
 It prompts the user to answer some questions to create configuration files automatically and to start docker containers based on [`kobo-docker`](https://github.com/kobotoolbox/kobo-docker "").
 
-## Important notice when upgrading from `[TODO: INSERT FINAL 1DB RELEASE HERE]` or earlier
+## Important notice when upgrading from [`2.019.52-final-shared-database`](https://github.com/kobotoolbox/kobo-install/releases/tag/2.019.52-final-shared-database) or earlier
 
-Up to and including release `[TODO: INSERT FINAL 1DB RELEASE HERE]`, [KPI](https://github.com/kobotoolbox/kpi) and [KoBoCAT](https://github.com/kobotoolbox/kobocat) both shared a common Postgres database. They now each have their own. **If you are upgrading an existing single-database installation, you must follow [these instructions](`TODO: LINK`)** to migrate the (smaller) KPI tables to a new database and adjust your configuration appropriately.
+Up to and including release `2.019.52-final-shared-database`, [KPI](https://github.com/kobotoolbox/kpi) and [KoBoCAT](https://github.com/kobotoolbox/kobocat) both shared a common Postgres database. They now each have their own. **If you are upgrading an existing single-database installation, you must follow [these instructions](https://community.kobotoolbox.org/t/upgrading-to-separate-databases-for-kpi-and-kobocat/7202)** to migrate the KPI tables to a new database and adjust your configuration appropriately.
 
 ## Warning for `kobo-docker` installations made prior to March 2019
 
 If you have already installed `KoBoToolbox` with `kobo-docker` prior March 2019,
-you **must** complete [a manual upgrade process](https://github.com/kobotoolbox/kobo-docker/#caution-if-your-last-kobo-docker-upgrade-was-prior-to-march-2019)
+you **must** complete [a manual upgrade process](https://github.com/kobotoolbox/kobo-docker/#important-notice-when-upgrading-from-commit-5c2ef02-march-4-2019-or-earlier)
 before using this repository. **If you do not, `kobo-install` will not be able to start.**
 
 ## Usage
