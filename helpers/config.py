@@ -911,33 +911,39 @@ class Config:
         """
         Mongo credentials.
         """
+        mongo_user_username = self.__config["mongo_user_username"]
+        mongo_user_password = self.__config["mongo_user_password"]
+        mongo_root_username = self.__config["mongo_root_username"]
+        mongo_root_password = self.__config["mongo_root_password"]
+
         CLI.colored_print("MongoDB root's username?",
                           CLI.COLOR_SUCCESS)
-        mongo_root_username = CLI.get_response(
+        self.__config["mongo_root_username"] = CLI.get_response(
             r"~^\w+$",
             self.__config.get("mongo_root_username"),
             to_lower=False)
 
         CLI.colored_print("MongoDB root's password?", CLI.COLOR_SUCCESS)
-        mongo_root_password = CLI.get_response(
+        self.__config["mongo_root_password"] = CLI.get_response(
             r"~^.{8,}$",
             self.__config.get("mongo_root_password"),
             to_lower=False)
 
         CLI.colored_print("MongoDB user's username?",
                           CLI.COLOR_SUCCESS)
-        mongo_user_username = CLI.get_response(
+        self.__config["mongo_user_username"] = CLI.get_response(
             r"~^\w+$",
             self.__config.get("mongo_user_username"),
             to_lower=False)
 
         CLI.colored_print("MongoDB user's password?", CLI.COLOR_SUCCESS)
-        mongo_user_password = CLI.get_response(
+        self.__config["mongo_user_password"] = CLI.get_response(
             r"~^.{8,}$",
             self.__config.get("mongo_user_password"),
             to_lower=False)
 
-        if (mongo_user_username != self.__config.get("mongo_user_username") or
+        if (self.__config.get("mongo_secured") != Config.TRUE or
+            mongo_user_username != self.__config.get("mongo_user_username") or
             mongo_user_password != self.__config.get("mongo_user_password") or
             mongo_root_username != self.__config.get("mongo_root_username") or
             mongo_root_password != self.__config.get("mongo_root_password")) and \
@@ -955,10 +961,7 @@ class Config:
             CLI.colored_print("╚════════════════════════════════════════════════════════╝",
                               CLI.COLOR_WARNING)
 
-        self.__config["mongo_user_username"] = mongo_user_username
-        self.__config["mongo_user_password"] = mongo_user_password
-        self.__config["mongo_root_username"] = mongo_root_username
-        self.__config["mongo_root_password"] = mongo_root_password
+        self.__config["mongo_secured"] = Config.TRUE
 
     def __questions_multi_servers(self):
         """
@@ -1001,15 +1004,19 @@ class Config:
                 Config.get_config_template()["kpi_postgres_db"],
             )
 
+        postgres_user = self.__config["postgres_user"]
+        postgres_password = self.__config["postgres_password"]
+
         CLI.colored_print("PostgreSQL user's username?",
                           CLI.COLOR_SUCCESS)
-        postgres_user = CLI.get_response(
+
+        self.__config["postgres_user"] = CLI.get_response(
             r"~^\w+$",
             self.__config.get("postgres_user"),
             to_lower=False)
 
         CLI.colored_print("PostgreSQL user's password?", CLI.COLOR_SUCCESS)
-        postgres_password = CLI.get_response(
+        self.__config["postgres_password"] = CLI.get_response(
             r"~^.{8,}$",
             self.__config.get("postgres_password"),
             to_lower=False)
@@ -1029,9 +1036,6 @@ class Config:
                               CLI.COLOR_WARNING)
             CLI.colored_print("╚═════════════════════════════════════════════════════════╝",
                               CLI.COLOR_WARNING)
-
-        self.__config["postgres_user"] = postgres_user
-        self.__config["postgres_password"] = postgres_password
 
         if self.backend_questions and self.advanced_options:
             # Postgres settings
