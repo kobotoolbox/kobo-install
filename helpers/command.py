@@ -296,8 +296,9 @@ class Command:
                 not config_object.multi_servers:
             ports.append(nginx_port)
 
-        if not frontend_only or config_object.master_backend or \
-                config_object.slave_backend:
+        if (not frontend_only or config_object.master_backend or
+                config_object.slave_backend) and \
+                config_object.expose_backend_ports:
             ports.append(config.get("postgresql_port", 5432))
             ports.append(config.get("mongo_port", 27017))
             ports.append(config.get("redis_main_port", 6379))

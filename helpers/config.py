@@ -958,6 +958,8 @@ class Config:
                               CLI.COLOR_WARNING)
             CLI.colored_print("║ been previously created.                               ║",
                               CLI.COLOR_WARNING)
+            CLI.colored_print("║ Visit https://tinyurl.com/s5488xp for more info.       ║",
+                              CLI.COLOR_WARNING)
             CLI.colored_print("╚════════════════════════════════════════════════════════╝",
                               CLI.COLOR_WARNING)
 
