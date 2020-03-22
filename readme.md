@@ -13,34 +13,34 @@ before using this repository. **If you do not, `kobo-install` will not be able t
 
 ## Usage
 
-`$kobo-install> python run.py`
+`$kobo-install> python3 run.py`
 
 First time the command is executed, setup will be launched.   
 Subsequent executions will launch docker containers directly.
 
 Rebuild configuration:  
-`$kobo-install> python run.py --setup`
+`$kobo-install> python3 run.py --setup`
 
 Get info:  
-`$kobo-install> python run.py --info`
+`$kobo-install> python3 run.py --info`
 
 Get docker logs:  
-`$kobo-install> python run.py --logs`
+`$kobo-install> python3 run.py --logs`
 
 Update KoBoToolbox:  
-`$kobo-install> python run.py --update`
+`$kobo-install> python3 run.py --update`
 
 Stop KoBoToolbox:  
-`$kobo-install> python run.py --stop`
+`$kobo-install> python3 run.py --stop`
 
 Get help:  
-`$kobo-install> python run.py --help`
+`$kobo-install> python3 run.py --help`
 
-Get version:
-`$kobo-install> python run.py --version`
+Get version:  
+`$kobo-install> python3 run.py --version`
 
 Build kpi and kobocat (dev mode):  
-`$kobo-install> python run.py --build`
+`$kobo-install> python3 run.py --build`
 
 Run docker commands on frontend containers:
 `$kobo-install> python run.py --compose-frontend [docker-compose arguments]`
@@ -109,7 +109,7 @@ User can choose between 2 types of installations:
 ## Requirements
 
 - Linux / macOS
-- Python 2.7+/3.5+
+- Python 2.7/3.5+ <sup>Python2 support will be dropped in a future release</sup>
 - [Docker](https://www.docker.com/get-started "") & [Docker Compose](https://docs.docker.com/compose/install/ "")
 - Available TCP Ports:
 
@@ -127,8 +127,8 @@ Tests can be run with `tox`.
 Be sure it's install before running the tests
 
 ```
-$kobo-install> sudo apt install python-pip
-$kobo-install> pip install tox
+$kobo-install> sudo apt install python3-pip
+$kobo-install> pip3 install tox
 $kobo-install> tox
 ```
 or 
