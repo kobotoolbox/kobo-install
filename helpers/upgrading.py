@@ -32,8 +32,8 @@ def migrate_single_to_two_databases():
     kpi_run_command = ["docker-compose",
                        "-f", "docker-compose.frontend.yml",
                        "-f", "docker-compose.frontend.override.yml",
-                       "-p", config_object.get_prefix("frontend")]
-    kpi_run_command += ["run", "--rm", "kpi"]
+                       "-p", config_object.get_prefix("frontend"),
+                       "run", "--rm", "kpi"]
 
     # Make sure Postgres is running
     frontend_command = kpi_run_command + _kpi_db_alias_kludge(" ".join([
