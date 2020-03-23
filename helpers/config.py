@@ -30,7 +30,7 @@ class Config:
     DEFAULT_NGINX_HTTPS_PORT = "443"
     KOBO_DOCKER_BRANCH = 'two-databases-secured-backend'
     KOBO_INSTALL_BRANCH = 'secured-backend'
-    KOBO_INSTALL_VERSION = '2.1.0'
+    KOBO_INSTALL_VERSION = '2.2.0'
 
     # Maybe overkill. Use this class as a singleton to get the same configuration
     # for each instantiation.

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from __future__ import print_function, unicode_literals
 
@@ -13,6 +13,14 @@ from helpers.template import Template
 
 
 def run(force_setup=False):
+
+    if sys.version_info[0] == 2:
+        CLI.colored_print("╔═══════════════════════════════════════════════════════════════╗", CLI.COLOR_ERROR)
+        CLI.colored_print("║ DEPRECATION: Python 2.7 has reached the end of its life on    ║", CLI.COLOR_ERROR)
+        CLI.colored_print("║ January 1st, 2020. Please upgrade your Python as Python 2.7   ║", CLI.COLOR_ERROR)
+        CLI.colored_print("║ is not maintained anymore.                                    ║", CLI.COLOR_ERROR)
+        CLI.colored_print("║ A future version of KoBoInstall will drop support for it.     ║", CLI.COLOR_ERROR)
+        CLI.colored_print("╚═══════════════════════════════════════════════════════════════╝", CLI.COLOR_ERROR)
 
     if not platform.system() in ["Linux", "Darwin"]:
         CLI.colored_print("Not compatible with this OS", CLI.COLOR_ERROR)
