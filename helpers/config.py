@@ -218,28 +218,16 @@ class Config:
     @classmethod
     def generate_password(cls):
         """
-        Generate random password between 8 to 16 characters
+        Generate 12 characters long random password
         :return: str
         """
         characters = string.ascii_letters \
                      + "!$%+-_^~@#{}[]()/\'\"`~,;:.<>" \
                      + string.digits
         required_chars_count = 12
-        stop = False
-        tmp_pwd = set()
 
-        while not stop:
-            tmp_pwd_len = len(tmp_pwd)
-            if tmp_pwd_len == required_chars_count:
-                stop = True
-            else:
-                range_ = required_chars_count - tmp_pwd_len
-                tmp_pwd = set(
-                    list(tmp_pwd) +
-                    list(set([choice(characters) for _ in range(range_)]))
-                )
-
-        return "".join(tmp_pwd)
+        return ''.join(choice(characters)
+                       for _ in range(required_chars_count))
 
     def get_config(self):
         return self.__config
