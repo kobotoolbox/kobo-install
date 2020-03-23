@@ -59,6 +59,32 @@ def migrate_single_to_two_databases():
             "for KPI and KoBoCAT",
             CLI.COLOR_INFO
         )
+        _message_lines = [
+            "╔══════════════════════════════════════════════════════════════╗",
+            "║  Upgrading to separate databases is required to run the      ║",
+            "║  latest release of KoBoToolbox, but it may be a slow process ║",
+            "║  if you have a lot of data. Expect at least one minute of    ║",
+            "║  downtime for every 1,500 KPI assets. Assets are surveys and ║",
+            "║  library items: questions, blocks, and templates.            ║",
+            "║  Survey *submissions* are not involved.                      ║",
+            "║                                                              ║",
+            "║  To postpone this process, downgrade to the last             ║",
+            "║  single-database release by stopping this script and         ║",
+            "║  executing the following command:                            ║",
+            "║                                                              ║",
+            "║       git checkout 2.019.52-final-shared-database            ║",
+            "║                                                              ║",
+            "║  Then, re-run this script.                                   ║",
+            "╚══════════════════════════════════════════════════════════════╝",
+        ]
+        CLI.colored_print('\n'.join(_message_lines), CLI.COLOR_WARNING)
+        CLI.colored_print("Do you want to proceed?", CLI.COLOR_SUCCESS)
+        CLI.colored_print("\t1) Yes")
+        CLI.colored_print("\t2) No")
+        response = CLI.get_response([Config.TRUE, Config.FALSE], Config.FALSE)
+        if response != Config.TRUE:
+            sys.exit(0)
+
         backend_command = [
             "docker-compose",
             "-f",
@@ -77,18 +103,6 @@ def migrate_single_to_two_databases():
         except subprocess.CalledProcessError:
             CLI.colored_print("An error has occurred", CLI.COLOR_ERROR)
             sys.exit(1)
-
-        # The Whoosh search index created under Python 2 doesn't seem to work
-        # with Python 3, so rebuild it now that we've upgraded
-        CLI.colored_print(
-            "Rebuilding Whoosh search index for Python 3 compatibility",
-            CLI.COLOR_INFO
-        )
-        frontend_command = kpi_run_command + _kpi_db_alias_kludge(" ".join([
-                               "python", "manage.py",
-                               "rebuild_index", "--noinput"
-                           ]))
-        CLI.run_command(frontend_command, config.get("kobodocker_path"))
 
     elif kpi_kc_db_empty not in [
         "True\tTrue",
