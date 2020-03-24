@@ -915,7 +915,8 @@ class Config:
         self.__config["mongo_root_password"] = CLI.get_response(
             r"~^.{8,}$",
             self.__config.get("mongo_root_password"),
-            to_lower=False)
+            to_lower=False,
+            error_msg='Too short. 8 characters minimum.')
 
         CLI.colored_print("MongoDB user's username?",
                           CLI.COLOR_SUCCESS)
@@ -928,7 +929,8 @@ class Config:
         self.__config["mongo_user_password"] = CLI.get_response(
             r"~^.{8,}$",
             self.__config.get("mongo_user_password"),
-            to_lower=False)
+            to_lower=False,
+            error_msg='Too short. 8 characters minimum.')
 
         if (self.__config.get("mongo_secured") != Config.TRUE or
             mongo_user_username != self.__config.get("mongo_user_username") or
@@ -999,7 +1001,6 @@ class Config:
 
         CLI.colored_print("PostgreSQL user's username?",
                           CLI.COLOR_SUCCESS)
-
         self.__config["postgres_user"] = CLI.get_response(
             r"~^\w+$",
             self.__config.get("postgres_user"),
@@ -1009,7 +1010,8 @@ class Config:
         self.__config["postgres_password"] = CLI.get_response(
             r"~^.{8,}$",
             self.__config.get("postgres_password"),
-            to_lower=False)
+            to_lower=False,
+            error_msg='Too short. 8 characters minimum.')
 
         if (postgres_user != self.__config.get("postgres_user") or
             postgres_password != self.__config.get("postgres_password")) and \
@@ -1228,7 +1230,8 @@ class Config:
         self.__config["redis_password"] = CLI.get_response(
             r"~^.{8,}$",
             self.__config.get("redis_password"),
-            to_lower=False)
+            to_lower=False,
+            error_msg='Too short. 8 characters minimum.')
 
     def __questions_reverse_proxy(self):
 
