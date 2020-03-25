@@ -18,9 +18,9 @@ from helpers.singleton import Singleton
 
 
 class Config:
-
     CONFIG_FILE = ".run.conf"
     UNIQUE_ID_FILE = ".uniqid"
+    UPSERT_DB_USERS_TRIGGER_FILE = ".upsert_db_users"
     TRUE = "1"
     FALSE = "2"
     LETSENCRYPT_DOCKER_DIR = "nginx-certbot"
@@ -205,7 +205,7 @@ class Config:
         :return: bool
         """
         return not self.multi_servers or \
-            self.__config.get("server_role") == "frontend"
+               self.__config.get("server_role") == "frontend"
 
     @property
     def frontend_questions(self):
@@ -779,7 +779,6 @@ class Config:
                 # Create an unique id to build fresh image when starting containers
                 if (self.__config.get("kc_dev_build_id", "") == "" or
                         self.__config.get("kc_path") != self.__config.get("kc_path")):
-
                     self.__config["kc_dev_build_id"] = "{prefix}{timestamp}".format(
                         prefix=self.get_prefix("frontend"),
                         timestamp=str(int(time.time()))
@@ -839,11 +838,16 @@ class Config:
                                                   self.__config.get("https", Config.TRUE))
 
         if self.is_secure:
-            CLI.colored_print("╔════════════════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
-            CLI.colored_print("║ Please note that certificates must be installed on a reverse-proxy ║", CLI.COLOR_WARNING)
-            CLI.colored_print("║ or a load balancer.                                                ║", CLI.COLOR_WARNING)
-            CLI.colored_print("║ KoBoInstall can install one, if needed.                            ║", CLI.COLOR_WARNING)
-            CLI.colored_print("╚════════════════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
+            CLI.colored_print("╔════════════════════════════════════════════════════════════════════╗",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ Please note that certificates must be installed on a reverse-proxy ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ or a load balancer.                                                ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ KoBoInstall can install one, if needed.                            ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("╚════════════════════════════════════════════════════════════════════╝",
+                              CLI.COLOR_WARNING)
 
     def __questions_installation_type(self):
         """
@@ -885,7 +889,7 @@ class Config:
         self.__config["maintenance_date_iso"] = self.__config["maintenance_date_iso"].upper()
 
         date_iso = self.__config["maintenance_date_iso"]
-        self.__config["maintenance_date_str"] = datetime.strptime(date_iso, iso_format).\
+        self.__config["maintenance_date_str"] = datetime.strptime(date_iso, iso_format). \
             strftime('%A,&nbsp;%B&nbsp;%d&nbsp;at&nbsp;%H:%M&nbsp;GMT')
 
         self.__config["maintenance_email"] = CLI.colored_input(
@@ -938,20 +942,38 @@ class Config:
             mongo_root_username != self.__config.get("mongo_root_username") or
             mongo_root_password != self.__config.get("mongo_root_password")) and \
                 not self.first_time:
-            CLI.colored_print("╔════════════════════════════════════════════════════════╗",
-                              CLI.COLOR_WARNING)
-            CLI.colored_print("║ MongoDB root's and/or user's credentials have changed! ║",
-                              CLI.COLOR_WARNING)
-            CLI.colored_print("║ Do NOT forget to apply these changes in MongoDB too.   ║",
-                              CLI.COLOR_WARNING)
-            CLI.colored_print("║ Credentials will NOT be updated if the database has    ║",
-                              CLI.COLOR_WARNING)
-            CLI.colored_print("║ been previously created.                               ║",
-                              CLI.COLOR_WARNING)
-            CLI.colored_print("║ Visit https://tinyurl.com/s5488xp for more info.       ║",
-                              CLI.COLOR_WARNING)
-            CLI.colored_print("╚════════════════════════════════════════════════════════╝",
-                              CLI.COLOR_WARNING)
+
+            content = ''
+            if (mongo_user_username != self.__config.get("mongo_user_username") or
+                    mongo_root_username != self.__config.get("mongo_root_username")):
+
+                CLI.colored_print("╔══════════════════════════════════════════════════════╗",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("║ MongoDB root's and/or user's usernames have changed! ║",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("╚══════════════════════════════════════════════════════╝",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("Do you want to remove old users?", CLI.COLOR_SUCCESS)
+                delete_users = CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE)
+
+                # Because we cannot communicate with DB right now. We save users
+                # inside the file read by the script that MongoDB container runs to
+                # update/create users. (see. `kobo-docker/mongo/upsert_users.sh`)
+                if delete_users == Config.TRUE:
+                    # format <user><TAB><db>
+                    usernames_by_db = {
+                        mongo_user_username: 'formhub',
+                        mongo_root_username: 'admin'
+                    }
+                    for username, db in usernames_by_db.items():
+                        if username != "":
+                            content = "{cr}{username}\t{db}".format(
+                                cr="\n" if content else "",
+                                user=username,
+                                db=db
+                            )
+
+            self.__write_upsert_db_users_trigger_file(content, 'mongo')
 
         self.__config["mongo_secured"] = Config.TRUE
 
@@ -1282,7 +1304,7 @@ class Config:
 
         if self.proxy:
             # When proxy is enabled, public port is 80 or 443.
-            # @TODO Give the user the possibilty to customize it too.
+            # @TODO Give the user the possibility to customize it too.
             self.__config["exposed_nginx_docker_port"] = Config.DEFAULT_NGINX_PORT
             if self.advanced_options:
                 if not self.use_letsencrypt:
@@ -1486,8 +1508,9 @@ class Config:
                     if response == "no":
                         sys.exit()
                     else:
-                        CLI.colored_print("Administrator privilege escalation is needed to prepare DB", CLI.COLOR_WARNING)
-                        # Write kobo_first_run file to run postgres container's entrypoint flawlessly.
+                        CLI.colored_print("Administrator privilege escalation is needed to prepare DB",
+                                          CLI.COLOR_WARNING)
+                        # Write `kobo_first_run` file to run postgres container's entrypoint flawlessly.
                         os.system("echo $(date) | sudo tee -a {} > /dev/null".format(
                             os.path.join(self.__config["kobodocker_path"], ".vols", "db", "kobo_first_run")
                         ))
@@ -1504,3 +1527,17 @@ class Config:
         CLI.colored_print("║ to remove previously entered value.                           ║", CLI.COLOR_WARNING)
         CLI.colored_print("║ Otherwise choose between choices or type your answer.         ║", CLI.COLOR_WARNING)
         CLI.colored_print("╚═══════════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
+
+    def __write_upsert_db_users_trigger_file(self, content, destination):
+        try:
+            trigger_file = os.path.join(self.__config.get("kobodocker_path"),
+                                        destination,
+                                        Config.UPSERT_DB_USERS_TRIGGER_FILE)
+            with open(trigger_file, "w") as f:
+                f.write(content)
+        except (IOError, OSError):
+            CLI.colored_print("Could not write {} file".format(
+                Config.UPSERT_DB_USERS_TRIGGER_FILE), CLI.COLOR_ERROR)
+            return False
+
+        return True
