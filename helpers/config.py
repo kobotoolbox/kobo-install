@@ -943,7 +943,18 @@ class Config:
             mongo_root_password != self.__config.get("mongo_root_password")) and \
                 not self.first_time:
 
+            # Because chances are high we cannot communicate with DB
+            # (e.g ports not exposed, containers down), we delegate the task
+            # to MongoDB container to update (create/delete) users.
+            # (see. `kobo-docker/mongo/upsert_users.sh`)
+            # We have to transmit old users (and their respective DB) to
+            # MongoDB to let it know which users need to be deleted.
+
+            # `content` will be read by MongoDB container at next boot
+            # It should contains users to delete if any.
+            # Its format should be: `<user><TAB><database>`
             content = ''
+
             if (mongo_user_username != self.__config.get("mongo_user_username") or
                     mongo_root_username != self.__config.get("mongo_root_username")):
 
@@ -954,13 +965,11 @@ class Config:
                 CLI.colored_print("╚══════════════════════════════════════════════════════╝",
                                   CLI.COLOR_WARNING)
                 CLI.colored_print("Do you want to remove old users?", CLI.COLOR_SUCCESS)
+                CLI.colored_print("\t1) Yes")
+                CLI.colored_print("\t2) No")
                 delete_users = CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE)
 
-                # Because we cannot communicate with DB right now. We save users
-                # inside the file read by the script that MongoDB container runs to
-                # update/create users. (see. `kobo-docker/mongo/upsert_users.sh`)
                 if delete_users == Config.TRUE:
-                    # format <user><TAB><db>
                     usernames_by_db = {
                         mongo_user_username: 'formhub',
                         mongo_root_username: 'admin'
@@ -969,7 +978,7 @@ class Config:
                         if username != "":
                             content = "{cr}{username}\t{db}".format(
                                 cr="\n" if content else "",
-                                user=username,
+                                username=username,
                                 db=db
                             )
 
@@ -1038,20 +1047,49 @@ class Config:
         if (postgres_user != self.__config.get("postgres_user") or
             postgres_password != self.__config.get("postgres_password")) and \
                 not self.first_time:
-            CLI.colored_print("╔═════════════════════════════════════════════════════════╗",
-                              CLI.COLOR_WARNING)
-            CLI.colored_print("║ PostgreSQL user's credentials have changed!             ║",
-                              CLI.COLOR_WARNING)
-            CLI.colored_print("║ Do NOT forget to apply these changes in PostgreSQL too. ║",
-                              CLI.COLOR_WARNING)
-            CLI.colored_print("║ Credentials will NOT be updated if the database has     ║",
-                              CLI.COLOR_WARNING)
-            CLI.colored_print("║ been previously created.                                ║",
-                              CLI.COLOR_WARNING)
-            CLI.colored_print("╚═════════════════════════════════════════════════════════╝",
-                              CLI.COLOR_WARNING)
 
-        if self.backend_questions and self.advanced_options:
+            # Because chances are high we cannot communicate with DB
+            # (e.g ports not exposed, containers down), we delegate the task
+            # to PostgreSQL container to update (create/delete) users.
+            # (see. `kobo-docker/postgres/shared/upsert_users.sh`)
+            # We need to transmit old user to PostgreSQL to let it know
+            # what was the previous username to log in before performing any
+            # action.
+
+            # `content` will be read by MongoDB container at next boot
+            # It should always contain previous username and a boolean for deletion.
+            # Its format should be: `<user><TAB><boolean>`
+            content = '{username}   false'.format(username=postgres_user)
+
+            if postgres_user != self.__config.get("postgres_user"):
+
+                CLI.colored_print("╔══════════════════════════════════════════════════════╗",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("║       PostgreSQL user's username has changed!        ║",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("╚══════════════════════════════════════════════════════╝",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("Do you want to remove old user?", CLI.COLOR_SUCCESS)
+                CLI.colored_print("\t1) Yes")
+                CLI.colored_print("\t2) No")
+                delete_user = CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE)
+
+                if delete_user == Config.TRUE:
+                    content = '{username}   true'.format(username=postgres_user)
+                    CLI.colored_print("╔══════════════════════════════════════════════════════╗",
+                                      CLI.COLOR_WARNING)
+                    CLI.colored_print("║ WARNING! `{}` cannot be deleted if it has been used  ║".format(postgres_user),
+                                      CLI.COLOR_WARNING)
+                    CLI.colored_print("║ to initialize PostgreSQL server.                     ║",
+                                      CLI.COLOR_WARNING)
+                    CLI.colored_print("║ You will need to do it manually!                     ║",
+                                      CLI.COLOR_WARNING)
+                    CLI.colored_print("╚══════════════════════════════════════════════════════╝",
+                                      CLI.COLOR_WARNING)
+
+            self.__write_upsert_db_users_trigger_file(content, 'postgres')
+
+        if self.backend_questions:
             # Postgres settings
             CLI.colored_print("Do you want to tweak PostgreSQL settings?", CLI.COLOR_SUCCESS)
             CLI.colored_print("\t1) Yes")
