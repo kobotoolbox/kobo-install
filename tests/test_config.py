@@ -365,12 +365,15 @@ def test_exposed_ports():
 
 
 @patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
-def test_secure_mongo():
+def test_force_secure_mongo():
     config_object = test_read_config()
     config_ = config_object.get_config()
 
     with patch("helpers.cli.CLI.colored_input") as mock_ci:
-        # Choose to customize ports
+        # We need to run it like if user has already run the setup once to
+        # force MongoDB to "upsert" users.
+        config_object._Config__first_time = False
+        # Run with no advanced options
         mock_ci.side_effect = iter([
             config_["kobodocker_path"],
             Config.TRUE,  # Confirm path
@@ -390,7 +393,6 @@ def test_secure_mongo():
             config_["use_backup"]
         ])
         new_config = config_object.build()
-
         assert new_config.get("mongo_secured") == Config.TRUE
 
 

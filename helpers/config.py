@@ -164,7 +164,6 @@ class Config:
                 self.__questions_super_user_credentials()
 
             if self.advanced_options:
-
                 self.__questions_docker_prefix()
                 self.__questions_dev_mode()
                 self.__questions_postgres()
@@ -177,6 +176,8 @@ class Config:
                     self.__questions_google()
                     self.__questions_raven()
                     self.__questions_uwsgi()
+            else:
+                self.__secure_mongo()
 
             self.__questions_backup()
 
@@ -872,8 +873,10 @@ class Config:
             sys.exit(1)
 
         def _round_nearest_quarter(dt):
+
+            minutes = int(15 * round((float(dt.minute) + float(dt.second) / 60) / 15))
             return datetime(dt.year, dt.month, dt.day, dt.hour,
-                            int(15 * round((float(dt.minute) + float(dt.second) / 60) / 15)))
+                            minutes if minutes < 60 else 0)
 
         CLI.colored_print("How long do you plan to this maintenance will last?",
                           CLI.COLOR_SUCCESS)
@@ -1526,6 +1529,18 @@ class Config:
             self.__config["proxy"] = Config.FALSE
             self.__config["nginx_proxy_port"] = Config.DEFAULT_NGINX_PORT
             self.__config["use_letsencrypt"] = Config.FALSE
+
+    def __secure_mongo(self):
+        """
+        Force creations of MongoDB users/passwords when users upgrade from
+        a non secure version of KoBoInstall
+        """
+        # ToDo remove duplicated code with `__questions_mongo`
+
+        if self.__config.get("mongo_secured") != Config.TRUE and not self.first_time:
+            self.__write_upsert_db_users_trigger_file('', 'mongo')
+
+        self.__config["mongo_secured"] = Config.TRUE
 
     def __validate_installation(self):
         """
