@@ -1006,7 +1006,7 @@ class Config:
         """
         CLI.colored_print("KoBoCat PostgreSQL database name?",
                           CLI.COLOR_SUCCESS)
-        self.__config["kc_postgres_db"] = CLI.get_response(
+        kc_postgres_db = CLI.get_response(
             r"~^\w+$",
             self.__config.get("postgres_db", self.__config.get("kc_postgres_db")),
             to_lower=False
@@ -1014,18 +1014,46 @@ class Config:
 
         CLI.colored_print("KPI PostgreSQL database name?",
                           CLI.COLOR_SUCCESS)
-        self.__config["kpi_postgres_db"] = CLI.get_response(
+        kpi_postgres_db = CLI.get_response(
             r"~^\w+$",
             self.__config.get("kpi_postgres_db"),
             to_lower=False)
 
-        while self.__config["kc_postgres_db"] == self.__config["kpi_postgres_db"]:
-            self.__config["kpi_postgres_db"] = CLI.colored_input(
+        while kpi_postgres_db == kc_postgres_db:
+            kpi_postgres_db = CLI.colored_input(
                 "KPI must use its own PostgreSQL database, not share one with "
                 "KoBoCAT. Please enter another database",
                 CLI.COLOR_ERROR,
                 Config.get_config_template()["kpi_postgres_db"],
             )
+
+        if (kc_postgres_db != self.__config.get("postgres_db",
+                                                self.__config["kc_postgres_db"]) or
+                (kpi_postgres_db != self.__config["kpi_postgres_db"] and
+                 self.__config.get("two_databases") == Config.TRUE)):
+            CLI.colored_print("╔══════════════════════════════════════════════════════╗",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ PostgreSQL database names have changed!              ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ KoBoInstall does not support database name changes   ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ after database initialization.                       ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ Data will not appear in KPI and/or KoBoCat.          ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("╚══════════════════════════════════════════════════════╝",
+                              CLI.COLOR_WARNING)
+
+            CLI.colored_print("Do you want to continue?", CLI.COLOR_SUCCESS)
+            CLI.colored_print("\t1) Yes")
+            CLI.colored_print("\t2) No")
+
+            if CLI.get_response([Config.TRUE, Config.FALSE], Config.FALSE) == Config.FALSE:
+                sys.exit()
+
+        self.__config["kc_postgres_db"] = kc_postgres_db
+        self.__config["kpi_postgres_db"] = kpi_postgres_db
+        self.__config["two_databases"] = Config.TRUE
 
         postgres_user = self.__config["postgres_user"]
         postgres_password = self.__config["postgres_password"]
