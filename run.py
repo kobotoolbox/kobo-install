@@ -41,7 +41,7 @@ def run(force_setup=False):
                 Template.render(config)
                 Setup.update_hosts(current_config)
 
-        Command.start()
+        #Command.start()
 
 
 if __name__ == "__main__":

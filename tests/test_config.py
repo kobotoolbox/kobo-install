@@ -3,9 +3,8 @@ from __future__ import unicode_literals
 
 import json
 import pytest
-import random
+import os
 import shutil
-import string
 import tempfile
 import time
 
@@ -26,6 +25,12 @@ def reset_config(config_object):
     config_dict = dict(Config.get_config_template())
     config_dict["kobodocker_path"] = "/tmp"
     config_object.__config = config_dict
+
+
+def write_trigger_upsert_db_users(*args):
+    content = args[1]
+    with open("/tmp/upsert_db_users", "w") as f:
+        f.write(content)
 
 
 def test_read_config(overrides=None):
@@ -357,3 +362,142 @@ def test_exposed_ports():
             assert config_object._Config__config["redis_main_port"] == "6379"
             assert config_object._Config__config["redis_cache_port"] == "6380"
             assert not config_object.expose_backend_ports
+
+
+@patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
+def test_secure_mongo():
+    config_object = test_read_config()
+    config_ = config_object.get_config()
+
+    with patch("helpers.cli.CLI.colored_input") as mock_ci:
+        # Choose to customize ports
+        mock_ci.side_effect = iter([
+            config_["kobodocker_path"],
+            Config.TRUE,  # Confirm path
+            config_["advanced"],
+            config_["local_installation"],
+            config_["public_domain_name"],
+            config_["kpi_subdomain"],
+            config_["kc_subdomain"],
+            config_["ee_subdomain"],
+            Config.FALSE,  # Do you want to use HTTPS?
+            config_.get("smtp_host", ""),
+            config_.get("smtp_port", "25"),
+            config_.get("smtp_user", ""),
+            "test@test.com",
+            config_["super_user_username"],
+            config_["super_user_password"],
+            config_["use_backup"]
+        ])
+        new_config = config_object.build()
+
+        assert new_config.get("mongo_secured") == Config.TRUE
+
+
+@patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',
+       new=write_trigger_upsert_db_users)
+def test_secure_mongo_advanced_options():
+    config_object = test_read_config()
+    with patch("helpers.cli.CLI.colored_input") as mock_ci:
+        mock_ci.side_effect = iter([
+            "root",
+            "root_password",
+            "mongo_kobo_user",
+            "mongo_password"
+        ])
+        config_object._Config__questions_mongo()
+        assert not os.path.exists("/tmp/upsert_db_users")
+
+
+@patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',
+       new=write_trigger_upsert_db_users)
+def test_update_mongo_passwords():
+    config_object = test_read_config()
+    with patch("helpers.cli.CLI.colored_input") as mock_ci:
+        config_object._Config__first_time = False
+        config_object._Config__config["mongo_root_username"] = 'root'
+        config_object._Config__config["mongo_user_username"] = 'user'
+        mock_ci.side_effect = iter([
+            "root",
+            "root_password",
+            "user",
+            "mongo_password"
+        ])
+        config_object._Config__questions_mongo()
+        assert os.path.exists("/tmp/upsert_db_users")
+        assert os.path.getsize("/tmp/upsert_db_users") == 0
+        os.remove("/tmp/upsert_db_users")
+
+
+@patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',
+       new=write_trigger_upsert_db_users)
+def test_update_mongo_usernames():
+    config_object = test_read_config()
+    with patch("helpers.cli.CLI.colored_input") as mock_ci:
+        config_object._Config__first_time = False
+        config_object._Config__config["mongo_root_username"] = 'root'
+        config_object._Config__config["mongo_user_username"] = 'user'
+        mock_ci.side_effect = iter([
+            "admin",
+            "root_password",
+            "another_user",
+            "mongo_password",
+            Config.TRUE  # Delete users
+        ])
+        config_object._Config__questions_mongo()
+        assert os.path.exists("/tmp/upsert_db_users")
+        with open("/tmp/upsert_db_users", "r") as f:
+            content = f.read()
+        expected_content = "user\tformhub\nroot\tadmin"
+        assert content == expected_content
+        os.remove("/tmp/upsert_db_users")
+
+
+@patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',
+       new=write_trigger_upsert_db_users)
+def test_update_postgres_password():
+    config_object = test_read_config()
+    with patch("helpers.cli.CLI.colored_input") as mock_ci:
+        config_object._Config__first_time = False
+        config_object._Config__config["postgres_user"] = 'user'
+        config_object._Config__config["postgres_password"] = 'password'
+        mock_ci.side_effect = iter([
+            "kobocat",
+            "koboform",
+            "user",
+            "user_password",
+            Config.FALSE  # Tweak settings
+        ])
+        config_object._Config__questions_postgres()
+        assert os.path.exists("/tmp/upsert_db_users")
+        with open("/tmp/upsert_db_users", "r") as f:
+            content = f.read()
+        expected_content = "user\tfalse"
+        assert content == expected_content
+        os.remove("/tmp/upsert_db_users")
+
+
+@patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',
+       new=write_trigger_upsert_db_users)
+def test_update_postgres_username():
+    config_object = test_read_config()
+    with patch("helpers.cli.CLI.colored_input") as mock_ci:
+        config_object._Config__first_time = False
+        config_object._Config__config["postgres_user"] = 'user'
+        config_object._Config__config["postgres_password"] = 'password'
+        mock_ci.side_effect = iter([
+            "kobocat",
+            "koboform",
+            "another_user",
+            "password",
+            Config.TRUE,  # Delete user
+            Config.FALSE  # Tweak settings
+        ])
+        config_object._Config__questions_postgres()
+        assert os.path.exists("/tmp/upsert_db_users")
+        with open("/tmp/upsert_db_users", "r") as f:
+            content = f.read()
+        expected_content = "user\ttrue"
+        assert content == expected_content
+        os.remove("/tmp/upsert_db_users")
+

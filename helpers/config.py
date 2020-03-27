@@ -238,6 +238,7 @@ class Config:
         primary_ip = Network.get_primary_ip()
 
         return {
+            "advanced": "2",
             "workers_max": "2",
             "workers_start": "1",
             "debug": Config.FALSE,
@@ -976,7 +977,7 @@ class Config:
                     }
                     for username, db in usernames_by_db.items():
                         if username != "":
-                            content = "{cr}{username}\t{db}".format(
+                            content += "{cr}{username}\t{db}".format(
                                 cr="\n" if content else "",
                                 username=username,
                                 db=db
@@ -1087,26 +1088,21 @@ class Config:
             # `content` will be read by MongoDB container at next boot
             # It should always contain previous username and a boolean for deletion.
             # Its format should be: `<user><TAB><boolean>`
-            content = '{username}   false'.format(username=postgres_user)
+            content = '{username}\tfalse'.format(username=postgres_user)
 
             if postgres_user != self.__config.get("postgres_user"):
 
-                CLI.colored_print("╔══════════════════════════════════════════════════════╗",
-                                  CLI.COLOR_WARNING)
-                CLI.colored_print("║       PostgreSQL user's username has changed!        ║",
-                                  CLI.COLOR_WARNING)
-                CLI.colored_print("╚══════════════════════════════════════════════════════╝",
-                                  CLI.COLOR_WARNING)
+                CLI.colored_print("PostgreSQL user's username has changed!", CLI.COLOR_WARNING)
                 CLI.colored_print("Do you want to remove old user?", CLI.COLOR_SUCCESS)
                 CLI.colored_print("\t1) Yes")
                 CLI.colored_print("\t2) No")
                 delete_user = CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE)
 
                 if delete_user == Config.TRUE:
-                    content = '{username}   true'.format(username=postgres_user)
+                    content = '{username}\ttrue'.format(username=postgres_user)
                     CLI.colored_print("╔══════════════════════════════════════════════════════╗",
                                       CLI.COLOR_WARNING)
-                    CLI.colored_print("║ WARNING! `{}` cannot be deleted if it has been used  ║".format(postgres_user),
+                    CLI.colored_print("║ WARNING! User cannot be deleted if it has been used  ║",
                                       CLI.COLOR_WARNING)
                     CLI.colored_print("║ to initialize PostgreSQL server.                     ║",
                                       CLI.COLOR_WARNING)
