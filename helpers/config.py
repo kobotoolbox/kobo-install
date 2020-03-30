@@ -136,7 +136,7 @@ class Config:
             config = self.get_config_template()
             config.update(self.__config)
 
-            self.__config = config
+            self.__config = self.__upgrade_kc_db(config)
             self.__welcome()
 
             self.__create_directory()
@@ -1012,7 +1012,7 @@ class Config:
                           CLI.COLOR_SUCCESS)
         kc_postgres_db = CLI.get_response(
             r"~^\w+$",
-            self.__config.get("postgres_db", self.__config.get("kc_postgres_db")),
+            self.__config.get("kc_postgres_db"),
             to_lower=False
         )
 
@@ -1031,8 +1031,7 @@ class Config:
                 Config.get_config_template()["kpi_postgres_db"],
             )
 
-        if (kc_postgres_db != self.__config.get("postgres_db",
-                                                self.__config["kc_postgres_db"]) or
+        if (kc_postgres_db != self.__config["kc_postgres_db"] or
                 (kpi_postgres_db != self.__config["kpi_postgres_db"] and
                  self.__config.get("two_databases") == Config.TRUE)):
             CLI.colored_print("╔══════════════════════════════════════════════════════╗",
@@ -1541,6 +1540,13 @@ class Config:
             self.__write_upsert_db_users_trigger_file('', 'mongo')
 
         self.__config["mongo_secured"] = Config.TRUE
+
+    def __upgrade_kc_db(self, config):
+        kc_postgres_db = config.pop('postgres_db', None)
+        if kc_postgres_db is not None:
+            config['kc_postgres_db'] = kc_postgres_db
+
+        return config
 
     def __validate_installation(self):
         """

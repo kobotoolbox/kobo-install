@@ -458,6 +458,13 @@ def test_update_mongo_usernames():
 @patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',
        new=write_trigger_upsert_db_users)
 def test_update_postgres_password():
+    """
+    Does **NOT** test if user is updated in PostgreSQL but the file creation
+    (and its content) used to trigger the action by PostgreSQL container.
+
+    When password changes, file must contain `<user><TAB><deletion boolean>`
+    Users should not be deleted if they already exist.
+    """
     config_object = test_read_config()
     with patch("helpers.cli.CLI.colored_input") as mock_ci:
         config_object._Config__first_time = False
@@ -482,6 +489,12 @@ def test_update_postgres_password():
 @patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',
        new=write_trigger_upsert_db_users)
 def test_update_postgres_username():
+    """
+    Does **NOT** test if user is updated in PostgreSQL but the file creation
+    (and its content) used to trigger the action by PostgreSQL container.
+
+    When username changes, file must contain `<user><TAB><deletion boolean>`
+    """
     config_object = test_read_config()
     with patch("helpers.cli.CLI.colored_input") as mock_ci:
         config_object._Config__first_time = False
@@ -503,3 +516,19 @@ def test_update_postgres_username():
         assert content == expected_content
         os.remove("/tmp/upsert_db_users")
 
+
+def test_update_postgres_db_name_from_single_database():
+    """
+    Simulate upgrade from single database to two databases.
+    With two databases, KoBoCat has its own database. We ensure that
+    `kc_postgres_db` gets `postgres_db` value.
+    """
+    config_object = test_read_config()
+    config = config_object.get_config()
+    old_db_name = "postgres_db_kobo"
+    config_object._Config__config["postgres_db"] = old_db_name
+    assert config.get("kc_postgres_db") == config_object.get_config_template()["kc_postgres_db"]
+    assert "postgres_db" in config
+    config = config_object._Config__upgrade_kc_db(config)
+    assert config.get("kc_postgres_db") == old_db_name
+    assert "postgres_db" not in config
