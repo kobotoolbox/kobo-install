@@ -307,6 +307,7 @@ def test_create_directory():
     shutil.rmtree(destination_path)
 
 
+@patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
 def test_maintenance():
     config_object = test_read_config()
 
