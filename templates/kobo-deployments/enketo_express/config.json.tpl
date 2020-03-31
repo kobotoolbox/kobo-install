@@ -11,8 +11,8 @@
         "select-mobile",
         "autocomplete",
         "geo",
-        "geo-esri",
         "textarea",
+        "url",
         "table",
         "radio",
         "date",
@@ -21,18 +21,20 @@
         "select-media",
         "file",
         "draw",
+        "rank",
         "likert",
         "range",
-        "rank",
         "columns",
-        "analog-scale",
         "image-view",
         "comment",
         "image-map",
         "date-native",
+        "date-native-ios",
         "date-mobile",
-        "url",
         "text-max",
+        "text-print",
+        "rating",
+        "thousands-sep",
         "../../../node_modules/enketo-image-customization-widget/image-customization",
         "../../../node_modules/enketo-literacy-test-widget/literacywidget"
     ],
@@ -53,6 +55,7 @@
             "domain": "${ENKETO_SUBDOMAIN}.${PUBLIC_DOMAIN_NAME}"
         }
     },
+    "payload limit": "1mb",
     "text field character limit": 1000000,
     "maps": [
         {
