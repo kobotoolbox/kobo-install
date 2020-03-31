@@ -1449,12 +1449,20 @@ class Config:
         if username == self.__config.get("super_user_username") and \
             password != self.__config.get("super_user_password") and \
                 not self.first_time:
-            CLI.colored_print("╔═════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
-            CLI.colored_print("║ Super user's password has been changed!                 ║", CLI.COLOR_WARNING)
-            CLI.colored_print("║ Do NOT forget to apply these changes in PostgreSQL too. ║", CLI.COLOR_WARNING)
-            CLI.colored_print("║ Super user's password will NOT be updated if the        ║", CLI.COLOR_WARNING)
-            CLI.colored_print("║ database has been previously created exists.            ║", CLI.COLOR_WARNING)
-            CLI.colored_print("╚═════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
+
+            _message_lines = [
+                "╔════════════════════════════════════════════════════════════════╗",
+                "║ You have configured a new password for the super user.         ║",
+                "║ This change will *not* take effect if KoBoToolbox has ever     ║",
+                "║ been started before. Please use the web interface to change    ║",
+                "║ passwords for existing users.                                  ║",
+                "║ If you've forgotten your password:                             ║",
+                "║ 1. Enter the KPI container with `./run.py -cf exec kpi bash`;  ║",
+                "║ 2. Create a new super user with `./manage.py createsuperuser`; ║",
+                "║ 3. Type `exit` to leave the KPI container;                     ║",
+                "╚════════════════════════════════════════════════════════════════╝"
+            ]
+            CLI.colored_print('\n'.join(_message_lines), CLI.COLOR_WARNING)
 
         self.__config["super_user_username"] = username
         self.__config["super_user_password"] = password
