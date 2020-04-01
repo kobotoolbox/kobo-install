@@ -252,7 +252,7 @@ class Command:
         nginx_stop_command = ["docker-compose",
                               "-f", "docker-compose.frontend.yml",
                               "-f", "docker-compose.frontend.override.yml",
-                              "-p", config_object.get_prefix("backend"),
+                              "-p", config_object.get_prefix("frontend"),
                               "stop", "nginx"]
 
         CLI.run_command(nginx_stop_command, config.get("kobodocker_path"))
