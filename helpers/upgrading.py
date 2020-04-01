@@ -36,12 +36,18 @@ def migrate_single_to_two_databases():
                        "run", "--rm", "kpi"]
 
     # Make sure Postgres is running
+    # We add this message to users because when AWS backups are activated,
+    # it takes a long time to install the virtualenv in PostgreSQL container,
+    # so the `wait_for_database` below sits there a while.
+    # It makes us think KoBoInstall is frozen.
+    CLI.colored_print("Waiting for PostgreSQL database to be up & running...",
+                      CLI.COLOR_INFO)
     frontend_command = kpi_run_command + _kpi_db_alias_kludge(" ".join([
                            "python", "manage.py",
-                           "wait_for_database", "--retries", "30"
+                           "wait_for_database", "--retries", "45"
                        ]))
     CLI.run_command(frontend_command, config.get("kobodocker_path"))
-    CLI.colored_print("The Postgres database is running!", CLI.COLOR_SUCCESS)
+    CLI.colored_print("The PostgreSQL database is running!", CLI.COLOR_SUCCESS)
 
     frontend_command = kpi_run_command + _kpi_db_alias_kludge(" ".join([
                             "python", "manage.py",
