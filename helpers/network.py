@@ -98,7 +98,7 @@ class Network:
                 import netifaces
             except ImportError:
                 CLI.colored_print("You must install netinfaces first! Please type `pip install netifaces --user`", CLI.COLOR_ERROR)
-                sys.exit()
+                sys.exit(1)
 
             for interface in netifaces.interfaces():
                 if not interface.startswith(excluded_interfaces) or all:

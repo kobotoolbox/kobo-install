@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function, unicode_literals
+from __future__ import print_function, unicode_literals, division
 
 import binascii
 import json
 import os
-from random import choice, randint
 import re
 import stat
 import string
 import sys
 import time
+from datetime import datetime
+from random import choice, randint
 
 from helpers.cli import CLI
 from helpers.network import Network
@@ -27,6 +28,10 @@ class Config:
     DEFAULT_PROXY_PORT = "8080"
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
+
+    KOBO_DOCKER_BRANCH = 'kobo-install-two-databases'
+    KOBO_INSTALL_BRANCH = 'two-databases'
+    KOBO_INSTALL_VERSION = '2.1.0'
 
     # Maybe overkill. Use this class as a singleton to get the same configuration
     # for each instantiation.
@@ -197,8 +202,9 @@ class Config:
             CLI.colored_print("║ No valid networks detected. Can not continue!        ║", CLI.COLOR_ERROR)
             CLI.colored_print("║ Please connect to a network and re-run the command.  ║", CLI.COLOR_ERROR)
             CLI.colored_print("╚══════════════════════════════════════════════════════╝", CLI.COLOR_ERROR)
-            sys.exit()
+            sys.exit(1)
         else:
+
             config = self.get_config_template()
             config.update(self.__config)
 
@@ -255,8 +261,11 @@ class Config:
         Generate random password between 8 to 16 characters
         :return: str
         """
-        characters = string.ascii_letters + "!$%+-@^~" + string.digits
+        characters = string.ascii_letters + "!$%+-^~" + string.digits
         return "".join(choice(characters) for x in range(randint(10, 16)))
+
+    def maintenance(self):
+        self.__questions_maintenance()
 
     def read_config(self):
         """
@@ -315,7 +324,7 @@ class Config:
 
         except IOError:
             CLI.colored_print("Could not write configuration file", CLI.COLOR_ERROR)
-            sys.exit()
+            sys.exit(1)
 
     def write_unique_id(self):
         try:
@@ -329,6 +338,15 @@ class Config:
             return False
 
         return True
+
+    def get_service_names(self):
+        service_list_command = ["docker-compose",
+                                "-f", "docker-compose.frontend.yml",
+                                "-f", "docker-compose.frontend.override.yml",
+                                "config", "--services"]
+
+        services = CLI.run_command(service_list_command, self.__config["kobodocker_path"])
+        return services.strip().split('\n')
 
     def __create_directory(self):
         """
@@ -380,7 +398,7 @@ class Config:
                     os.makedirs(full_repo_path)
                 except OSError:
                     CLI.colored_print("Please verify permissions.", CLI.COLOR_ERROR)
-                    sys.exit()
+                    sys.exit(1)
 
             # Only clone if folder is empty
             if not os.path.isdir(os.path.join(full_repo_path, ".git")):
@@ -455,7 +473,8 @@ class Config:
             "kpi_subdomain": "kf",
             "kc_subdomain": "kc",
             "ee_subdomain": "ee",
-            "postgres_db": "kobotoolbox",
+            "kc_postgres_db": "kobocat",
+            "kpi_postgres_db": "koboform",
             "postgres_user": "kobo",
             "postgres_password": Config.generate_password(),
             "kc_path": "",
@@ -503,7 +522,8 @@ class Config:
             "redis_main_port": "6379",
             "redis_cache_port": "6380",
             "local_installation": Config.FALSE,
-            "block_common_http_ports": Config.TRUE
+            "block_common_http_ports": Config.TRUE,
+            "npm_container": Config.TRUE,
         }
 
     def __questions_advanced_options(self):
@@ -735,6 +755,13 @@ class Config:
                     CLI.colored_print("\t2) False")
                     self.__config["debug"] = CLI.get_response([Config.TRUE, Config.FALSE],
                                                               self.__config.get("debug", Config.TRUE))
+
+                    # Frontend development
+                    CLI.colored_print("How do you want to run `npm`?", CLI.COLOR_SUCCESS)
+                    CLI.colored_print("\t1) From within the container")
+                    CLI.colored_print("\t2) Locally")
+                    self.__config["npm_container"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                                      self.__config.get("npm_container", Config.TRUE))
             else:
                 # Force reset paths
                 self.__reset_dev_mode(self.staging_mode)
@@ -795,6 +822,41 @@ class Config:
             self.__config["nginx_proxy_port"] = Config.DEFAULT_NGINX_PORT
             self.__config["use_letsencrypt"] = Config.FALSE
 
+    def __questions_maintenance(self):
+        if self.first_time:
+            CLI.colored_print("╔═══════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
+            CLI.colored_print("║ You must run setup first: `python run.py --setup` ║", CLI.COLOR_WARNING)
+            CLI.colored_print("╚═══════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
+            sys.exit(1)
+
+        def _round_nearest_quarter(dt):
+            return datetime(dt.year, dt.month, dt.day, dt.hour,
+                            int(15 * round((float(dt.minute) + float(dt.second) / 60) / 15)))
+
+        CLI.colored_print("How long do you plan to this maintenance will last?",
+                          CLI.COLOR_SUCCESS)
+        self.__config["maintenance_eta"] = CLI.get_response(r"~^[\w\ ]+$",
+                                                            self.__config.get("maintenance_eta", "2 hours"))
+
+        date_start = _round_nearest_quarter(datetime.utcnow())
+        iso_format = '%Y%m%dT%H%M'
+        CLI.colored_print("Start Date/Time (ISO format) GMT?",
+                          CLI.COLOR_SUCCESS)
+        self.__config["maintenance_date_iso"] = CLI.get_response(
+            r"~^\d{8}T\d{4}$", date_start.strftime(iso_format))
+        self.__config["maintenance_date_iso"] = self.__config["maintenance_date_iso"].upper()
+
+        date_iso = self.__config["maintenance_date_iso"]
+        self.__config["maintenance_date_str"] = datetime.strptime(date_iso, iso_format).\
+            strftime('%A,&nbsp;%B&nbsp;%d&nbsp;at&nbsp;%H:%M&nbsp;GMT')
+
+        self.__config["maintenance_email"] = CLI.colored_input("Contact during maintenance?",
+                                                               CLI.COLOR_SUCCESS,
+                                                               self.__config.get(
+                                                                   "maintenance_email",
+                                                                   self.__config.get("default_from_email")))
+        self.write_config()
+
     def __questions_multi_servers(self):
         """
         Asks if installation is for only one server
@@ -813,8 +875,17 @@ class Config:
 
         Settings can be tweaked thanks to pgconfig.org API
         """
-        self.__config["postgres_db"] = CLI.colored_input("Postgres database", CLI.COLOR_SUCCESS,
-                                                         self.__config.get("postgres_db"))
+        self.__config["kc_postgres_db"] = CLI.colored_input("KoBoCat PostgreSQL database", CLI.COLOR_SUCCESS,
+                                                            self.__config.get("postgres_db",
+                                                                              self.__config.get("kc_postgres_db")))
+        self.__config["kpi_postgres_db"] = CLI.colored_input("KPI PostgreSQL database", CLI.COLOR_SUCCESS,
+                                                             self.__config.get("kpi_postgres_db"))
+        while self.__config["kc_postgres_db"] == self.__config["kpi_postgres_db"]:
+            self.__config["kpi_postgres_db"] = CLI.colored_input(
+                "KPI must use its own PostgreSQL database, not share one with KoBoCAT. Please enter another database",
+                CLI.COLOR_ERROR,
+                Config.get_config_template()["kpi_postgres_db"],
+            )
         self.__config["postgres_user"] = CLI.colored_input("Postgres user", CLI.COLOR_SUCCESS,
                                                            self.__config.get("postgres_user"))
         self.__config["postgres_password"] = CLI.colored_input("Postgres password", CLI.COLOR_SUCCESS,
@@ -869,11 +940,11 @@ class Config:
             endpoint = "https://api.pgconfig.org/v1/tuning/get-config?environment_name={profile}" \
                        "&format=conf&include_pgbadger=false&max_connections={max_connections}&" \
                        "pg_version=9.5&total_ram={ram}GB&drive_type={drive_type}".format(
-                profile=self.__config["postgres_profile"],
-                ram=self.__config["postgres_ram"],
-                max_connections=self.__config["postgres_max_connections"],
-                drive_type=self.__config["postgres_hard_drive_type"].upper()
-            )
+                           profile=self.__config["postgres_profile"],
+                           ram=self.__config["postgres_ram"],
+                           max_connections=self.__config["postgres_max_connections"],
+                           drive_type=self.__config["postgres_hard_drive_type"].upper()
+                       )
             response = Network.curl(endpoint)
             if response:
                 self.__config["postgres_settings_content"] = re.sub(r"(log|lc_).+(\n|$)", "", response)
