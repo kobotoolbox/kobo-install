@@ -208,6 +208,16 @@ class Config:
             config = self.get_config_template()
             config.update(self.__config)
 
+            # If the configuration came from a previous version that had a
+            # single Postgres database, we need to make sure the new
+            # `kc_postgres_db` is set to the name of that single database,
+            # *not* the default from `get_config_template()`
+            if (
+                self.__config.get("postgres_db")
+                and not self.__config.get("kc_postgres_db")
+            ):
+                config["kc_postgres_db"] = self.__config["postgres_db"]
+
             self.__config = config
             self.__welcome()
 
