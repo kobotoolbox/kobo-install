@@ -29,8 +29,8 @@ class Config:
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
 
-    KOBO_DOCKER_BRANCH = 'kobo-install-two-databases'
-    KOBO_INSTALL_BRANCH = 'two-databases'
+    KOBO_DOCKER_BRANCH = '2.020.17'
+    KOBO_INSTALL_BRANCH = 'master'
     KOBO_INSTALL_VERSION = '2.1.0'
 
     # Maybe overkill. Use this class as a singleton to get the same configuration
