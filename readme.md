@@ -5,6 +5,8 @@ It prompts the user to answer some questions to create configuration files autom
 
 Prior to release `2.020.18`(https://github.com/kobotoolbox/kobo-install/releases/tag/2.020.18), [KPI](https://github.com/kobotoolbox/kpi) and [KoBoCAT](https://github.com/kobotoolbox/kobocat) both shared a common Postgres database. They now each have their own. **If you are upgrading an existing single-database installation, you must follow [these instructions](https://community.kobotoolbox.org/t/upgrading-to-separate-databases-for-kpi-and-kobocat/7202)** to migrate the KPI tables to a new database and adjust your configuration appropriately.
 
+If you do not want to upgrade at this time, please use the [`shared-database-obsolete`](https://github.com/kobotoolbox/kobo-install/tree/shared-database-obsolete) branch instead.
+
 ## Warning for `kobo-docker` installations made prior to March 2019
 
 If you have already installed `KoBoToolbox` with `kobo-docker` prior March 2019,
