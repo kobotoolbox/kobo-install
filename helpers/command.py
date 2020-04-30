@@ -403,24 +403,6 @@ class Command:
         config_object = Config()
         config = config_object.get_config()
 
-        if not frontend_only:
-            if not config_object.multi_servers or config_object.master_backend:
-
-                backend_role = config.get("backend_server_role", "master")
-
-                backend_command = [
-                    "docker-compose",
-                    "-f",
-                    "docker-compose.backend.{}.yml".format(backend_role),
-                    "-f",
-                    "docker-compose.backend.{}.override.yml".format(backend_role),
-                    "down"
-                ]
-                if config.get("docker_prefix", "") != "":
-                    backend_command.insert(-1, "-p")
-                    backend_command.insert(-1, config.get("docker_prefix"))
-                CLI.run_command(backend_command, config.get("kobodocker_path"))
-
         if not config_object.multi_servers or config_object.frontend:
             # Shut down maintenance container in case it's up&running
             maintenance_down_command = [
@@ -450,6 +432,25 @@ class Command:
                 proxy_command = ["docker-compose",
                                  "down"]
                 CLI.run_command(proxy_command, config_object.get_letsencrypt_repo_path())
+
+        if not frontend_only:
+            if not config_object.multi_servers or config_object.master_backend:
+
+                backend_role = config.get("backend_server_role", "master")
+
+                backend_command = [
+                    "docker-compose",
+                    "-f",
+                    "docker-compose.backend.{}.yml".format(backend_role),
+                    "-f",
+                    "docker-compose.backend.{}.override.yml".format(backend_role),
+                    "down"
+                ]
+                if config.get("docker_prefix", "") != "":
+                    backend_command.insert(-1, "-p")
+                    backend_command.insert(-1, config.get("docker_prefix"))
+                CLI.run_command(backend_command, config.get("kobodocker_path"))
+
 
         if output:
             CLI.colored_print("KoBoToolbox has been stopped", CLI.COLOR_SUCCESS)
