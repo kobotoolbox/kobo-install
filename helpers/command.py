@@ -344,7 +344,7 @@ class Command:
         CLI.colored_print("KoBoToolbox has been upgraded", CLI.COLOR_SUCCESS)
 
         # update itself
-        git_command = ["git", "pull", "origin", "master"]
+        git_command = ["git", "pull", "origin", "shared-database-obsolete"]
         CLI.run_command(git_command)
         CLI.colored_print("KoBoInstall has been upgraded", CLI.COLOR_SUCCESS)
 

@@ -11,7 +11,7 @@ from helpers.config import Config
 
 class Setup:
 
-    KOBO_DOCKER_BRANCH = "master"
+    KOBO_DOCKER_BRANCH = "shared-database-obsolete"
 
     @classmethod
     def run(cls, config):
