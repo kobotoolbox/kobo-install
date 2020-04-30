@@ -32,7 +32,7 @@ def run(force_setup=False):
 
         if force_setup:
             current_config = config.build()
-            Setup.run(current_config)
+            Setup.clone_kobodocker(config)
             Template.render(config)
             config.init_letsencrypt()
             Setup.update_hosts(current_config)
@@ -56,11 +56,11 @@ if __name__ == "__main__":
         if sys.argv[1] == "-h" or sys.argv[1] == "--help":
             Command.help()
         elif sys.argv[1] == "-u" or sys.argv[1] == "--update":
-            # Gets changed to "update" in a future release; accept either
-            # "update" or "upgrade" here to ease the transition
-            Command.upgrade()
+            Command.update()
         elif sys.argv[1] == "--upgrade":
-            Command.upgrade()
+            # "update" was called "upgrade" in a previous release; accept
+            # either "update" or "upgrade" here to ease the transition
+            Command.update()
         elif sys.argv[1] == "-i" or sys.argv[1] == "--info":
             Command.info(0)
         elif sys.argv[1] == "-s" or sys.argv[1] == "--setup":
@@ -77,6 +77,10 @@ if __name__ == "__main__":
             Command.build("kc")
         elif sys.argv[1] == "-v" or sys.argv[1] == "--version":
             Command.version()
+        elif sys.argv[1] == "-m" or sys.argv[1] == "--maintenance":
+            Command.configure_maintenance()
+        elif sys.argv[1] == "-sm" or sys.argv[1] == "--stop-maintenance":
+            Command.stop_maintenance()
         else:
             CLI.colored_print("Bad syntax. Try 'run.py --help'", CLI.COLOR_ERROR)
     else:

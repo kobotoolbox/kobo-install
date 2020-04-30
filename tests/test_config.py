@@ -7,6 +7,7 @@ import random
 import shutil
 import string
 import tempfile
+import time
 
 
 try:
@@ -68,7 +69,7 @@ def test_installation():
 
 
 @patch("helpers.config.Config._Config__clone_repo", MagicMock(return_value=True))
-def test_dev_mode():
+def test_staging_mode():
     config_object = test_read_config()
     kc_repo_path = tempfile.mkdtemp()
     kpi_repo_path = tempfile.mkdtemp()
@@ -84,6 +85,9 @@ def test_dev_mode():
     shutil.rmtree(kc_repo_path)
     shutil.rmtree(kpi_repo_path)
 
+
+@patch("helpers.config.Config._Config__clone_repo", MagicMock(return_value=True))
+def test_dev_mode():
     config_object = test_installation()
 
     kc_repo_path = tempfile.mkdtemp()
@@ -91,13 +95,16 @@ def test_dev_mode():
 
     with patch("helpers.cli.CLI.colored_input") as mock_colored_input:
 
-        mock_colored_input.side_effect = iter(["8080", Config.TRUE, kc_repo_path, kpi_repo_path, Config.FALSE])
+        mock_colored_input.side_effect = iter(["8080", Config.TRUE, kc_repo_path, kpi_repo_path,
+                                               Config.FALSE, Config.FALSE])
+
         config_object._Config__questions_dev_mode()
         config = config_object.get_config()
         assert config_object.dev_mode
         assert not config_object.staging_mode
         assert config_object.get_config().get("exposed_nginx_docker_port") == "8080"
         assert config.get("kpi_path") == kpi_repo_path and config.get("kc_path") == kc_repo_path
+        assert config.get("npm_container") == Config.FALSE
 
     shutil.rmtree(kc_repo_path)
     shutil.rmtree(kpi_repo_path)
@@ -247,8 +254,6 @@ def test_proxy_no_ssl_advanced():
         config_object._Config__questions_https()
         assert not config_object.is_secure
 
-
-
         # Proxy - not on the same server
         proxy_port = Config.DEFAULT_NGINX_PORT
         with patch("helpers.cli.CLI.colored_input") as mock_colored_input_1:
@@ -295,3 +300,29 @@ def test_create_directory():
         assert config.get("kobodocker_path") == destination_path
 
     shutil.rmtree(destination_path)
+
+
+def test_maintenance():
+    config_object = test_read_config()
+
+    # First time
+    with pytest.raises(SystemExit) as pytest_wrapped_e:
+        config_object.maintenance()
+        assert pytest_wrapped_e.type == SystemExit
+        assert pytest_wrapped_e.value.code == 1
+
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input_1:
+        mock_colored_input_1.side_effect = iter([
+            '2hours',  # Wrong value, it should ask again
+            '2 hours',  # OK
+            '',  # Wrong value, it should ask again
+            '20190101T0200',  # OK
+            'email@example.com'
+        ])
+        config_object._Config__config["date_created"] = time.time()
+        config_object._Config__first_time = False
+        config_object.maintenance()
+        config = config_object.get_config()
+        expected_str = 'Tuesday,&nbsp;January&nbsp;01&nbsp;at&nbsp;02:00&nbsp;GMT'
+        assert config.get('maintenance_date_str') == expected_str
+

@@ -1,11 +1,15 @@
 The purpose of the script is to install `KoBoToolbox ` in minutes without messing with configuration files.  
 It prompts the user to answer some questions to create configuration files automatically and to start docker containers based on [`kobo-docker`](https://github.com/kobotoolbox/kobo-docker "").
 
-## Warning
+## Important notice when upgrading from any release older than [`2.020.18`](https://github.com/kobotoolbox/kobo-install/releases/tag/2.020.18)
+
+Prior to release `2.020.18`(https://github.com/kobotoolbox/kobo-install/releases/tag/2.020.18), [KPI](https://github.com/kobotoolbox/kpi) and [KoBoCAT](https://github.com/kobotoolbox/kobocat) both shared a common Postgres database. They now each have their own. **If you are upgrading an existing single-database installation, you must follow [these instructions](https://community.kobotoolbox.org/t/upgrading-to-separate-databases-for-kpi-and-kobocat/7202)** to migrate the KPI tables to a new database and adjust your configuration appropriately.
+
+## Warning for `kobo-docker` installations made prior to March 2019
+
 If you have already installed `KoBoToolbox` with `kobo-docker` prior March 2019,
-databases are not compatible and and docker images (`PostgreSQL`, `MongoDB`) are not the same.  
-**`KoBoInstall` won't be able to start the app.**  
-Follow [those steps](https://github.com/kobotoolbox/kobo-docker#upgrading-from-an-old-version-of-kobo-docker-before-to-march-2019) to upgrade.
+you **must** complete [a manual upgrade process](https://github.com/kobotoolbox/kobo-docker/#important-notice-when-upgrading-from-commit-5c2ef02-march-4-2019-or-earlier)
+before using this repository. **If you do not, `kobo-install` will not be able to start.**
 
 ## Usage
 
@@ -23,8 +27,8 @@ Get info:
 Get docker logs:  
 `$kobo-install> python3 run.py --logs`
 
-Upgrade KoBoToolbox:  
-`$kobo-install> python3 run.py --upgrade`
+Update KoBoToolbox:  
+`$kobo-install> python3 run.py --update`
 
 Stop KoBoToolbox:  
 `$kobo-install> python3 run.py --stop`
@@ -38,8 +42,17 @@ Get version:
 Build kpi and kobocat (dev mode):  
 `$kobo-install> python3 run.py --build`
 
+Run docker commands on frontend containers:
+`$kobo-install> python run.py --compose-frontend [docker-compose arguments]`
 
-**Be aware, this utility is a beta release and may still have bugs.**
+Run docker commands on backend containers:
+`$kobo-install> python run.py --compose-backend [docker-compose arguments]`
+
+Start maintenance mode:
+`$kobo-install> python run.py --maintenance`
+
+Stop maintenance mode:
+`$kobo-install> python run.py --stop-maintenance`
 
 ## Build the configuration
 User can choose between 2 types of installations:
