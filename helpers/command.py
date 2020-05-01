@@ -34,7 +34,7 @@ class Command:
                "                Prompt questions to rebuild configuration. Restart KoBoToolbox\n"
                "          -S, --stop\n"
                "                Stop KoBoToolbox\n"
-               "          -u, --update\n"
+               "          -u, --update, --upgrade\n"
                "                Update KoBoToolbox\n"
                "          -cf, --compose-frontend [docker-compose arguments]\n"
                "                Run a docker-compose command in the front-end environment\n"

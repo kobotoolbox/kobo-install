@@ -28,7 +28,7 @@ class Config:
     DEFAULT_PROXY_PORT = "8080"
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
-    KOBO_DOCKER_BRANCH = 'two-databases-secured-backend'
+    KOBO_DOCKER_BRANCH = 'secured-backend'
     KOBO_INSTALL_BRANCH = 'secured-backend'
     KOBO_INSTALL_VERSION = '2.2.0'
 
@@ -136,7 +136,21 @@ class Config:
             config = self.get_config_template()
             config.update(self.__config)
 
-            self.__config = self.__upgrade_kc_db(config)
+            # TODO This method does the same thing as lines below but does not keep
+            # retro-compatibility. Remove this code if it'S not need anymore
+            # self.__config = self.__upgrade_kc_db(config)
+
+            # If the configuration came from a previous version that had a
+            # single Postgres database, we need to make sure the new
+            # `kc_postgres_db` is set to the name of that single database,
+            # *not* the default from `get_config_template()`
+            if (
+                self.__config.get("postgres_db")
+                and not self.__config.get("kc_postgres_db")
+            ):
+                config["kc_postgres_db"] = self.__config["postgres_db"]
+
+            self.__config = config
             self.__welcome()
 
             self.__create_directory()
@@ -1550,6 +1564,8 @@ class Config:
         self.__config["mongo_secured"] = Config.TRUE
 
     def __upgrade_kc_db(self, config):
+        # TODO Validate whether this method is still needed if we want to keep
+        # retro-compatibility
         kc_postgres_db = config.pop('postgres_db', None)
         if kc_postgres_db is not None:
             config['kc_postgres_db'] = kc_postgres_db

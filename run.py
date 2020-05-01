@@ -59,6 +59,10 @@ if __name__ == "__main__":
                 Command.help()
             elif sys.argv[1] == "-u" or sys.argv[1] == "--update":
                 Command.update()
+            elif sys.argv[1] == "--upgrade":
+                # "update" was called "upgrade" in a previous release; accept
+                # either "update" or "upgrade" here to ease the transition
+                Command.update()
             elif sys.argv[1] == "-i" or sys.argv[1] == "--info":
                 Command.info(0)
             elif sys.argv[1] == "-s" or sys.argv[1] == "--setup":

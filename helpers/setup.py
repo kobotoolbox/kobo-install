@@ -50,6 +50,10 @@ class Setup:
         :param config: Config().get_config()
         """
         if os.path.isdir(os.path.join(config["kobodocker_path"], ".git")):
+            # fetch new tags
+            git_command = ["git", "fetch", "--tags"]
+            CLI.run_command(git_command, cwd=config["kobodocker_path"])
+
             # checkout branch
             git_command = ["git", "checkout", "--force", Config.KOBO_DOCKER_BRANCH]
             CLI.run_command(git_command, cwd=config["kobodocker_path"])
