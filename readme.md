@@ -44,16 +44,16 @@ Get version:
 Build kpi and kobocat (dev mode):  
 `$kobo-install> python3 run.py --build`
 
-Run docker commands on frontend containers:
+Run docker commands on frontend containers:  
 `$kobo-install> python run.py --compose-frontend [docker-compose arguments]`
 
-Run docker commands on backend containers:
+Run docker commands on backend containers:  
 `$kobo-install> python run.py --compose-backend [docker-compose arguments]`
 
-Start maintenance mode:
+Start maintenance mode:  
 `$kobo-install> python run.py --maintenance`
 
-Stop maintenance mode:
+Stop maintenance mode:  
 `$kobo-install> python run.py --stop-maintenance`
 
 ## Build the configuration
@@ -132,7 +132,7 @@ User can choose between 2 types of installations:
     _**WARNING:**_
     
     - _If you use a firewall, be sure to open traffic publicly on NGINX port, otherwise KoBoInstall cannot work_
-    - _By default, additional ports are not exposed expect when using multi servers configuration. If you choose to expose them, **be sure to not expose them publicly** (e.g. use a firewall and allow traffic between frontend and backend containers only. NGINX port still has to stay publicly opened though)._
+    - _By default, additional ports are not exposed except when using multi servers configuration. If you choose to expose them, **be sure to not expose them publicly** (e.g. use a firewall and allow traffic between frontend and backend containers only. NGINX port still has to stay publicly opened though)._
     
 <sup>4)</sup> _It has been tested with Ubuntu 14.04, 16.04 and 18.04_
 
