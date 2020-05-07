@@ -124,6 +124,7 @@ User can choose between 2 types of installations:
 - Available TCP Ports: <sup>6</sup>
 
     1. 80 NGINX
+    1. 443 NGINX (if you use KoBoInstall with LetsEncrypt proxy) 
     2. Additional ports when `expose ports` advanced option has been selected
         1. 5432 PostgreSQL
         3. 6379-6380 redis

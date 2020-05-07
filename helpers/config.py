@@ -1101,7 +1101,7 @@ class Config:
             # what was the previous username to log in before performing any
             # action.
 
-            # `content` will be read by MongoDB container at next boot
+            # `content` will be read by PostgreSQL container at next boot
             # It should always contain previous username and a boolean for deletion.
             # Its format should be: `<user><TAB><boolean>`
             content = '{username}\tfalse'.format(username=postgres_user)
