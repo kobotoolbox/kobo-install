@@ -3,9 +3,8 @@ from __future__ import unicode_literals
 
 import json
 import pytest
-import random
+import os
 import shutil
-import string
 import tempfile
 import time
 
@@ -26,6 +25,12 @@ def reset_config(config_object):
     config_dict = dict(Config.get_config_template())
     config_dict["kobodocker_path"] = "/tmp"
     config_object.__config = config_dict
+
+
+def write_trigger_upsert_db_users(*args):
+    content = args[1]
+    with open("/tmp/upsert_db_users", "w") as f:
+        f.write(content)
 
 
 def test_read_config(overrides=None):
@@ -168,7 +173,7 @@ def test_proxy_letsencrypt():
                                                "test@test.com",
                                                Config.TRUE,
                                                Config.DEFAULT_NGINX_PORT])  # Use default options
-        config_object._Config__question_reverse_proxy()
+        config_object._Config__questions_reverse_proxy()
         assert config_object.proxy
         assert config_object.use_letsencrypt
         assert config_object.block_common_http_ports
@@ -187,7 +192,7 @@ def test_proxy_no_letsencrypt_advanced():
 
         with patch("helpers.cli.CLI.colored_input") as mock_colored_input:
             mock_colored_input.side_effect = iter([Config.FALSE, Config.FALSE, proxy_port])
-            config_object._Config__question_reverse_proxy()
+            config_object._Config__questions_reverse_proxy()
             assert config_object.proxy
             assert not config_object.use_letsencrypt
             assert not config_object.block_common_http_ports
@@ -201,7 +206,7 @@ def test_proxy_no_letsencrypt():
     assert config_object.use_letsencrypt
 
     with patch.object(CLI, "colored_input", return_value=Config.FALSE) as mock_ci:
-        config_object._Config__question_reverse_proxy()
+        config_object._Config__questions_reverse_proxy()
         assert config_object.proxy
         assert not config_object.use_letsencrypt
         assert config_object.block_common_http_ports
@@ -219,7 +224,7 @@ def test_proxy_no_letsencrypt_retains_custom_nginx_proxy_port():
             CLI, "colored_input",
             new=classmethod(lambda cls, message, color, default: default)
     ) as mock_ci:
-        config_object._Config__question_reverse_proxy()
+        config_object._Config__questions_reverse_proxy()
         assert(config_object.get_config().get("nginx_proxy_port")
                == str(CUSTOM_PROXY_PORT))
 
@@ -236,7 +241,7 @@ def test_no_proxy_no_ssl():
         assert not config_object.is_secure
 
         with patch.object(CLI, "colored_input", return_value=Config.FALSE) as mock_ci_2:
-            config_object._Config__question_reverse_proxy()
+            config_object._Config__questions_reverse_proxy()
             assert not config_object.proxy
             assert not config_object.use_letsencrypt
             assert not config_object.block_common_http_ports
@@ -258,7 +263,7 @@ def test_proxy_no_ssl_advanced():
         proxy_port = Config.DEFAULT_NGINX_PORT
         with patch("helpers.cli.CLI.colored_input") as mock_colored_input_1:
             mock_colored_input_1.side_effect = iter([Config.TRUE, Config.FALSE, proxy_port])
-            config_object._Config__question_reverse_proxy()
+            config_object._Config__questions_reverse_proxy()
             assert config_object.proxy
             assert not config_object.use_letsencrypt
             assert not config_object.block_common_http_ports
@@ -268,7 +273,7 @@ def test_proxy_no_ssl_advanced():
         proxy_port = Config.DEFAULT_PROXY_PORT
         with patch("helpers.cli.CLI.colored_input") as mock_colored_input_2:
             mock_colored_input_2.side_effect = iter([Config.TRUE, Config.TRUE, proxy_port])
-            config_object._Config__question_reverse_proxy()
+            config_object._Config__questions_reverse_proxy()
             assert config_object.proxy
             assert not config_object.use_letsencrypt
             assert config_object.block_common_http_ports
@@ -302,6 +307,7 @@ def test_create_directory():
     shutil.rmtree(destination_path)
 
 
+@patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
 def test_maintenance():
     config_object = test_read_config()
 
@@ -326,3 +332,204 @@ def test_maintenance():
         expected_str = 'Tuesday,&nbsp;January&nbsp;01&nbsp;at&nbsp;02:00&nbsp;GMT'
         assert config.get('maintenance_date_str') == expected_str
 
+
+def test_exposed_ports():
+    config_object = test_read_config()
+    with patch.object(CLI, "colored_input", return_value=Config.TRUE) as mock_ci:
+        # Choose multi servers options
+        config_object._Config__questions_multi_servers()
+
+        with patch("helpers.cli.CLI.colored_input") as mock_ci:
+            # Choose to customize ports
+            mock_ci.side_effect = iter([Config.TRUE, "5532", "27117", "6479", "6480"])
+            config_object._Config__questions_ports()
+
+            assert config_object._Config__config["postgresql_port"] == "5532"
+            assert config_object._Config__config["mongo_port"] == "27117"
+            assert config_object._Config__config["redis_main_port"] == "6479"
+            assert config_object._Config__config["redis_cache_port"] == "6480"
+            assert config_object.expose_backend_ports
+
+    with patch.object(CLI, "colored_input", return_value=Config.FALSE) as mock_ci_1:
+        # Choose to single server
+        config_object._Config__questions_multi_servers()
+
+        with patch.object(CLI, "colored_input", return_value=Config.FALSE) as mock_ci_2:
+            # Choose to not expose ports
+            config_object._Config__questions_ports()
+
+            assert config_object._Config__config["postgresql_port"] == "5432"
+            assert config_object._Config__config["mongo_port"] == "27017"
+            assert config_object._Config__config["redis_main_port"] == "6379"
+            assert config_object._Config__config["redis_cache_port"] == "6380"
+            assert not config_object.expose_backend_ports
+
+
+@patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
+def test_force_secure_mongo():
+    config_object = test_read_config()
+    config_ = config_object.get_config()
+
+    with patch("helpers.cli.CLI.colored_input") as mock_ci:
+        # We need to run it like if user has already run the setup once to
+        # force MongoDB to "upsert" users.
+        config_object._Config__first_time = False
+        # Run with no advanced options
+        mock_ci.side_effect = iter([
+            config_["kobodocker_path"],
+            Config.TRUE,  # Confirm path
+            config_["advanced"],
+            config_["local_installation"],
+            config_["public_domain_name"],
+            config_["kpi_subdomain"],
+            config_["kc_subdomain"],
+            config_["ee_subdomain"],
+            Config.FALSE,  # Do you want to use HTTPS?
+            config_.get("smtp_host", ""),
+            config_.get("smtp_port", "25"),
+            config_.get("smtp_user", ""),
+            "test@test.com",
+            config_["super_user_username"],
+            config_["super_user_password"],
+            config_["use_backup"]
+        ])
+        new_config = config_object.build()
+        assert new_config.get("mongo_secured") == Config.TRUE
+
+
+@patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',
+       new=write_trigger_upsert_db_users)
+def test_secure_mongo_advanced_options():
+    config_object = test_read_config()
+    with patch("helpers.cli.CLI.colored_input") as mock_ci:
+        mock_ci.side_effect = iter([
+            "root",
+            "root_password",
+            "mongo_kobo_user",
+            "mongo_password"
+        ])
+        config_object._Config__questions_mongo()
+        assert not os.path.exists("/tmp/upsert_db_users")
+
+
+@patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',
+       new=write_trigger_upsert_db_users)
+def test_update_mongo_passwords():
+    config_object = test_read_config()
+    with patch("helpers.cli.CLI.colored_input") as mock_ci:
+        config_object._Config__first_time = False
+        config_object._Config__config["mongo_root_username"] = 'root'
+        config_object._Config__config["mongo_user_username"] = 'user'
+        mock_ci.side_effect = iter([
+            "root",
+            "root_password",
+            "user",
+            "mongo_password"
+        ])
+        config_object._Config__questions_mongo()
+        assert os.path.exists("/tmp/upsert_db_users")
+        assert os.path.getsize("/tmp/upsert_db_users") == 0
+        os.remove("/tmp/upsert_db_users")
+
+
+@patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',
+       new=write_trigger_upsert_db_users)
+def test_update_mongo_usernames():
+    config_object = test_read_config()
+    with patch("helpers.cli.CLI.colored_input") as mock_ci:
+        config_object._Config__first_time = False
+        config_object._Config__config["mongo_root_username"] = 'root'
+        config_object._Config__config["mongo_user_username"] = 'user'
+        mock_ci.side_effect = iter([
+            "admin",
+            "root_password",
+            "another_user",
+            "mongo_password",
+            Config.TRUE  # Delete users
+        ])
+        config_object._Config__questions_mongo()
+        assert os.path.exists("/tmp/upsert_db_users")
+        with open("/tmp/upsert_db_users", "r") as f:
+            content = f.read()
+        expected_content = "user\tformhub\nroot\tadmin"
+        assert content == expected_content
+        os.remove("/tmp/upsert_db_users")
+
+
+@patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',
+       new=write_trigger_upsert_db_users)
+def test_update_postgres_password():
+    """
+    Does **NOT** test if user is updated in PostgreSQL but the file creation
+    (and its content) used to trigger the action by PostgreSQL container.
+
+    When password changes, file must contain `<user><TAB><deletion boolean>`
+    Users should not be deleted if they already exist.
+    """
+    config_object = test_read_config()
+    with patch("helpers.cli.CLI.colored_input") as mock_ci:
+        config_object._Config__first_time = False
+        config_object._Config__config["postgres_user"] = 'user'
+        config_object._Config__config["postgres_password"] = 'password'
+        mock_ci.side_effect = iter([
+            "kobocat",
+            "koboform",
+            "user",
+            "user_password",
+            Config.FALSE  # Tweak settings
+        ])
+        config_object._Config__questions_postgres()
+        assert os.path.exists("/tmp/upsert_db_users")
+        with open("/tmp/upsert_db_users", "r") as f:
+            content = f.read()
+        expected_content = "user\tfalse"
+        assert content == expected_content
+        os.remove("/tmp/upsert_db_users")
+
+
+@patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',
+       new=write_trigger_upsert_db_users)
+def test_update_postgres_username():
+    """
+    Does **NOT** test if user is updated in PostgreSQL but the file creation
+    (and its content) used to trigger the action by PostgreSQL container.
+
+    When username changes, file must contain `<user><TAB><deletion boolean>`
+    """
+    config_object = test_read_config()
+    with patch("helpers.cli.CLI.colored_input") as mock_ci:
+        config_object._Config__first_time = False
+        config_object._Config__config["postgres_user"] = 'user'
+        config_object._Config__config["postgres_password"] = 'password'
+        mock_ci.side_effect = iter([
+            "kobocat",
+            "koboform",
+            "another_user",
+            "password",
+            Config.TRUE,  # Delete user
+            Config.FALSE  # Tweak settings
+        ])
+        config_object._Config__questions_postgres()
+        assert os.path.exists("/tmp/upsert_db_users")
+        with open("/tmp/upsert_db_users", "r") as f:
+            content = f.read()
+        expected_content = "user\ttrue"
+        assert content == expected_content
+        os.remove("/tmp/upsert_db_users")
+
+
+def test_update_postgres_db_name_from_single_database():
+    """
+    Simulate upgrade from single database to two databases.
+    With two databases, KoBoCat has its own database. We ensure that
+    `kc_postgres_db` gets `postgres_db` value.
+    """
+    config_object = test_read_config()
+    config = config_object.get_config()
+    old_db_name = "postgres_db_kobo"
+    config_object._Config__config["postgres_db"] = old_db_name
+    assert config.get("kc_postgres_db") == config_object.get_config_template()["kc_postgres_db"]
+    assert "postgres_db" in config
+    config = config_object._Config__upgrade_kc_db(config)
+    assert config.get("kc_postgres_db") == old_db_name
+    assert "postgres_db" not in config

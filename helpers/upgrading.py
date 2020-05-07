@@ -14,8 +14,8 @@ def migrate_single_to_two_databases():
     while KoBoCAT's has user data, then we are migrating from a
     single-database setup
     """
-
-    config = Config().get_config()
+    config_object = Config()
+    config = config_object.get_config()
     backend_role = config.get("backend_server_role", "master")
 
     def _kpi_db_alias_kludge(command):
@@ -31,18 +31,23 @@ def migrate_single_to_two_databases():
 
     kpi_run_command = ["docker-compose",
                        "-f", "docker-compose.frontend.yml",
-                       "-f", "docker-compose.frontend.override.yml"]
-    if config.get("docker_prefix", "") != "":
-        kpi_run_command += ["-p", config.get("docker_prefix")]
-    kpi_run_command += ["run", "--rm", "kpi"]
+                       "-f", "docker-compose.frontend.override.yml",
+                       "-p", config_object.get_prefix("frontend"),
+                       "run", "--rm", "kpi"]
 
     # Make sure Postgres is running
+    # We add this message to users because when AWS backups are activated,
+    # it takes a long time to install the virtualenv in PostgreSQL container,
+    # so the `wait_for_database` below sits there a while.
+    # It makes us think KoBoInstall is frozen.
+    CLI.colored_print("Waiting for PostgreSQL database to be up & running...",
+                      CLI.COLOR_INFO)
     frontend_command = kpi_run_command + _kpi_db_alias_kludge(" ".join([
                            "python", "manage.py",
-                           "wait_for_database", "--retries", "30"
+                           "wait_for_database", "--retries", "45"
                        ]))
     CLI.run_command(frontend_command, config.get("kobodocker_path"))
-    CLI.colored_print("The Postgres database is running!", CLI.COLOR_SUCCESS)
+    CLI.colored_print("The PostgreSQL database is running!", CLI.COLOR_SUCCESS)
 
     frontend_command = kpi_run_command + _kpi_db_alias_kludge(" ".join([
                             "python", "manage.py",
@@ -95,11 +100,8 @@ def migrate_single_to_two_databases():
             "-f",
             "docker-compose.backend.{}.yml".format(backend_role),
             "-f",
-            "docker-compose.backend.{}.override.yml".format(backend_role)
-        ]
-        if config.get("docker_prefix", "") != "":
-            backend_command += ["-p", config.get("docker_prefix")]
-        backend_command += [
+            "docker-compose.backend.{}.override.yml".format(backend_role),
+            "-p", config_object.get_prefix("backend"),
             "exec", "postgres", "bash",
             "/kobo-docker-scripts/master/clone_data_from_kc_to_kpi.sh",
             "--noinput"

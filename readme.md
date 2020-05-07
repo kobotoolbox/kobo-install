@@ -44,16 +44,16 @@ Get version:
 Build kpi and kobocat (dev mode):  
 `$kobo-install> python3 run.py --build`
 
-Run docker commands on frontend containers:
+Run docker commands on frontend containers:  
 `$kobo-install> python run.py --compose-frontend [docker-compose arguments]`
 
-Run docker commands on backend containers:
+Run docker commands on backend containers:  
 `$kobo-install> python run.py --compose-backend [docker-compose arguments]`
 
-Start maintenance mode:
+Start maintenance mode:  
 `$kobo-install> python run.py --maintenance`
 
-Stop maintenance mode:
+Stop maintenance mode:  
 `$kobo-install> python run.py --stop-maintenance`
 
 ## Build the configuration
@@ -73,6 +73,7 @@ User can choose between 2 types of installations:
 |Use HTTPS<sup>1</sup>| **False** (Workstation)<br>**True** (Server)  |  | ✓ (frontend only) |
 |Super user's username| **super_admin** | ✓ | ✓ (frontend only) |
 |Super user's password| **Random string**  | ✓ | ✓ (frontend only) |
+|Activate backups<sup>2</sup>|  **False**  | ✓ | ✓ (backend only) |
 
 ### Advanced Options
 
@@ -85,12 +86,17 @@ User can choose between 2 types of installations:
 |Use DNS for private routes| **No**  |  | ✓ (frontend only) |
 |Master backend IP _(if previous answer is no)_| **Local IP**  |  | ✓ (frontend only) |
 |PostgreSQL DB|  **kobo**  | ✓ | ✓ |
-|PostgreSQL user|  **kobo**  | ✓ | ✓ |
-|PostgreSQL password|  **Autogenerate**  | ✓ | ✓ |
-|PostgreSQL number of connections<sup>2</sup>|  **100**  | ✓ | ✓ (backend only) |
-|PostgreSQL RAM<sup>2</sup>|  **2**  | ✓ | ✓ (backend only) |
-|PostgreSQL Application Profile<sup>2</sup>|  **Mixed**  | ✓ | ✓ (backend only) |
-|PostgreSQL Storage<sup>2</sup>|  **HDD**  | ✓ | ✓ (backend only) |
+|PostgreSQL user's username|  **kobo**  | ✓ | ✓ |
+|PostgreSQL user's password|  **Autogenerate**  | ✓ | ✓ |
+|PostgreSQL number of connections<sup>3</sup>|  **100**  | ✓ | ✓ (backend only) |
+|PostgreSQL RAM<sup>3</sup>|  **2**  | ✓ | ✓ (backend only) |
+|PostgreSQL Application Profile<sup>3</sup>|  **Mixed**  | ✓ | ✓ (backend only) |
+|PostgreSQL Storage<sup>3</sup>|  **HDD**  | ✓ | ✓ (backend only) |
+|MongoDB super user's username|  **root**  | ✓ | ✓ |
+|MongoDB super user's password|  **Autogenerate**  | ✓ | ✓ |
+|MongoDB user's username|  **kobo**  | ✓ | ✓ |
+|MongoDB user's password|  **Autogenerate**  | ✓ | ✓ |
+|Redis password|  **Autogenerate**  | ✓ | ✓ |
 |Use AWS storage|  **No**  | ✓ | ✓ (frontend only) |
 |uWGI workers|  **start: 2, max: 4**  | ✓ | ✓ (frontend only) |
 |uWGI memory limit|  **128 MB**  | ✓ | ✓ (frontend only) |
@@ -104,24 +110,37 @@ User can choose between 2 types of installations:
 <sup>1)</sup> _HTTPS certificates must be installed on a Reverse Proxy. 
 `KoBoInstall` can install one and use `Let's Encrypt` to generate certificates thanks to [nginx-certbot project](https://github.com/wmnnd/nginx-certbot "")_
 
-<sup>2)</sup> _Custom settings are provided by [PostgreSQL Configuration Tool API](https://github.com/sebastianwebber/pgconfig-api "")_
+<sup>2)</sup> _If AWS credentials are provided, backups are sent to configured bucket_
+
+<sup>3)</sup> _Custom settings are provided by [PostgreSQL Configuration Tool API](https://github.com/sebastianwebber/pgconfig-api "")_
 
 ℹ  Intercom App ID [must now](https://github.com/kobotoolbox/kpi/pull/2285) be configured through "Per user settings" in the Django admin interface of KPI.
 
 ## Requirements
 
-- Linux / macOS
-- Python 2.7/3.5+ <sup>Python2 support will be dropped in a future release</sup>
+- Linux <sup>4</sup> / macOS <sup>5</sup>
+- Python 2.7/3.5+ <sup>_Python2 support will be dropped in a future release_</sup>
 - [Docker](https://www.docker.com/get-started "") & [Docker Compose](https://docs.docker.com/compose/install/ "")
-- Available TCP Ports:
+- Available TCP Ports: <sup>6</sup>
 
-    1. 80 NginX
-    2. 5432 PostgreSQL
-    3. 5672 RabbitMQ
-    4. 6379-6380 redis
-    5. 27017 MongoDB
+    1. 80 NGINX
+    1. 443 NGINX (if you use KoBoInstall with LetsEncrypt proxy) 
+    2. Additional ports when `expose ports` advanced option has been selected
+        1. 5432 PostgreSQL
+        3. 6379-6380 redis
+        4. 27017 MongoDB
+
+    _**WARNING:**_
     
-    _N.B.: Ports can be customized in advanced options._
+    - _If you use a firewall, be sure to open traffic publicly on NGINX port, otherwise KoBoInstall cannot work_
+    - _By default, additional ports are not exposed except when using multi servers configuration. If you choose to expose them, **be sure to not expose them publicly** (e.g. use a firewall and allow traffic between frontend and backend containers only. NGINX port still has to stay publicly opened though)._
+    
+<sup>4)</sup> _It has been tested with Ubuntu 14.04, 16.04 and 18.04_
+
+<sup>5)</sup> _Docker on macOS is slow. First boot usually takes a while to be ready. You may have to answer `Yes` once or twice to question `Wait for another 600 seconds?` when prompted_
+
+<sup>6)</sup> _These are defaults but can be customized with advanced options_
+
 
 ## Tests
 

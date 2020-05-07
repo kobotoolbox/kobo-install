@@ -3,10 +3,16 @@ from __future__ import print_function, unicode_literals
 
 import binascii
 import fnmatch
+import json
 import os
-from string import Template as PyTemplate
 import stat
 import sys
+try:
+    from urllib.parse import quote_plus
+except ImportError:
+    from urllib import quote_plus
+
+from string import Template as PyTemplate
 
 from helpers.cli import CLI
 from helpers.config import Config
@@ -51,22 +57,33 @@ class Template:
             destination_directory = cls.__create_directory(environment_directory,
                                                            root,
                                                            templates_path)
-            cls.__write_templates(template_variables, root, destination_directory, filenames)
+            cls.__write_templates(template_variables,
+                                  root,
+                                  destination_directory,
+                                  filenames)
 
         # kobo-docker
         templates_path = os.path.join(templates_path_parent, "kobo-docker")
         for root, dirnames, filenames in os.walk(templates_path):
             destination_directory = config.get("kobodocker_path")
-            cls.__write_templates(template_variables, root, destination_directory, filenames)
+            cls.__write_templates(template_variables,
+                                  root,
+                                  destination_directory,
+                                  filenames)
 
         # nginx-certbox
         if config_object.use_letsencrypt:
-            templates_path = os.path.join(templates_path_parent, Config.LETSENCRYPT_DOCKER_DIR, "")
+            templates_path = os.path.join(templates_path_parent,
+                                          Config.LETSENCRYPT_DOCKER_DIR, "")
             for root, dirnames, filenames in os.walk(templates_path):
-                destination_directory = cls.__create_directory(config_object.get_letsencrypt_repo_path(),
-                                                               root,
-                                                               templates_path)
-                cls.__write_templates(template_variables, root, destination_directory, filenames)
+                destination_directory = cls.__create_directory(
+                    config_object.get_letsencrypt_repo_path(),
+                    root,
+                    templates_path)
+                cls.__write_templates(template_variables,
+                                      root,
+                                      destination_directory,
+                                      filenames)
 
     @classmethod
     def render_maintenance(cls, config_object):
@@ -82,7 +99,10 @@ class Template:
         for root, dirnames, filenames in os.walk(templates_path):
             filenames = [filename for filename in filenames if 'maintenance' in filename]
             destination_directory = config.get("kobodocker_path")
-            cls.__write_templates(template_variables, root, destination_directory, filenames)
+            cls.__write_templates(template_variables,
+                                  root,
+                                  destination_directory,
+                                  filenames)
 
     @classmethod
     def __create_directory(cls, template_root_directory, path="", base_dir=""):
@@ -96,8 +116,10 @@ class Template:
             try:
                 os.makedirs(destination_directory)
             except OSError:
-                CLI.colored_print("Can not create {}. Please verify permissions!".format(destination_directory),
-                                  CLI.COLOR_ERROR)
+                CLI.colored_print(
+                    "Can not create {}. "
+                    "Please verify permissions!".format(destination_directory),
+                    CLI.COLOR_ERROR)
                 sys.exit(1)
 
         return destination_directory
@@ -107,15 +129,21 @@ class Template:
 
         config = config_object.get_config()
 
+        def _get_value(property_, true_value="", false_value="#",
+                       comparison_value=Config.TRUE):
+            return true_value \
+                if config.get(property_) == comparison_value \
+                else false_value
+
         if config_object.proxy:
             nginx_port = config.get("nginx_proxy_port")
         else:
             nginx_port = config.get("exposed_nginx_docker_port")
 
         return {
-            "PROTOCOL": "https" if config.get("https") == Config.TRUE else "http",
-            "USE_HTTPS": "" if config.get("https") == Config.TRUE else "#",
-            "USE_AWS": "" if config.get("use_aws") == Config.TRUE else "#",
+            "PROTOCOL": _get_value("https", "https", "http"),
+            "USE_HTTPS": _get_value("https"),
+            "USE_AWS": _get_value("use_aws"),
             "AWS_ACCESS_KEY_ID": config.get("aws_access_key", ""),
             "AWS_SECRET_ACCESS_KEY": config.get("aws_secret_key", ""),
             "AWS_BUCKET_NAME": config.get("aws_bucket_name", ""),
@@ -129,8 +157,10 @@ class Template:
             "ENKETO_SUBDOMAIN": config.get("ee_subdomain", ""),
             "KOBO_SUPERUSER_USERNAME": config.get("super_user_username", ""),
             "KOBO_SUPERUSER_PASSWORD": config.get("super_user_password", ""),
-            "ENKETO_API_TOKEN": config.get("enketo_api_token", binascii.hexlify(os.urandom(60))),
-            "DJANGO_SECRET_KEY": config.get("django_secret_key", binascii.hexlify(os.urandom(24))),
+            "ENKETO_API_TOKEN": config.get("enketo_api_token",
+                                           binascii.hexlify(os.urandom(60))),
+            "DJANGO_SECRET_KEY": config.get("django_secret_key",
+                                            binascii.hexlify(os.urandom(24))),
             "KOBOCAT_RAVEN_DSN": config.get("kobocat_raven", ""),
             "KPI_RAVEN_DSN": config.get("kpi_raven", ""),
             "KPI_RAVEN_JS_DSN": config.get("kpi_raven_js", ""),
@@ -138,6 +168,7 @@ class Template:
             "KPI_POSTGRES_DB": config.get("kpi_postgres_db", ""),
             "POSTGRES_USER": config.get("postgres_user", ""),
             "POSTGRES_PASSWORD": config.get("postgres_password", ""),
+            "POSTGRES_PASSWORD_URL_ENCODED": quote_plus(config.get("postgres_password", "")),
             "DEBUG": config.get("debug", False) == Config.TRUE,
             "SMTP_HOST": config.get("smtp_host", ""),
             "SMTP_PORT": config.get("smtp_port", ""),
@@ -147,30 +178,34 @@ class Template:
             "DEFAULT_FROM_EMAIL": config.get("default_from_email", ""),
             "MASTER_BACKEND_IP": config.get("master_backend_ip"),
             "LOCAL_INTERFACE_IP": config.get("local_interface_ip"),
-            "USE_PUBLIC_DNS": "" if config.get("local_installation") == Config.TRUE else "#",
-            "USE_PRIVATE_DNS": "#" if config.get("use_private_dns") == Config.TRUE else "",
-            "USE_DNS": "" if config.get("local_installation") == Config.TRUE or
-                             config.get("use_private_dns") == Config.FALSE else "#",
             "WORKERS_MAX": config.get("workers_max", ""),
             "WORKERS_START": config.get("workers_start", ""),
             "KC_PATH": config.get("kc_path", ""),
             "KPI_PATH": config.get("kpi_path", ""),
-            "USE_KPI_DEV_MODE": "#" if config.get("kpi_path", "") == "" else "",
-            "USE_KC_DEV_MODE": "#" if config.get("kc_path", "") == "" else "",
+            "USE_KPI_DEV_MODE": _get_value("kpi_path",
+                                           true_value="#",
+                                           false_value="",
+                                           comparison_value=""),
+            "USE_KC_DEV_MODE": _get_value("kc_path",
+                                          true_value="#",
+                                          false_value="",
+                                          comparison_value=""),
             "KC_DEV_BUILD_ID": config.get("kc_dev_build_id", ""),
             "KPI_DEV_BUILD_ID": config.get("kpi_dev_build_id", ""),
-            "NGINX_PUBLIC_PORT": config.get("exposed_nginx_docker_port", Config.DEFAULT_NGINX_PORT),
+            "NGINX_PUBLIC_PORT": config.get("exposed_nginx_docker_port",
+                                            Config.DEFAULT_NGINX_PORT),
             "NGINX_EXPOSED_PORT": nginx_port,
             "MAX_REQUESTS": config.get("max_requests", "512"),
             "SOFT_LIMIT": int(config.get("soft_limit", "128")) * 1024 * 1024,
             "POSTGRES_REPLICATION_PASSWORD": config.get("postgres_replication_password"),
             "WSGI_SERVER": "runserver_plus" if config_object.dev_mode else "uWSGI",
             "USE_X_FORWARDED_HOST": "" if config_object.dev_mode else "#",
-            "OVERRIDE_POSTGRES_SETTINGS": "" if config.get("postgres_settings") == Config.TRUE else "#",
+            "OVERRIDE_POSTGRES_SETTINGS": _get_value("postgres_settings"),
             "POSTGRES_APP_PROFILE": config.get("postgres_profile", ""),
             "POSTGRES_RAM": config.get("postgres_ram", ""),
             "POSTGRES_SETTINGS": config.get("postgres_settings_content", ""),
-            "POSTGRES_BACKUP_FROM_SLAVE": "" if config.get("backup_from_master") == Config.FALSE else "#",
+            "POSTGRES_BACKUP_FROM_SLAVE": _get_value("backup_from_master",
+                                                     comparison_value=Config.FALSE),
             "POSTGRES_PORT": config.get("postgresql_port", "5432"),
             "MONGO_PORT": config.get("mongo_port", "27017"),
             "REDIS_MAIN_PORT": config.get("redis_main_port", "6739"),
@@ -179,7 +214,8 @@ class Template:
             "USE_AWS_BACKUP": "" if config_object.aws and
                                     config.get("use_backup") == Config.TRUE and
                                     config.get("aws_backup_bucket_name") != "" else "#",
-            "USE_MEDIA_BACKUP": "" if not config_object.aws and config.get("use_backup") == Config.TRUE else "#",
+            "USE_MEDIA_BACKUP": "" if (not config_object.aws and
+                                       config.get("use_backup") == Config.TRUE) else "#",
             "KOBOCAT_MEDIA_BACKUP_SCHEDULE": config.get("kobocat_media_backup_schedule"),
             "MONGO_BACKUP_SCHEDULE": config.get("mongo_backup_schedule"),
             "POSTGRES_BACKUP_SCHEDULE": config.get("postgres_backup_schedule"),
@@ -193,15 +229,33 @@ class Template:
             "AWS_POSTGRES_BACKUP_MINIMUM_SIZE": config.get("aws_postgres_backup_minimum_size"),
             "AWS_REDIS_BACKUP_MINIMUM_SIZE": config.get("aws_redis_backup_minimum_size"),
             "AWS_BACKUP_UPLOAD_CHUNK_SIZE": config.get("aws_backup_upload_chunk_size"),
-            "AWS_BACKUP_BUCKET_DELETION_RULE_ENABLED": "False" if config.get(
-                "aws_backup_bucket_deletion_rule_enabled") == Config.FALSE else "True",
+            "AWS_BACKUP_BUCKET_DELETION_RULE_ENABLED":  _get_value(
+                "aws_backup_bucket_deletion_rule_enabled", "True", "False"),
             "LETSENCRYPT_EMAIL": config.get("letsencrypt_email"),
             "ENKETO_ENCRYPTION_KEY": config.get("enketo_encryption_key"),
             "MAINTENANCE_ETA": config.get("maintenance_eta", ""),
             "MAINTENANCE_DATE_ISO": config.get("maintenance_date_iso", ""),
             "MAINTENANCE_DATE_STR": config.get("maintenance_date_str", ""),
             "MAINTENANCE_EMAIL": config.get("maintenance_email", ""),
-            "USE_NPM_FROM_HOST": "" if config_object.dev_mode and config.get("npm_container") == Config.FALSE else "#",
+            "USE_NPM_FROM_HOST": "" if (config_object.dev_mode and
+                                        config.get("npm_container") == Config.FALSE) else "#",
+            "DOCKER_PREFIX": config_object.get_prefix("backend"),
+            "USE_BACKEND_NETWORK": _get_value("expose_backend_ports",
+                                              comparison_value=Config.FALSE),
+            "EXPOSE_BACKEND_PORTS": _get_value("expose_backend_ports"),
+            "USE_FAKE_DNS": _get_value("local_installation"),
+            "ADD_BACKEND_EXTRA_HOSTS": "" if (config_object.expose_backend_ports and
+                                              not config_object.use_private_dns) else "#",
+            "USE_EXTRA_HOSTS": "" if (config_object.local_install or
+                                      config_object.expose_backend_ports and
+                                      not config_object.use_private_dns) else "#",
+            "MONGO_ROOT_USERNAME": config.get("mongo_root_username"),
+            "MONGO_ROOT_PASSWORD": config.get("mongo_root_password"),
+            "MONGO_USER_USERNAME": config.get("mongo_user_username"),
+            "MONGO_USER_PASSWORD": config.get("mongo_user_password"),
+            "REDIS_PASSWORD": config.get("redis_password"),
+            "REDIS_PASSWORD_URL_ENCODED": quote_plus(config.get("redis_password")),
+            "REDIS_PASSWORD_JS_ENCODED": json.dumps(config.get("redis_password")),
         }
 
     @staticmethod

@@ -5,18 +5,18 @@ ${USE_X_FORWARDED_HOST}USE_X_FORWARDED_HOST=True
 DJANGO_SETTINGS_MODULE=onadata.settings.kc_environ
 ENKETO_VERSION=Express
 
-KOBOCAT_BROKER_URL=redis://redis-main.${PRIVATE_DOMAIN_NAME}:${REDIS_MAIN_PORT}/2
+KOBOCAT_BROKER_URL=redis://:${REDIS_PASSWORD_URL_ENCODED}@redis-main.${PRIVATE_DOMAIN_NAME}:${REDIS_MAIN_PORT}/2
 KOBOCAT_CELERY_LOG_FILE=/srv/logs/celery.log
 
 # Default KoBoCAT media backup schedule is weekly at 12:00 AM UTC on Sunday.
 ${USE_MEDIA_BACKUP}KOBOCAT_MEDIA_BACKUP_SCHEDULE=${KOBOCAT_MEDIA_BACKUP_SCHEDULE}
 
-# Mongo values come from mongo.txt
 KOBOCAT_MONGO_HOST=mongo.${PRIVATE_DOMAIN_NAME}
 KOBOCAT_MONGO_PORT=${MONGO_PORT}
-#KOBOCAT_MONGO_NAME=$$KOBO_MONGO_DB_NAME
-#KOBOCAT_MONGO_USER=$$KOBO_MONGO_USER
-#KOBOCAT_MONGO_PASS=$$KOBO_MONGO_PASS
+KOBOCAT_MONGO_NAME=formhub
+KOBOCAT_MONGO_USER=${MONGO_USER_USERNAME}
+KOBOCAT_MONGO_PASS=${MONGO_USER_PASSWORD}
+
 
 # Dev: One or more mappings from PyDev remote debugging machine file paths to `kobocat` container
 #   file paths (see https://github.com/kobotoolbox/kobocat/blob/master/docker/setup_pydev.bash).
