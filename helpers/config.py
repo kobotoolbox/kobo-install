@@ -28,8 +28,8 @@ class Config:
     DEFAULT_PROXY_PORT = "8080"
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
-    KOBO_DOCKER_BRANCH = 'secured-backend'
-    KOBO_INSTALL_BRANCH = 'secured-backend'
+    KOBO_DOCKER_BRANCH = '2.020.19'
+    KOBO_INSTALL_BRANCH = 'master'
     KOBO_INSTALL_VERSION = '2.2.0'
 
     # Maybe overkill. Use this class as a singleton to get the same configuration
