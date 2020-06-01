@@ -498,9 +498,20 @@ class Command:
 
     @classmethod
     def version(cls):
-        git_commit_version_command = ["git", "rev-parse", "HEAD"]
-        stdout = CLI.run_command(git_commit_version_command)
+        branch_name = CLI.run_command([
+            "git", "symbolic-ref", "--short", "HEAD"
+        ])
+        git_commit_version_command = ["git", "rev-parse", branch_name.strip()]
+        commit_stdout = CLI.run_command(git_commit_version_command)
+        try:
+            git_tag_version_command = ["git", "describe", "--tags",
+                                       commit_stdout.strip()]
+            tag_stdout = CLI.run_command(git_tag_version_command)
+            git_version = tag_stdout.strip()
+        except:
+            git_version = commit_stdout.strip()[0:7]
+
         CLI.colored_print("KoBoInstall Version: {} (build {})".format(
             Config.KOBO_INSTALL_VERSION,
-            stdout.strip()[0:7],
+            git_version,
         ), CLI.COLOR_SUCCESS)
