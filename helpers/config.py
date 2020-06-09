@@ -28,9 +28,9 @@ class Config:
     DEFAULT_PROXY_PORT = "8080"
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
-    KOBO_DOCKER_BRANCH = '2.020.23b'
-    KOBO_INSTALL_BRANCH = 'master'
-    KOBO_INSTALL_VERSION = '2.2.2'
+    KOBO_DOCKER_BRANCH = 'master'
+    KOBO_INSTALL_BRANCH = 'uwsgi-customizable-timeouts'
+    KOBO_INSTALL_VERSION = '2.3.0'
 
     # Maybe overkill. Use this class as a singleton to get the same configuration
     # for each instantiation.
@@ -254,8 +254,6 @@ class Config:
 
         return {
             "advanced": "2",
-            "workers_max": "2",
-            "workers_start": "1",
             "debug": Config.FALSE,
             "kobodocker_path": os.path.realpath(os.path.normpath(os.path.join(
                 os.path.dirname(os.path.realpath(__file__)),
@@ -326,6 +324,12 @@ class Config:
             "mongo_user_username": "kobo",
             "mongo_user_password": Config.generate_password(),
             "redis_password": Config.generate_password(),
+            "uwsgi_workers_start": "1",
+            "uwsgi_workers_max": "2",
+            "uwsgi_max_requests": "512",
+            "uwsgi_soft_limit": "128",
+            "uwsgi_haraki": "120",
+            "uwsgi_worker_reload_mercy": "120"
         }
 
     def get_service_names(self):
@@ -1492,29 +1496,45 @@ class Config:
 
             if self.__config.get("uwsgi_settings") == Config.TRUE:
                 CLI.colored_print("Number of uWSGi workers to start?", CLI.COLOR_SUCCESS)
-                self.__config["workers_start"] = CLI.get_response(
+                self.__config["uwsgi_workers_start"] = CLI.get_response(
                     r"~^\d+$",
-                    self.__config.get("workers_start", "1"))
-                CLI.colored_print("Max uWSGi workers?", CLI.COLOR_SUCCESS)
-                self.__config["workers_max"] = CLI.get_response(
-                    r"~^\d+$",
-                    self.__config.get("workers_max", "2"))
+                    self.__config.get("uwsgi_workers_start"))
 
-                CLI.colored_print("Max number of requests per worker?", CLI.COLOR_SUCCESS)
-                self.__config["max_requests"] = CLI.get_response(
+                CLI.colored_print("Maximum uWSGi workers?", CLI.COLOR_SUCCESS)
+                self.__config["uwsgi_workers_max"] = CLI.get_response(
                     r"~^\d+$",
-                    self.__config.get("max_requests", "512"))
-                CLI.colored_print("Max memory per workers in MB?", CLI.COLOR_SUCCESS)
-                self.__config["soft_limit"] = CLI.get_response(
+                    self.__config.get("uwsgi_workers_max"))
+
+                CLI.colored_print("Maximum number of requests per worker?", CLI.COLOR_SUCCESS)
+                self.__config["uwsgi_max_requests"] = CLI.get_response(
                     r"~^\d+$",
-                    self.__config.get("soft_limit", "128"))
+                    self.__config.get("uwsgi_max_requests"))
+
+                CLI.colored_print("Maximum memory per workers in MB?", CLI.COLOR_SUCCESS)
+                self.__config["uwsgi_soft_limit"] = CLI.get_response(
+                    r"~^\d+$",
+                    self.__config.get("uwsgi_soft_limit"))
+
+                CLI.colored_print("Maximum time (in seconds) before killing an "
+                                  "unresponsive worker?", CLI.COLOR_SUCCESS)
+                self.__config["uwsgi_haraki"] = CLI.get_response(
+                    r"~^\d+$",
+                    self.__config.get("uwsgi_haraki"))
+
+                CLI.colored_print("Maximum time (in seconds) a worker can take "
+                                  "to reload/shutdown?", CLI.COLOR_SUCCESS)
+                self.__config["uwsgi_worker_reload_mercy"] = CLI.get_response(
+                    r"~^\d+$",
+                    self.__config.get("uwsgi_worker_reload_mercy"))
 
                 return
 
-        self.__config["workers_start"] = "1"
-        self.__config["workers_max"] = "2"
-        self.__config["max_requests"] = "512"
-        self.__config["soft_limit"] = "128"
+        self.__config["uwsgi_workers_start"] = "1"
+        self.__config["uwsgi_workers_max"] = "2"
+        self.__config["uwsgi_max_requests"] = "512"
+        self.__config["uwsgi_soft_limit"] = "128"
+        self.__config["uwsgi_haraki"] = "120"
+        self.__config["uwsgi_worker_reload_mercy"] = "120"
 
     def __is_port_allowed(self, port):
         return not (self.block_common_http_ports and port in [Config.DEFAULT_NGINX_PORT,
