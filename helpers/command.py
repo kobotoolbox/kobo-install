@@ -264,6 +264,7 @@ class Command:
 
         frontend_command = ["docker-compose",
                             "-f", "docker-compose.maintenance.yml",
+                            "-f", "docker-compose.maintenance.override.yml",
                             "-p", config_object.get_prefix("maintenance"),
                             "up", "-d", "maintenance"]
 
@@ -384,6 +385,7 @@ class Command:
             maintenance_down_command = [
                 "docker-compose",
                 "-f", "docker-compose.maintenance.yml",
+                "-f", "docker-compose.maintenance.override.yml",
                 "-p", config_object.get_prefix("maintenance"),
                 "down"]
 
@@ -436,6 +438,7 @@ class Command:
             maintenance_down_command = [
                 "docker-compose",
                 "-f", "docker-compose.maintenance.yml",
+                "-f", "docker-compose.maintenance.override.yml",
                 "-p", config_object.get_prefix("maintenance"),
                 "down"]
 
