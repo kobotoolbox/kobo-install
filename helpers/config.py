@@ -328,7 +328,7 @@ class Config:
             "uwsgi_workers_max": "2",
             "uwsgi_max_requests": "512",
             "uwsgi_soft_limit": "128",
-            "uwsgi_haraki": "120",
+            "uwsgi_harakiri": "120",
             "uwsgi_worker_reload_mercy": "120"
         }
 
@@ -1517,9 +1517,9 @@ class Config:
 
                 CLI.colored_print("Maximum time (in seconds) before killing an "
                                   "unresponsive worker?", CLI.COLOR_SUCCESS)
-                self.__config["uwsgi_haraki"] = CLI.get_response(
+                self.__config["uwsgi_harakiri"] = CLI.get_response(
                     r"~^\d+$",
-                    self.__config.get("uwsgi_haraki"))
+                    self.__config.get("uwsgi_harakiri"))
 
                 CLI.colored_print("Maximum time (in seconds) a worker can take "
                                   "to reload/shutdown?", CLI.COLOR_SUCCESS)
@@ -1533,7 +1533,7 @@ class Config:
         self.__config["uwsgi_workers_max"] = "2"
         self.__config["uwsgi_max_requests"] = "512"
         self.__config["uwsgi_soft_limit"] = "128"
-        self.__config["uwsgi_haraki"] = "120"
+        self.__config["uwsgi_harakiri"] = "120"
         self.__config["uwsgi_worker_reload_mercy"] = "120"
 
     def __is_port_allowed(self, port):

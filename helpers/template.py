@@ -197,7 +197,7 @@ class Template:
             "UWSGI_WORKERS_START": config.get("uwsgi_workers_start"),
             "UWSGI_MAX_REQUESTS": config.get("uwsgi_max_requests"),
             "UWSGI_SOFT_LIMIT": int(config.get("uwsgi_soft_limit")) * 1024 * 1024,
-            "UWSGI_HARAKIRI": config.get("uwsgi_haraki"),
+            "UWSGI_HARAKIRI": config.get("uwsgi_harakiri"),
             "UWSGI_WORKER_RELOAD_MERCY": config.get("uwsgi_worker_reload_mercy"),
             "POSTGRES_REPLICATION_PASSWORD": config.get("postgres_replication_password"),
             "WSGI_SERVER": "runserver_plus" if config_object.dev_mode else "uWSGI",
