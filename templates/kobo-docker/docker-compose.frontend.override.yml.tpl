@@ -62,6 +62,7 @@ services:
   nginx:
     environment:
       - NGINX_PUBLIC_PORT=${NGINX_PUBLIC_PORT}
+      - UWSGI_PASS_TIMEOUT=${UWSGI_PASS_TIMEOUT}
     ports:
       - ${NGINX_EXPOSED_PORT}:80
     ${USE_EXTRA_HOSTS}extra_hosts:

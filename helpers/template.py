@@ -199,6 +199,7 @@ class Template:
             "UWSGI_SOFT_LIMIT": int(config.get("uwsgi_soft_limit")) * 1024 * 1024,
             "UWSGI_HARAKIRI": config.get("uwsgi_harakiri"),
             "UWSGI_WORKER_RELOAD_MERCY": config.get("uwsgi_worker_reload_mercy"),
+            "UWSGI_PASS_TIMEOUT": int(config.get("uwsgi_harakiri")) + 10,
             "POSTGRES_REPLICATION_PASSWORD": config.get("postgres_replication_password"),
             "WSGI_SERVER": "runserver_plus" if config_object.dev_mode else "uWSGI",
             "USE_X_FORWARDED_HOST": "" if config_object.dev_mode else "#",
