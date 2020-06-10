@@ -5,6 +5,7 @@ import binascii
 import fnmatch
 import json
 import os
+import re
 import stat
 import sys
 try:
@@ -284,7 +285,7 @@ class Template:
     def __write_templates(template_variables_, root_, destination_directory_, filenames_):
         for filename in fnmatch.filter(filenames_, '*.tpl'):
             with open(os.path.join(root_, filename), "r") as template:
-                t = PyTemplate(template.read())
+                t = ExtendedPyTemplate(template.read(), template_variables_)
                 with open(os.path.join(destination_directory_, filename[:-4]), "w") as f:
                     f.write(t.substitute(template_variables_))
 
@@ -305,3 +306,55 @@ class Template:
             return False
 
         return True
+
+
+class ExtendedPyTemplate(PyTemplate):
+    """
+    Basic class to add conditional substitution to `string.Template`
+
+    Usage example:
+    ```
+    {
+        "host": "redis-cache.kobo.local",
+        "port": "6379"{% if REDIS_PASSWORD %},{% endif REDIS_PASSWORD %}
+        {% if REDIS_PASSWORD %}
+        "password": ${REDIS_PASSWORD}
+        {% endif REDIS_PASSWORD %}
+    }
+    ```
+
+    If `REDIS_PASSWORD` equals '123456', output would be:
+    ```
+    {
+        "host": "redis-cache.kobo.local",
+        "port": "6379",
+        "password": '123456'
+    }
+    ```
+
+    If `REDIS_PASSWORD` equals '' (or `False` or `None`), output would be:
+    ```
+    {
+        "host": "redis-cache.kobo.local",
+        "port": "6379"
+
+    }
+    ```
+
+    """
+    IF_PATTERN = '{{% if {} %}}'
+    ENDIF_PATTERN = '{{% endif {} %}}'
+
+    def __init__(self, template, template_variables_):
+        for key, value in template_variables_.items():
+            if self.IF_PATTERN.format(key) in template:
+                if value:
+                    if_pattern = r'{}\s*'.format(self.IF_PATTERN.format(key))
+                    endif_pattern = r'\s*{}'.format(self.ENDIF_PATTERN.format(key))
+                    template = re.sub(if_pattern, '', template)
+                    template = re.sub(endif_pattern, '', template)
+                else:
+                    pattern = r'{}(.|\s)*?{}'.format(self.IF_PATTERN.format(key),
+                                                     self.ENDIF_PATTERN.format(key))
+                    template = re.sub(pattern, '', template)
+        super(ExtendedPyTemplate, self).__init__(template)
