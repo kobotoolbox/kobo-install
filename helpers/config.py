@@ -10,7 +10,7 @@ import string
 import sys
 import time
 from datetime import datetime
-from random import choice, randint
+from random import choice
 
 from helpers.cli import CLI
 from helpers.network import Network
@@ -28,9 +28,9 @@ class Config:
     DEFAULT_PROXY_PORT = "8080"
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
-    KOBO_DOCKER_BRANCH = '2.020.24'
-    KOBO_INSTALL_BRANCH = 'master'
-    KOBO_INSTALL_VERSION = '2.3.0'
+    KOBO_DOCKER_BRANCH = 'allow-empty-redis-password'
+    KOBO_INSTALL_BRANCH = 'allow-empty-redis-password'
+    KOBO_INSTALL_VERSION = '2.4.0'
 
     # Maybe overkill. Use this class as a singleton to get the same configuration
     # for each instantiation.
