@@ -20,6 +20,7 @@ class Updater:
     @staticmethod
     def run(version=None):
         # Update kobo-install first
+        Setup.validate_already_run()
         Setup.update_koboinstall(version)
         CLI.colored_print("KoBoInstall has been updated", CLI.COLOR_SUCCESS)
 

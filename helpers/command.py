@@ -199,7 +199,7 @@ class Command:
                 username, " " * (max_chars_count - username_chars_count)), CLI.COLOR_WARNING)
             CLI.colored_print("║ Password: {}{} ║".format(
                 password, " " * (max_chars_count - password_chars_count)), CLI.COLOR_WARNING)
-            CLI.colored_print("╚═{}═╝".format("═" * max_chars_count), CLI.COLOR_WARNING)
+            CLI.colored_print("╚═{}═╝".format(c), CLI.COLOR_WARNING)
         else:
             CLI.colored_print("KoBoToolbox could not start! "
                               "Please try `python3 run.py --logs` to see the logs.",

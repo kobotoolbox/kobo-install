@@ -203,12 +203,19 @@ class Setup:
                 sys.exit(1)
 
     @staticmethod
-    def validate_already_run(config):
+    def validate_already_run():
+
+        config_object = Config()
+        config = config_object.get_config()
 
         def display_error_message(message):
+            max_chars_count = 51
+            message_length = len(message)
+            spacer = " " * (max_chars_count - message_length)
+
             CLI.colored_print("╔═════════════════════════════════════════════════════╗",
                               CLI.COLOR_ERROR)
-            CLI.colored_print("║ {} ║".format(message),
+            CLI.colored_print("║ {}{} ║".format(message, spacer),
                               CLI.COLOR_ERROR)
             CLI.colored_print("║ Please run `./run.py --setup` first .               ║",
                               CLI.COLOR_ERROR)
