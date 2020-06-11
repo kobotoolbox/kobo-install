@@ -30,7 +30,7 @@ class Config:
     DEFAULT_NGINX_HTTPS_PORT = "443"
     KOBO_DOCKER_BRANCH = '2.020.24'
     KOBO_INSTALL_BRANCH = 'master'
-    KOBO_INSTALL_VERSION = '2.3.0'
+    KOBO_INSTALL_VERSION = '2.4.2'
 
     # Maybe overkill. Use this class as a singleton to get the same configuration
     # for each instantiation.
