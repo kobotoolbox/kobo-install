@@ -12,6 +12,10 @@ from helpers.cli import CLI
 
 
 class Updater:
+    """
+    This class exists only to reload imported modules after updates.
+    All the code must in other modules to be reloaded
+    """
 
     @staticmethod
     def run(version=None):
