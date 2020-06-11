@@ -1347,7 +1347,6 @@ class Config:
             self.__config["use_letsencrypt"] = CLI.get_response([Config.TRUE, Config.FALSE],
                                                                 self.__config.get("use_letsencrypt", Config.TRUE))
             self.__config["proxy"] = Config.TRUE
-            self.__config["block_common_http_ports"] = Config.TRUE
             self.__config["exposed_nginx_docker_port"] = Config.DEFAULT_NGINX_PORT
 
             if self.use_letsencrypt:
@@ -1397,6 +1396,12 @@ class Config:
                     self.__config["block_common_http_ports"] = CLI.get_response(
                         [Config.TRUE, Config.FALSE],
                         self.__config.get("block_common_http_ports", Config.FALSE))
+                else:
+                    self.__config["block_common_http_ports"] = Config.TRUE
+
+                if not self.__is_port_allowed(self.__config["nginx_proxy_port"]):
+                    # Force nginx proxy port if port is not allowed
+                    self.__config["nginx_proxy_port"] = Config.DEFAULT_PROXY_PORT
 
                 CLI.colored_print("Internal port used by reverse proxy?", CLI.COLOR_SUCCESS)
                 while True:
@@ -1407,6 +1412,7 @@ class Config:
                     else:
                         CLI.colored_print("Ports 80 and 443 are reserved!", CLI.COLOR_ERROR)
             else:
+                self.__config["block_common_http_ports"] = Config.TRUE
                 if not self.use_letsencrypt:
                     CLI.colored_print("Internal port used by reverse proxy is {}.".format(
                         Config.DEFAULT_PROXY_PORT
