@@ -10,6 +10,7 @@ from helpers.command import Command
 from helpers.config import Config
 from helpers.setup import Setup
 from helpers.template import Template
+from helpers.updater import Updater
 
 
 def run(force_setup=False):
@@ -53,20 +54,20 @@ if __name__ == "__main__":
             elif sys.argv[1] == "-cb" or sys.argv[1] == "--compose-backend":
                 Command.compose_backend(sys.argv[2:])
             elif sys.argv[1] == "-u" or sys.argv[1] == "--update":
-                Command.update(sys.argv[2])
+                Updater.run(sys.argv[2])
             elif sys.argv[1] == "--upgrade":
-                Command.update(sys.argv[2])
+                Updater.run(sys.argv[2])
             else:
                 CLI.colored_print("Bad syntax. Try 'run.py --help'", CLI.COLOR_ERROR)
         elif len(sys.argv) == 2:
             if sys.argv[1] == "-h" or sys.argv[1] == "--help":
                 Command.help()
             elif sys.argv[1] == "-u" or sys.argv[1] == "--update":
-                Command.update()
+                Updater.run()
             elif sys.argv[1] == "--upgrade":
                 # "update" was called "upgrade" in a previous release; accept
                 # either "update" or "upgrade" here to ease the transition
-                Command.update()
+                Updater.run()
             elif sys.argv[1] == "-i" or sys.argv[1] == "--info":
                 Command.info(0)
             elif sys.argv[1] == "-s" or sys.argv[1] == "--setup":
