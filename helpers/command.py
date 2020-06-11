@@ -4,6 +4,10 @@ from __future__ import print_function, unicode_literals
 import sys
 import time
 import subprocess
+try:
+    from imp import reload
+except ImportError:
+    from importlib import reload
 
 from helpers.cli import CLI
 from helpers.config import Config
@@ -460,18 +464,27 @@ class Command:
             config_object.write_config()
 
     @classmethod
-    def update(cls):
+    def update(cls, version=None):
+        # Update kobo-install first
+        Setup.update_koboinstall(version)
+        CLI.colored_print("KoBoInstall has been updated", CLI.COLOR_SUCCESS)
+
+        # Reload modules
+        for module_ in sys.modules.values():
+            if 'kobo-install' in str(module_):
+                reload(module_)
+
+        # Reload kobo-docker
         config_object = Config()
         config = config_object.get_config()
 
         Setup.update_kobodocker(config)
         CLI.colored_print("KoBoToolbox has been updated", CLI.COLOR_SUCCESS)
 
-        # update itself
-        git_command = ['git', 'pull', 'origin', Config.KOBO_INSTALL_BRANCH]
-        CLI.run_command(git_command)
-        CLI.colored_print("KoBoInstall has been updated", CLI.COLOR_SUCCESS)
+        cls.__post_update(config_object)
 
+    @classmethod
+    def __post_update(cls, config_object):
         CLI.colored_print("╔═════════════════════════════════════════════════════╗",
                           CLI.COLOR_WARNING)
         CLI.colored_print("║ After an update, it's strongly recommended to run   ║",

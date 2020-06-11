@@ -49,22 +49,59 @@ class Setup:
         """
         :param config: Config().get_config()
         """
-        if os.path.isdir(os.path.join(config["kobodocker_path"], ".git")):
-            # fetch new tags
-            git_command = ["git", "fetch", "--tags"]
-            CLI.run_command(git_command, cwd=config["kobodocker_path"])
 
-            # checkout branch
-            git_command = ["git", "checkout", "--force", Config.KOBO_DOCKER_BRANCH]
-            CLI.run_command(git_command, cwd=config["kobodocker_path"])
+        # fetch new tags and prune
+        git_command = ["git", "fetch", "-p"]
+        CLI.run_command(git_command, cwd=config["kobodocker_path"])
 
-            # update code
-            git_command = ["git", "pull", "origin", Config.KOBO_DOCKER_BRANCH]
-            CLI.run_command(git_command, cwd=config["kobodocker_path"])
+        # checkout branch
+        git_command = ["git", "checkout", "--force", Config.KOBO_DOCKER_BRANCH]
+        CLI.run_command(git_command, cwd=config["kobodocker_path"])
+
+        # update code
+        git_command = ["git", "pull", "origin", Config.KOBO_DOCKER_BRANCH]
+        CLI.run_command(git_command, cwd=config["kobodocker_path"])
+
+    @classmethod
+    def update_koboinstall(cls, version):
+        """
+        :param config: Config().get_config()
+        """
+        # fetch new tags and prune
+        git_fetch_prune_command = ['git', 'fetch', '-p']
+        CLI.run_command(git_fetch_prune_command)
+
+        if version:
+            # Validate whether version is valide
+            git_list_branches_command = ['git', 'branch', '-r']
+            remote_branches = CLI.run_command(git_list_branches_command)
+            for remote_branch in remote_branches.strip().split():
+                if 'origin/{}'.format(version.strip()) == remote_branch.strip():
+                    break
+            else:
+                CLI.colored_print("Invalid branch or tag.", CLI.COLOR_ERROR)
+                sys.exit(1)
         else:
-            CLI.colored_print('`kobo-docker` repository is missing!',
-                              CLI.COLOR_ERROR)
-            sys.exit(1)
+            # Get latest tagged commit of all branches
+            # ToDo review this if we start using tags for something else than new releases
+            git_latest_tagged_commit_command = ['git',
+                                                'rev-list',
+                                                '--tags',
+                                                '--max-count=1']
+            latest_tagged_commit = CLI.run_command(git_latest_tagged_commit_command)
+
+            git_latest_tag_command = ['git', 'describe', '--tags',
+                                      latest_tagged_commit.strip()]
+            latest_tag = CLI.run_command(git_latest_tag_command)
+            version = latest_tag.strip()
+
+        # checkout branch
+        git_command = ["git", "checkout", "--force", version]
+        CLI.run_command(git_command)
+
+        # update code
+        git_command = ["git", "pull", "origin", version]
+        CLI.run_command(git_command)
 
     @classmethod
     def update_hosts(cls, config):
@@ -131,3 +168,25 @@ class Setup:
             return_value = os.system("sudo mv /etc/hosts /etc/hosts.old && sudo mv /tmp/etchosts /etc/hosts")
             if return_value != 0:
                 sys.exit(1)
+
+    @staticmethod
+    def validate_already_run(config):
+
+        def display_error_message(message):
+            CLI.colored_print("╔═════════════════════════════════════════════════════╗",
+                              CLI.COLOR_ERROR)
+            CLI.colored_print("║ {} ║".format(message),
+                              CLI.COLOR_ERROR)
+            CLI.colored_print("║ Please run `./run.py --setup` first .               ║",
+                              CLI.COLOR_ERROR)
+            CLI.colored_print("╚═════════════════════════════════════════════════════╝",
+                              CLI.COLOR_ERROR)
+            sys.exit(1)
+
+        try:
+            config['kobodocker_path']
+        except KeyError:
+            display_error_message('No configuration file found.')
+
+        if not os.path.isdir(os.path.join(config["kobodocker_path"], ".git")):
+            display_error_message('`kobo-docker` repository is missing!')

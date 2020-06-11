@@ -52,6 +52,10 @@ if __name__ == "__main__":
                 Command.compose_frontend(sys.argv[2:])
             elif sys.argv[1] == "-cb" or sys.argv[1] == "--compose-backend":
                 Command.compose_backend(sys.argv[2:])
+            elif sys.argv[1] == "-u" or sys.argv[1] == "--update":
+                Command.update(sys.argv[2])
+            elif sys.argv[1] == "--upgrade":
+                Command.update(sys.argv[2])
             else:
                 CLI.colored_print("Bad syntax. Try 'run.py --help'", CLI.COLOR_ERROR)
         elif len(sys.argv) == 2:
