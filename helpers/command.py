@@ -8,7 +8,6 @@ import subprocess
 from helpers.cli import CLI
 from helpers.config import Config
 from helpers.network import Network
-from helpers.setup import Setup
 from helpers.template import Template
 from helpers.upgrading import migrate_single_to_two_databases
 
@@ -461,20 +460,10 @@ class Command:
 
     @classmethod
     def version(cls):
-        branch_name = CLI.run_command([
-            "git", "symbolic-ref", "--short", "HEAD"
-        ])
-        git_commit_version_command = ["git", "rev-parse", branch_name.strip()]
-        commit_stdout = CLI.run_command(git_commit_version_command)
-        try:
-            git_tag_version_command = ["git", "describe", "--tags",
-                                       commit_stdout.strip()]
-            tag_stdout = CLI.run_command(git_tag_version_command)
-            git_version = tag_stdout.strip()
-        except:
-            git_version = commit_stdout.strip()[0:7]
+        git_commit_version_command = ["git", "rev-parse", "HEAD"]
+        stdout = CLI.run_command(git_commit_version_command)
 
         CLI.colored_print("KoBoInstall Version: {} (build {})".format(
             Config.KOBO_INSTALL_VERSION,
-            git_version,
+            stdout.strip()[0:7],
         ), CLI.COLOR_SUCCESS)
