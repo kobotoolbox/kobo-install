@@ -28,9 +28,9 @@ class Config:
     DEFAULT_PROXY_PORT = "8080"
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
-    KOBO_DOCKER_BRANCH = 'allow-empty-redis-password'
-    KOBO_INSTALL_BRANCH = 'allow-empty-redis-password'
-    KOBO_INSTALL_VERSION = '2.4.0'
+    KOBO_DOCKER_BRANCH = 'dynamic-uwsgi-pass-timeout'
+    KOBO_INSTALL_BRANCH = 'dynamic-uwsgi-pass-timeout'
+    KOBO_INSTALL_VERSION = '2.4.1'
 
     # Maybe overkill. Use this class as a singleton to get the same configuration
     # for each instantiation.
