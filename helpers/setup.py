@@ -6,6 +6,7 @@ import sys
 import tempfile
 
 from helpers.cli import CLI
+from helpers.command import Command
 from helpers.config import Config
 from helpers.template import Template
 
