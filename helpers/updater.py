@@ -31,4 +31,5 @@ class Updater:
 
         # Update kobo-docker
         Setup.update_kobodocker()
+        CLI.colored_print("KoBoToolbox has been updated", CLI.COLOR_SUCCESS)
         Setup.post_update()
