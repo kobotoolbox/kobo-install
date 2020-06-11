@@ -10,7 +10,7 @@ import string
 import sys
 import time
 from datetime import datetime
-from random import choice, randint
+from random import choice
 
 from helpers.cli import CLI
 from helpers.network import Network
@@ -28,7 +28,7 @@ class Config:
     DEFAULT_PROXY_PORT = "8080"
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
-    KOBO_DOCKER_BRANCH = '2.020.24'
+    KOBO_DOCKER_BRANCH = '2.020.24a'
     KOBO_INSTALL_BRANCH = 'master'
     KOBO_INSTALL_VERSION = '2.4.2'
 
@@ -1332,10 +1332,27 @@ class Config:
     def __questions_redis(self):
         CLI.colored_print("Redis password?", CLI.COLOR_SUCCESS)
         self.__config["redis_password"] = CLI.get_response(
-            r"~^.{8,}$",
+            r"~^.{8,}|$",
             self.__config.get("redis_password"),
             to_lower=False,
             error_msg='Too short. 8 characters minimum.')
+
+        if not self.__config["redis_password"]:
+            CLI.colored_print("╔═════════════════════════════════════════════════╗",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ WARNING! it's STRONGLY recommended to set a     ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("║ password for Redis as well.                     ║",
+                              CLI.COLOR_WARNING)
+            CLI.colored_print("╚═════════════════════════════════════════════════╝",
+                              CLI.COLOR_WARNING)
+
+            CLI.colored_print("Do you want to continue?", CLI.COLOR_SUCCESS)
+            CLI.colored_print("\t1) Yes")
+            CLI.colored_print("\t2) No")
+
+            if CLI.get_response([Config.TRUE, Config.FALSE], Config.FALSE) == Config.FALSE:
+                self.__questions_redis()
 
     def __questions_reverse_proxy(self):
 

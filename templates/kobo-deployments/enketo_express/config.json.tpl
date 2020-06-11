@@ -41,13 +41,17 @@
     "redis": {
         "cache": {
             "host": "redis-cache.${PRIVATE_DOMAIN_NAME}",
-            "port": "${REDIS_CACHE_PORT}",
+            "port": "${REDIS_CACHE_PORT}"{% if REDIS_PASSWORD %},{% endif REDIS_PASSWORD %}
+            {% if REDIS_PASSWORD %}
             "password": ${REDIS_PASSWORD_JS_ENCODED}
+            {% endif REDIS_PASSWORD %}
         },
         "main": {
             "host": "redis-main.${PRIVATE_DOMAIN_NAME}",
-            "port": "${REDIS_MAIN_PORT}",
+            "port": "${REDIS_MAIN_PORT}"{% if REDIS_PASSWORD %},{% endif REDIS_PASSWORD %}
+            {% if REDIS_PASSWORD %}
             "password": ${REDIS_PASSWORD_JS_ENCODED}
+            {% endif REDIS_PASSWORD %}
         }
     },
     "google": {
