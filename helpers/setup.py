@@ -115,19 +115,6 @@ class Setup:
             else:
                 CLI.colored_print("Invalid branch or tag.", CLI.COLOR_ERROR)
                 sys.exit(1)
-        else:
-            # Get latest tagged commit of all branches
-            # ToDo review this if we start using tags for something else than new releases
-            git_latest_tagged_commit_command = ['git',
-                                                'rev-list',
-                                                '--tags',
-                                                '--max-count=1']
-            latest_tagged_commit = CLI.run_command(git_latest_tagged_commit_command)
-
-            git_latest_tag_command = ['git', 'describe', '--tags',
-                                      latest_tagged_commit.strip()]
-            latest_tag = CLI.run_command(git_latest_tag_command)
-            version = latest_tag.strip()
 
         # checkout branch
         git_command = ["git", "checkout", "--force", version]

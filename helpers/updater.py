@@ -20,7 +20,7 @@ class Updater:
     """
 
     @staticmethod
-    def run(version=None):
+    def run(version='stable'):
         # Validate kobo-docker already exists and is valid
         Setup.validate_already_run()
 

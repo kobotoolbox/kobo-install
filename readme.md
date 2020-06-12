@@ -1,4 +1,4 @@
-The purpose of the script is to install `KoBoToolbox ` in minutes without messing with configuration files.  
+The purpose of the script is to install `KoBoToolbox` in minutes without messing with configuration files.  
 It prompts the user to answer some questions to create configuration files automatically and to start docker containers based on [`kobo-docker`](https://github.com/kobotoolbox/kobo-docker "").
 
 ## Important notice when upgrading from any release older than [`2.020.18`](https://github.com/kobotoolbox/kobo-install/releases/tag/2.020.18)
@@ -12,6 +12,15 @@ If you do not want to upgrade at this time, please use the [`shared-database-obs
 If you have already installed `KoBoToolbox` with `kobo-docker` prior March 2019,
 you **must** complete [a manual upgrade process](https://github.com/kobotoolbox/kobo-docker/#important-notice-when-upgrading-from-commit-5c2ef02-march-4-2019-or-earlier)
 before using this repository. **If you do not, `kobo-install` will not be able to start.**
+
+## Versions
+
+Branch `stable` is the recommended branch to use `kobo-install` on your production environment.  
+Just run `git checkout stable` before your first run.
+
+Branch `master` is a pre-release of next stable version. It contains new features and bug fixes.
+
+Other branches are for development purposes.
 
 ## Usage
 
@@ -31,6 +40,9 @@ Get docker logs:
 
 Update KoBoToolbox:  
 `$kobo-install> python3 run.py --update [branch or tag]`  
+
+By default, fetch latest version of `stable` branch
+
 
 Stop KoBoToolbox:  
 `$kobo-install> python3 run.py --stop`
