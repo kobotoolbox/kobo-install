@@ -14,13 +14,17 @@ from helpers.cli import CLI
 class Updater:
     """
     This class exists only to reload imported modules after updates.
-    All the code must in other modules to be reloaded
+    All the code must stay as much as possible in other modules in to be reloaded
+    during update process. Any changes in this class will make the users to run
+    `./run.py --update` twice.
     """
 
     @staticmethod
     def run(version=None):
-        # Update kobo-install first
+        # Validate kobo-docker already exists and is valid
         Setup.validate_already_run()
+
+        # Update kobo-install first
         Setup.update_koboinstall(version)
         CLI.colored_print("KoBoInstall has been updated", CLI.COLOR_SUCCESS)
 

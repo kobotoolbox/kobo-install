@@ -30,7 +30,7 @@ Get docker logs:
 `$kobo-install> python3 run.py --logs`
 
 Update KoBoToolbox:  
-`$kobo-install> python3 run.py --update`
+`$kobo-install> python3 run.py --update [branch or tag]`  
 
 Stop KoBoToolbox:  
 `$kobo-install> python3 run.py --stop`
@@ -96,10 +96,12 @@ User can choose between 2 types of installations:
 |MongoDB super user's password|  **Autogenerate**  | ✓ | ✓ |
 |MongoDB user's username|  **kobo**  | ✓ | ✓ |
 |MongoDB user's password|  **Autogenerate**  | ✓ | ✓ |
-|Redis password|  **Autogenerate**  | ✓ | ✓ |
+|Redis password<sup>4</sup>|  **Autogenerate**  | ✓ | ✓ |
 |Use AWS storage|  **No**  | ✓ | ✓ (frontend only) |
 |uWGI workers|  **start: 2, max: 4**  | ✓ | ✓ (frontend only) |
 |uWGI memory limit|  **128 MB**  | ✓ | ✓ (frontend only) |
+|uWGI harakiri timeout |  **120s**  | ✓ | ✓ (frontend only) |
+|uWGI worker reload timeout |  **120s**  | ✓ | ✓ (frontend only) |
 |Google UA|  | ✓ | ✓ (frontend only) |
 |Google API Key|  | ✓ | ✓ (frontend only) |
 |Raven tokens|   | ✓ | ✓ (frontend only) |
@@ -114,14 +116,16 @@ User can choose between 2 types of installations:
 
 <sup>3)</sup> _Custom settings are provided by [PostgreSQL Configuration Tool API](https://github.com/sebastianwebber/pgconfig-api "")_
 
+<sup>4)</sup> _Redis password is optional but **strongly** recommended_
+
 ℹ  Intercom App ID [must now](https://github.com/kobotoolbox/kpi/pull/2285) be configured through "Per user settings" in the Django admin interface of KPI.
 
 ## Requirements
 
-- Linux <sup>4</sup> / macOS <sup>5</sup>
+- Linux <sup>5</sup> / macOS <sup>6</sup>
 - Python 2.7/3.5+ <sup>_Python2 support will be dropped in a future release_</sup>
 - [Docker](https://www.docker.com/get-started "") & [Docker Compose](https://docs.docker.com/compose/install/ "")
-- Available TCP Ports: <sup>6</sup>
+- Available TCP Ports: <sup>7</sup>
 
     1. 80 NGINX
     1. 443 NGINX (if you use KoBoInstall with LetsEncrypt proxy) 
@@ -135,11 +139,11 @@ User can choose between 2 types of installations:
     - _If you use a firewall, be sure to open traffic publicly on NGINX port, otherwise KoBoInstall cannot work_
     - _By default, additional ports are not exposed except when using multi servers configuration. If you choose to expose them, **be sure to not expose them publicly** (e.g. use a firewall and allow traffic between frontend and backend containers only. NGINX port still has to stay publicly opened though)._
     
-<sup>4)</sup> _It has been tested with Ubuntu 14.04, 16.04 and 18.04_
+<sup>5)</sup> _It has been tested with Ubuntu 14.04, 16.04 and 18.04, CentOS 8_
 
-<sup>5)</sup> _Docker on macOS is slow. First boot usually takes a while to be ready. You may have to answer `Yes` once or twice to question `Wait for another 600 seconds?` when prompted_
+<sup>6)</sup> _Docker on macOS is slow. First boot usually takes a while to be ready. You may have to answer `Yes` once or twice to question `Wait for another 600 seconds?` when prompted_
 
-<sup>6)</sup> _These are defaults but can be customized with advanced options_
+<sup>7)</sup> _These are defaults but can be customized with advanced options_
 
 
 ## Tests
