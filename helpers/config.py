@@ -5,6 +5,7 @@ import binascii
 import json
 import os
 import re
+import shutil
 import stat
 import string
 import sys
@@ -79,11 +80,23 @@ class Config:
         return self.__config.get("expose_backend_ports") == Config.TRUE
 
     def get_env_files_path(self):
-        return os.path.realpath(os.path.normpath(os.path.join(
+        current_path = os.path.realpath(os.path.normpath(os.path.join(
             self.__config.get("kobodocker_path"),
             "..",
             Config.ENV_FILES_DIR
         )))
+
+        old_path = os.path.realpath(os.path.normpath(os.path.join(
+            self.__config.get("kobodocker_path"),
+            '..',
+            'kobo-deployments'
+        )))
+
+        # if old location is detected, move it to new path.
+        if os.path.exists(old_path):
+            shutil.move(old_path, current_path)
+
+        return current_path
 
     def get_letsencrypt_repo_path(self):
         return os.path.realpath(os.path.normpath(os.path.join(
