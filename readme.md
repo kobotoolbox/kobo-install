@@ -96,7 +96,7 @@ User can choose between 2 types of installations:
 |Network interface|  **Autodetected**  | ✓ | ✓ (frontend only) |
 |Use separate servers| **No**  |  | ✓ |
 |Use DNS for private routes| **No**  |  | ✓ (frontend only) |
-|Master backend IP _(if previous answer is no)_| **Local IP**  |  | ✓ (frontend only) |
+|Primary backend IP _(if previous answer is no)_| **Local IP**  |  | ✓ (frontend only) |
 |PostgreSQL DB|  **kobo**  | ✓ | ✓ |
 |PostgreSQL user's username|  **kobo**  | ✓ | ✓ |
 |PostgreSQL user's password|  **Autogenerate**  | ✓ | ✓ |
