@@ -24,11 +24,11 @@ class Config:
     TRUE = "1"
     FALSE = "2"
     LETSENCRYPT_DOCKER_DIR = "nginx-certbot"
-    ENV_FILES_DIR = "kobo-deployments"
+    ENV_FILES_DIR = "kobo-env"
     DEFAULT_PROXY_PORT = "8080"
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
-    KOBO_DOCKER_BRANCH = 'new-terminology'
+    KOBO_DOCKER_BRANCH = 'new-envfiles-location'
     KOBO_INSTALL_VERSION = '3.0.0'
 
     # Maybe overkill. Use this class as a singleton to get the same configuration
