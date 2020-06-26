@@ -445,6 +445,9 @@ class Config:
         return self.multi_servers and \
                self.__config.get("backend_server_role") == "secondary"
 
+    def set_config(self, value):
+        self.__config = value
+
     @property
     def staging_mode(self):
         return self.__config.get("staging_mode") == Config.TRUE

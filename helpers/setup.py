@@ -47,9 +47,18 @@ class Setup:
             cls.update_kobodocker(config)
 
     @classmethod
-    def post_update(cls):
+    def post_update(cls, cron):
 
         config_object = Config()
+
+        # When `cron` is True, we want to bypass question and just recreate
+        # YML and environment files from new templates
+        if cron is True:
+            current_config = config_object.get_config_template()
+            current_config.update(config_object.get_config())
+            config_object.set_config(current_config)
+            Template.render(config_object)
+            sys.exit(0)
 
         CLI.colored_print("╔═════════════════════════════════════════════════════╗",
                           CLI.COLOR_WARNING)
