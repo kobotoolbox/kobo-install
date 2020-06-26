@@ -29,7 +29,8 @@ class Updater:
         CLI.colored_print("KoBoInstall has been updated", CLI.COLOR_SUCCESS)
 
         # Reload modules
-        for module_ in sys.modules.values():
+        modules = list(sys.modules.values())
+        for module_ in modules:
             if 'kobo-install' in str(module_):
                 reload(module_)
 
