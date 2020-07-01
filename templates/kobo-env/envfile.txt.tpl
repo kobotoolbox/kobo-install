@@ -16,7 +16,9 @@ KOBOCAT_PUBLIC_SUBDOMAIN=${KOBOCAT_SUBDOMAIN}
 # The publicly-accessible subdomain for the Enketo Express web forms (e.g. enketo).
 ENKETO_EXPRESS_PUBLIC_SUBDOMAIN=${ENKETO_SUBDOMAIN}
 # See "api key" here: https://github.com/kobotoolbox/enketo-express/tree/master/config#linked-form-and-data-server.
-ENKETO_API_TOKEN=${ENKETO_API_TOKEN}
+ENKETO_API_KEY=${ENKETO_API_KEY}
+# See "https://github.com/kobotoolbox/enketo-express/blob/master/setup/docker/create_config.py#L14
+ENKETO_ENCRYPTION_KEY=${ENKETO_ENCRYPTION_KEY}
 # Canonically a 50-character random string. For Django 1.8.13, see https://docs.djangoproject.com/en/1.8/ref/settings/#secret-key and https://github.com/django/django/blob/4022b2c306e88a4ab7f80507e736ce7ac7d01186/django/core/management/commands/startproject.py#L29-L31.
 # To generate a secret key in the same way as `django-admin startproject` you can run:
 # docker-compose run --rm kpi python -c 'from django.utils.crypto import get_random_string; print(get_random_string(50, "abcdefghijklmnopqrstuvwxyz0123456789!@#$$%^&*(-_=+)"))'
