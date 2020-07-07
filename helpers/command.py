@@ -107,7 +107,7 @@ class Command:
     def compose_backend(cls, args):
         config_object = Config()
         config = config_object.get_config()
-        backend_role = config.get("backend_server_role", "master")
+        backend_role = config.get("backend_server_role", "primary")
         command = [
             "docker-compose",
             "-f", "docker-compose.backend.{}.yml".format(backend_role),
@@ -211,8 +211,8 @@ class Command:
         config_object = Config()
         config = config_object.get_config()
 
-        if config_object.master_backend or config_object.slave_backend:
-            backend_role = config.get("backend_server_role", "master")
+        if config_object.primary_backend or config_object.secondary_backend:
+            backend_role = config.get("backend_server_role", "primary")
 
             backend_command = ["docker-compose",
                                "-f", "docker-compose.backend.{}.yml".format(backend_role),
@@ -297,8 +297,8 @@ class Command:
                 not config_object.multi_servers:
             ports.append(nginx_port)
 
-        if (not frontend_only or config_object.master_backend or
-                config_object.slave_backend) and \
+        if (not frontend_only or config_object.primary_backend or
+                config_object.secondary_backend) and \
                 config_object.expose_backend_ports:
             ports.append(config.get("postgresql_port", 5432))
             ports.append(config.get("mongo_port", 27017))
@@ -315,8 +315,8 @@ class Command:
         # Start the back-end containers
         if not frontend_only:
             if not config_object.multi_servers or \
-                    config_object.master_backend or config_object.slave_backend:
-                backend_role = config.get("backend_server_role", "master")
+                    config_object.primary_backend or config_object.secondary_backend:
+                backend_role = config.get("backend_server_role", "primary")
 
                 backend_command = ["docker-compose",
                                    "-f",
@@ -406,9 +406,9 @@ class Command:
                 CLI.run_command(proxy_command, config_object.get_letsencrypt_repo_path())
 
         if not frontend_only:
-            if not config_object.multi_servers or config_object.master_backend:
+            if not config_object.multi_servers or config_object.primary_backend:
 
-                backend_role = config.get("backend_server_role", "master")
+                backend_role = config.get("backend_server_role", "primary")
 
                 backend_command = [
                     "docker-compose",

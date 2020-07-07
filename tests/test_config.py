@@ -128,7 +128,7 @@ def test_server_roles_questions():
 
     with patch("helpers.cli.CLI.colored_input") as mock_colored_input:
 
-        mock_colored_input.side_effect = iter([Config.TRUE, "frontend", "backend", "slave"])
+        mock_colored_input.side_effect = iter([Config.TRUE, "frontend", "backend", "secondary"])
 
         config_object._Config__questions_multi_servers()
 
@@ -139,7 +139,7 @@ def test_server_roles_questions():
         config_object._Config__questions_roles()
         assert not config_object.frontend_questions
         assert config_object.backend_questions
-        assert config_object.slave_backend
+        assert config_object.secondary_backend
 
 
 def test_use_https():
