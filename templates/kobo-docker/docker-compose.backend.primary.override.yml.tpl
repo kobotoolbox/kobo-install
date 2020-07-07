@@ -5,9 +5,9 @@ services:
 
   postgres:
     ${OVERRIDE_POSTGRES_SETTINGS}volumes:
-    ${OVERRIDE_POSTGRES_SETTINGS}  - ../kobo-deployments/postgres/master/postgres.conf:/kobo-docker-scripts/master/postgres.conf
-    ${POSTGRES_BACKUP_FROM_SLAVE}environment:
-    ${POSTGRES_BACKUP_FROM_SLAVE}  - POSTGRES_BACKUP_FROM_SLAVE=True
+    ${OVERRIDE_POSTGRES_SETTINGS}  - ../kobo-env/postgres/primary/postgres.conf:/kobo-docker-scripts/primary/postgres.conf
+    ${POSTGRES_BACKUP_FROM_SECONDARY}environment:
+    ${POSTGRES_BACKUP_FROM_SECONDARY}  - POSTGRES_BACKUP_FROM_SECONDARY=True
     ${EXPOSE_BACKEND_PORTS}ports:
     ${EXPOSE_BACKEND_PORTS}  - ${POSTGRES_PORT}:5432
     ${USE_BACKEND_NETWORK}networks:

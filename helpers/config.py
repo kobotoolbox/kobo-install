@@ -5,6 +5,7 @@ import binascii
 import json
 import os
 import re
+import shutil
 import stat
 import string
 import sys
@@ -24,13 +25,12 @@ class Config:
     TRUE = "1"
     FALSE = "2"
     LETSENCRYPT_DOCKER_DIR = "nginx-certbot"
-    ENV_FILES_DIR = "kobo-deployments"
+    ENV_FILES_DIR = "kobo-env"
     DEFAULT_PROXY_PORT = "8080"
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
-    KOBO_DOCKER_BRANCH = '2.020.25'
-    KOBO_INSTALL_BRANCH = 'master'  # be mindful of how `--update` works
-    KOBO_INSTALL_VERSION = '2.4.2'
+    KOBO_DOCKER_BRANCH = 'new-envfiles-location'
+    KOBO_INSTALL_VERSION = '3.0.0'
 
     # Maybe overkill. Use this class as a singleton to get the same configuration
     # for each instantiation.
@@ -80,11 +80,23 @@ class Config:
         return self.__config.get("expose_backend_ports") == Config.TRUE
 
     def get_env_files_path(self):
-        return os.path.realpath(os.path.normpath(os.path.join(
+        current_path = os.path.realpath(os.path.normpath(os.path.join(
             self.__config.get("kobodocker_path"),
             "..",
             Config.ENV_FILES_DIR
         )))
+
+        old_path = os.path.realpath(os.path.normpath(os.path.join(
+            self.__config.get("kobodocker_path"),
+            '..',
+            'kobo-deployments'
+        )))
+
+        # if old location is detected, move it to new path.
+        if os.path.exists(old_path):
+            shutil.move(old_path, current_path)
+
+        return current_path
 
     def get_letsencrypt_repo_path(self):
         return os.path.realpath(os.path.normpath(os.path.join(
@@ -278,7 +290,7 @@ class Config:
             "postgres_replication_password": Config.generate_password(),
             "use_aws": Config.FALSE,
             "use_private_dns": Config.FALSE,
-            "master_backend_ip": primary_ip,
+            "primary_backend_ip": primary_ip,
             "local_interface_ip": primary_ip,
             "multi": Config.FALSE,
             "postgres_settings": Config.FALSE,
@@ -305,7 +317,7 @@ class Config:
             "aws_redis_backup_minimum_size": "5",
             "aws_backup_upload_chunk_size": "15",
             "aws_backup_bucket_deletion_rule_enabled": Config.FALSE,
-            "backend_server_role": "master",
+            "backend_server_role": "primary",
             "use_letsencrypt": Config.TRUE,
             "proxy": Config.TRUE,
             "https": Config.TRUE,
@@ -366,14 +378,14 @@ class Config:
         self.__questions_maintenance()
 
     @property
-    def master_backend(self):
+    def primary_backend(self):
         """
-        Checks whether setup is running on a master backend server
+        Checks whether setup is running on a primary backend server
         :return: bool
         """
         return self.multi_servers and \
                self.__config.get('server_role') == 'backend' and \
-               self.__config.get("backend_server_role") == "master"
+               self.__config.get("backend_server_role") == "primary"
 
     @property
     def multi_servers(self):
@@ -430,14 +442,14 @@ class Config:
         return unique_id
 
     @property
-    def slave_backend(self):
+    def secondary_backend(self):
         """
-        Checks whether setup is running on a slave backend server
+        Checks whether setup is running on a secondary backend server
         :return: bool
         """
         return self.multi_servers and \
                self.__config.get('server_role') == 'backend' and \
-               self.__config.get("backend_server_role") == "slave"
+               self.__config.get("backend_server_role") == "secondary"
 
     @property
     def staging_mode(self):
@@ -553,7 +565,7 @@ class Config:
     def __detect_network(self):
 
         self.__config["local_interface_ip"] = Network.get_primary_ip()
-        self.__config["master_backend_ip"] = self.__config["local_interface_ip"]
+        self.__config["primary_backend_ip"] = self.__config["local_interface_ip"]
 
         if self.advanced_options:
             CLI.colored_print("Please choose which network interface you want to use?", CLI.COLOR_SUCCESS)
@@ -588,7 +600,7 @@ class Config:
                 self.__config["local_interface"] = response
 
             self.__config["local_interface_ip"] = interfaces[self.__config.get("local_interface")]
-            self.__config["master_backend_ip"] = self.__config.get("local_interface_ip")
+            self.__config["primary_backend_ip"] = self.__config.get("local_interface_ip")
 
     def __questions_advanced_options(self):
         """
@@ -673,15 +685,15 @@ class Config:
                                 "postgres_backup_schedule",
                                 "0 2 * * 0"))
 
-                        if self.master_backend:
-                            CLI.colored_print("Run backups from master backend server?", CLI.COLOR_SUCCESS)
+                        if self.primary_backend:
+                            CLI.colored_print("Run backups from primary backend server?", CLI.COLOR_SUCCESS)
                             CLI.colored_print("\t1) Yes")
                             CLI.colored_print("\t2) No")
-                            self.__config["backup_from_master"] = CLI.get_response([Config.TRUE, Config.FALSE],
+                            self.__config["backup_from_primary"] = CLI.get_response([Config.TRUE, Config.FALSE],
                                                                                    self.__config.get(
-                                                                                       "backup_from_master",
+                                                                                       "backup_from_primary",
                                                                                        Config.TRUE))
-                        if self.master_backend or not self.multi_servers:
+                        if self.primary_backend or not self.multi_servers:
                             CLI.colored_print("MongoDB backup schedule?", CLI.COLOR_SUCCESS)
                             self.__config["mongo_backup_schedule"] = CLI.get_response(
                                 "~{}".format(schedule_regex_pattern),
@@ -1278,9 +1290,9 @@ class Config:
 
         if self.__config["use_private_dns"] == Config.FALSE:
             CLI.colored_print("IP address (IPv4) of backend server?", CLI.COLOR_SUCCESS)
-            self.__config["master_backend_ip"] = CLI.get_response(
+            self.__config["primary_backend_ip"] = CLI.get_response(
                 r"~\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}",
-                self.__config.get("master_backend_ip", self.__primary_ip))
+                self.__config.get("primary_backend_ip", self.__primary_ip))
         else:
             self.__config["private_domain_name"] = CLI.colored_input("Private domain name",
                                                                      CLI.COLOR_SUCCESS,
@@ -1452,13 +1464,13 @@ class Config:
 
         if self.__config.get("server_role") == "backend":
             CLI.colored_print("Which role do you want to assign to this backend server?", CLI.COLOR_SUCCESS)
-            CLI.colored_print("\t1) master")
-            CLI.colored_print("\t2) slave")
-            self.__config["backend_server_role"] = CLI.get_response(["master", "slave"],
-                                                                    self.__config.get("backend_server_role", "master"))
+            CLI.colored_print("\t1) primary")
+            CLI.colored_print("\t2) secondary")
+            self.__config["backend_server_role"] = CLI.get_response(["primary", "secondary"],
+                                                                    self.__config.get("backend_server_role", "primary"))
         else:
             # It may be useless to force backend role when using multi servers.
-            self.__config["backend_server_role"] = "master"
+            self.__config["backend_server_role"] = "primary"
 
     def __questions_smtp(self):
         self.__config["smtp_host"] = CLI.colored_input("SMTP server", CLI.COLOR_SUCCESS,

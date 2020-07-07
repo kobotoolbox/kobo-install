@@ -16,7 +16,7 @@ def migrate_single_to_two_databases():
     """
     config_object = Config()
     config = config_object.get_config()
-    backend_role = config.get("backend_server_role", "master")
+    backend_role = config.get("backend_server_role", "primary")
 
     def _kpi_db_alias_kludge(command):
         """
@@ -103,7 +103,7 @@ def migrate_single_to_two_databases():
             "docker-compose.backend.{}.override.yml".format(backend_role),
             "-p", config_object.get_prefix("backend"),
             "exec", "postgres", "bash",
-            "/kobo-docker-scripts/master/clone_data_from_kc_to_kpi.sh",
+            "/kobo-docker-scripts/primary/clone_data_from_kc_to_kpi.sh",
             "--noinput"
         ]
         try:
