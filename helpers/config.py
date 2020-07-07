@@ -162,6 +162,12 @@ class Config:
             ):
                 config["kc_postgres_db"] = self.__config["postgres_db"]
 
+            # Force update user's config to use new terminology.
+            backend_role = config.get('backend_server_role')
+            if backend_role in ['master', 'slave']:
+                config['backend_server_role'] = 'primary' \
+                    if backend_role == 'master' else 'secondary'
+
             self.__config = config
             self.__welcome()
 
