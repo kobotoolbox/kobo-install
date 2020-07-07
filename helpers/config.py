@@ -372,6 +372,7 @@ class Config:
         :return: bool
         """
         return self.multi_servers and \
+               self.__config.get('server_role') == 'backend' and \
                self.__config.get("backend_server_role") == "master"
 
     @property
@@ -435,6 +436,7 @@ class Config:
         :return: bool
         """
         return self.multi_servers and \
+               self.__config.get('server_role') == 'backend' and \
                self.__config.get("backend_server_role") == "slave"
 
     @property
