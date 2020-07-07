@@ -181,6 +181,10 @@ class Setup:
 
     @staticmethod
     def validate_already_run():
+        """
+        Validates that Setup has been run at least once and kobo-docker has been
+        pulled and checked out before going further.
+        """
 
         config_object = Config()
         config = config_object.get_config()
