@@ -385,6 +385,7 @@ class Config:
         :return: bool
         """
         return self.multi_servers and \
+               self.__config.get('server_role') == 'backend' and \
                self.__config.get("backend_server_role") == "primary"
 
     @property
@@ -448,6 +449,7 @@ class Config:
         :return: bool
         """
         return self.multi_servers and \
+               self.__config.get('server_role') == 'backend' and \
                self.__config.get("backend_server_role") == "secondary"
 
     def set_config(self, value):

@@ -114,17 +114,6 @@ class Setup:
         git_fetch_prune_command = ['git', 'fetch', '-p']
         CLI.run_command(git_fetch_prune_command)
 
-        if version:
-            # Validate whether version is valid
-            git_list_branches_command = ['git', 'branch', '-r']
-            remote_branches = CLI.run_command(git_list_branches_command)
-            for remote_branch in remote_branches.strip().split():
-                if 'origin/{}'.format(version.strip()) == remote_branch.strip():
-                    break
-            else:
-                CLI.colored_print("Invalid branch or tag.", CLI.COLOR_ERROR)
-                sys.exit(1)
-
         # checkout branch
         git_command = ["git", "checkout", "--force", version]
         CLI.run_command(git_command)
@@ -201,6 +190,10 @@ class Setup:
 
     @staticmethod
     def validate_already_run():
+        """
+        Validates that Setup has been run at least once and kobo-docker has been
+        pulled and checked out before going further.
+        """
 
         config_object = Config()
         config = config_object.get_config()

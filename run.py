@@ -48,30 +48,38 @@ def run(force_setup=False):
 if __name__ == "__main__":
     try:
 
+        # avoid inifinte self-updating loops
+        update_self = not "--no-update-self" in sys.argv
+        while True:
+            try:
+                sys.argv.remove("--no-update-self")
+            except ValueError:
+                break
+
         if len(sys.argv) > 2:
             if sys.argv[1] == "-cf" or sys.argv[1] == "--compose-frontend":
                 Command.compose_frontend(sys.argv[2:])
             elif sys.argv[1] == "-cb" or sys.argv[1] == "--compose-backend":
                 Command.compose_backend(sys.argv[2:])
             elif sys.argv[1] == "-u" or sys.argv[1] == "--update":
-                Updater.run(sys.argv[2])
+                Updater.run(sys.argv[2], update_self=update_self)
             elif sys.argv[1] == "--upgrade":
-                Updater.run(sys.argv[2])
+                Updater.run(sys.argv[2], update_self=update_self)
             elif sys.argv[1] == "--auto-update":
-                Updater.run(sys.argv[2], cron=True)
+                Updater.run(sys.argv[2], cron=True, update_self=update_self)
             else:
                 CLI.colored_print("Bad syntax. Try 'run.py --help'", CLI.COLOR_ERROR)
         elif len(sys.argv) == 2:
             if sys.argv[1] == "-h" or sys.argv[1] == "--help":
                 Command.help()
             elif sys.argv[1] == "-u" or sys.argv[1] == "--update":
-                Updater.run()
+                Updater.run(update_self=update_self)
             elif sys.argv[1] == "--upgrade":
                 # "update" was called "upgrade" in a previous release; accept
                 # either "update" or "upgrade" here to ease the transition
-                Updater.run()
+                Updater.run(update_self=update_self)
             elif sys.argv[1] == "--auto-update":
-                Updater.run(cron=True)
+                Updater.run(cron=True, update_self=update_self)
             elif sys.argv[1] == "-i" or sys.argv[1] == "--info":
                 Command.info(0)
             elif sys.argv[1] == "-s" or sys.argv[1] == "--setup":
