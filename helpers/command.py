@@ -8,7 +8,6 @@ import subprocess
 from helpers.cli import CLI
 from helpers.config import Config
 from helpers.network import Network
-from helpers.setup import Setup
 from helpers.template import Template
 from helpers.upgrading import migrate_single_to_two_databases
 
@@ -34,7 +33,7 @@ class Command:
                "                Prompt questions to rebuild configuration. Restart KoBoToolbox\n"
                "          -S, --stop\n"
                "                Stop KoBoToolbox\n"
-               "          -u, --update, --upgrade\n"
+               "          -u, --update, --upgrade [branch or tag]\n"
                "                Update KoBoToolbox\n"
                "          -cf, --compose-frontend [docker-compose arguments]\n"
                "                Run a docker-compose command in the front-end environment\n"
@@ -460,61 +459,11 @@ class Command:
             config_object.write_config()
 
     @classmethod
-    def update(cls):
-        config_object = Config()
-        config = config_object.get_config()
-
-        Setup.update_kobodocker(config)
-        CLI.colored_print("KoBoToolbox has been updated", CLI.COLOR_SUCCESS)
-
-        # update itself
-        git_command = ['git', 'pull', 'origin', Config.KOBO_INSTALL_BRANCH]
-        CLI.run_command(git_command)
-        CLI.colored_print("KoBoInstall has been updated", CLI.COLOR_SUCCESS)
-
-        CLI.colored_print("╔═════════════════════════════════════════════════════╗",
-                          CLI.COLOR_WARNING)
-        CLI.colored_print("║ After an update, it's strongly recommended to run   ║",
-                          CLI.COLOR_WARNING)
-        CLI.colored_print("║ `./run.py --setup` to regenerate environment files. ║",
-                          CLI.COLOR_WARNING)
-        CLI.colored_print("╚═════════════════════════════════════════════════════╝",
-                          CLI.COLOR_WARNING)
-
-        CLI.colored_print("Do you want to proceed?", CLI.COLOR_SUCCESS)
-        CLI.colored_print("\t1) Yes")
-        CLI.colored_print("\t2) No")
-        response = CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE)
-        if response == Config.TRUE:
-            current_config = config_object.build()
-            Template.render(config_object)
-            config_object.init_letsencrypt()
-            Setup.update_hosts(current_config)
-
-            CLI.colored_print("Do you want to (re)start containers?",
-                              CLI.COLOR_SUCCESS)
-            CLI.colored_print("\t1) Yes")
-            CLI.colored_print("\t2) No")
-            response = CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE)
-            if response == Config.TRUE:
-                Command.start()
-
-    @classmethod
     def version(cls):
-        branch_name = CLI.run_command([
-            "git", "symbolic-ref", "--short", "HEAD"
-        ])
-        git_commit_version_command = ["git", "rev-parse", branch_name.strip()]
-        commit_stdout = CLI.run_command(git_commit_version_command)
-        try:
-            git_tag_version_command = ["git", "describe", "--tags",
-                                       commit_stdout.strip()]
-            tag_stdout = CLI.run_command(git_tag_version_command)
-            git_version = tag_stdout.strip()
-        except:
-            git_version = commit_stdout.strip()[0:7]
+        git_commit_version_command = ["git", "rev-parse", "HEAD"]
+        stdout = CLI.run_command(git_commit_version_command)
 
         CLI.colored_print("KoBoInstall Version: {} (build {})".format(
             Config.KOBO_INSTALL_VERSION,
-            git_version,
+            stdout.strip()[0:7],
         ), CLI.COLOR_SUCCESS)

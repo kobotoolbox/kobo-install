@@ -6,7 +6,9 @@ import sys
 import tempfile
 
 from helpers.cli import CLI
+from helpers.command import Command
 from helpers.config import Config
+from helpers.template import Template
 
 
 class Setup:
@@ -45,26 +47,71 @@ class Setup:
             cls.update_kobodocker(config)
 
     @classmethod
-    def update_kobodocker(cls, config):
+    def post_update(cls):
+
+        config_object = Config()
+
+        CLI.colored_print("╔═════════════════════════════════════════════════════╗",
+                          CLI.COLOR_WARNING)
+        CLI.colored_print("║ After an update, it's strongly recommended to run   ║",
+                          CLI.COLOR_WARNING)
+        CLI.colored_print("║ `./run.py --setup` to regenerate environment files. ║",
+                          CLI.COLOR_WARNING)
+        CLI.colored_print("╚═════════════════════════════════════════════════════╝",
+                          CLI.COLOR_WARNING)
+
+        CLI.colored_print("Do you want to proceed?", CLI.COLOR_SUCCESS)
+        CLI.colored_print("\t1) Yes")
+        CLI.colored_print("\t2) No")
+        response = CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE)
+        if response == Config.TRUE:
+            current_config = config_object.build()
+            Template.render(config_object)
+            config_object.init_letsencrypt()
+            Setup.update_hosts(current_config)
+
+            CLI.colored_print("Do you want to (re)start containers?",
+                              CLI.COLOR_SUCCESS)
+            CLI.colored_print("\t1) Yes")
+            CLI.colored_print("\t2) No")
+            response = CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE)
+            if response == Config.TRUE:
+                Command.start()
+
+    @staticmethod
+    def update_kobodocker(config=None):
         """
         :param config: Config().get_config()
         """
-        if os.path.isdir(os.path.join(config["kobodocker_path"], ".git")):
-            # fetch new tags
-            git_command = ["git", "fetch", "--tags"]
-            CLI.run_command(git_command, cwd=config["kobodocker_path"])
+        if not config:
+            config_object = Config()
+            config = config_object.get_config()
 
-            # checkout branch
-            git_command = ["git", "checkout", "--force", Config.KOBO_DOCKER_BRANCH]
-            CLI.run_command(git_command, cwd=config["kobodocker_path"])
+        # fetch new tags and prune
+        git_command = ["git", "fetch", "-p"]
+        CLI.run_command(git_command, cwd=config["kobodocker_path"])
 
-            # update code
-            git_command = ["git", "pull", "origin", Config.KOBO_DOCKER_BRANCH]
-            CLI.run_command(git_command, cwd=config["kobodocker_path"])
-        else:
-            CLI.colored_print('`kobo-docker` repository is missing!',
-                              CLI.COLOR_ERROR)
-            sys.exit(1)
+        # checkout branch
+        git_command = ["git", "checkout", "--force", Config.KOBO_DOCKER_BRANCH]
+        CLI.run_command(git_command, cwd=config["kobodocker_path"])
+
+        # update code
+        git_command = ["git", "pull", "origin", Config.KOBO_DOCKER_BRANCH]
+        CLI.run_command(git_command, cwd=config["kobodocker_path"])
+
+    @staticmethod
+    def update_koboinstall(version):
+        # fetch new tags and prune
+        git_fetch_prune_command = ['git', 'fetch', '-p']
+        CLI.run_command(git_fetch_prune_command)
+
+        # checkout branch
+        git_command = ["git", "checkout", "--force", version]
+        CLI.run_command(git_command)
+
+        # update code
+        git_command = ["git", "pull", "origin", version]
+        CLI.run_command(git_command)
 
     @classmethod
     def update_hosts(cls, config):
@@ -131,3 +178,36 @@ class Setup:
             return_value = os.system("sudo mv /etc/hosts /etc/hosts.old && sudo mv /tmp/etchosts /etc/hosts")
             if return_value != 0:
                 sys.exit(1)
+
+    @staticmethod
+    def validate_already_run():
+        """
+        Validates that Setup has been run at least once and kobo-docker has been
+        pulled and checked out before going further.
+        """
+
+        config_object = Config()
+        config = config_object.get_config()
+
+        def display_error_message(message):
+            max_chars_count = 51
+            message_length = len(message)
+            spacer = " " * (max_chars_count - message_length)
+
+            CLI.colored_print("╔═════════════════════════════════════════════════════╗",
+                              CLI.COLOR_ERROR)
+            CLI.colored_print("║ {}{} ║".format(message, spacer),
+                              CLI.COLOR_ERROR)
+            CLI.colored_print("║ Please run `./run.py --setup` first .               ║",
+                              CLI.COLOR_ERROR)
+            CLI.colored_print("╚═════════════════════════════════════════════════════╝",
+                              CLI.COLOR_ERROR)
+            sys.exit(1)
+
+        try:
+            config['kobodocker_path']
+        except KeyError:
+            display_error_message('No configuration file found.')
+
+        if not os.path.isdir(os.path.join(config["kobodocker_path"], ".git")):
+            display_error_message('`kobo-docker` repository is missing!')
