@@ -5,6 +5,7 @@ import binascii
 import json
 import os
 import re
+import shutil
 import stat
 import string
 import sys
@@ -24,11 +25,11 @@ class Config:
     TRUE = "1"
     FALSE = "2"
     LETSENCRYPT_DOCKER_DIR = "nginx-certbot"
-    ENV_FILES_DIR = "kobo-deployments"
+    ENV_FILES_DIR = "kobo-env"
     DEFAULT_PROXY_PORT = "8080"
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
-    KOBO_DOCKER_BRANCH = 'new-terminology'
+    KOBO_DOCKER_BRANCH = 'new-envfiles-location'
     KOBO_INSTALL_VERSION = '3.0.0'
 
     # Maybe overkill. Use this class as a singleton to get the same configuration
@@ -79,11 +80,23 @@ class Config:
         return self.__config.get("expose_backend_ports") == Config.TRUE
 
     def get_env_files_path(self):
-        return os.path.realpath(os.path.normpath(os.path.join(
+        current_path = os.path.realpath(os.path.normpath(os.path.join(
             self.__config.get("kobodocker_path"),
             "..",
             Config.ENV_FILES_DIR
         )))
+
+        old_path = os.path.realpath(os.path.normpath(os.path.join(
+            self.__config.get("kobodocker_path"),
+            '..',
+            'kobo-deployments'
+        )))
+
+        # if old location is detected, move it to new path.
+        if os.path.exists(old_path):
+            shutil.move(old_path, current_path)
+
+        return current_path
 
     def get_letsencrypt_repo_path(self):
         return os.path.realpath(os.path.normpath(os.path.join(
