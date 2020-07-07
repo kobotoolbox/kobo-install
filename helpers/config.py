@@ -29,8 +29,8 @@ class Config:
     DEFAULT_PROXY_PORT = "8080"
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
-    KOBO_DOCKER_BRANCH = 'new-envfiles-location'
-    KOBO_INSTALL_VERSION = '3.0.0'
+    KOBO_DOCKER_BRANCH = 'enketo-api-key'
+    KOBO_INSTALL_VERSION = '3.1.0'
 
     # Maybe overkill. Use this class as a singleton to get the same configuration
     # for each instantiation.
@@ -194,6 +194,7 @@ class Config:
                 self.__questions_ports()
 
                 if self.frontend_questions:
+                    self.__questions_secret_keys()
                     self.__questions_aws()
                     self.__questions_google()
                     self.__questions_raven()
@@ -295,9 +296,13 @@ class Config:
             "postgres_max_connections": "100",
             "postgres_hard_drive_type": "hdd",
             "postgres_settings_content": "",
+            "custom_secret_keys": Config.FALSE,
             "enketo_api_token": binascii.hexlify(os.urandom(60)).decode("utf-8"),
             "enketo_encryption_key": binascii.hexlify(os.urandom(60)).decode("utf-8"),
-            "django_secret_key": binascii.hexlify(os.urandom(24)).decode("utf-8"),
+            "django_secret_key": binascii.hexlify(os.urandom(50)).decode("utf-8"),
+            # default value from enketo. Because it was not customizable before
+            # we want to keep the same value when users upgrade.
+            "enketo_less_secure_encryption_key": 'this $3cr3t key is crackable',
             "use_backup": Config.FALSE,
             "kobocat_media_schedule": "0 0 * * 0",
             "mongo_backup_schedule": "0 1 * * 0",
@@ -337,7 +342,7 @@ class Config:
             "uwsgi_max_requests": "512",
             "uwsgi_soft_limit": "128",
             "uwsgi_harakiri": "120",
-            "uwsgi_worker_reload_mercy": "120"
+            "uwsgi_worker_reload_mercy": "120",
         }
 
     def get_service_names(self):
@@ -1468,6 +1473,43 @@ class Config:
         else:
             # It may be useless to force backend role when using multi servers.
             self.__config["backend_server_role"] = "primary"
+
+    def __questions_secret_keys(self):
+        CLI.colored_print("Do you want to customize the application secret keys?",
+                          CLI.COLOR_SUCCESS)
+        CLI.colored_print("\t1) Yes")
+        CLI.colored_print("\t2) No")
+        self.__config["custom_secret_keys"] = CLI.get_response(
+            [Config.TRUE, Config.FALSE], self.__config.get("custom_secret_keys"))
+
+        if self.__config["custom_secret_keys"] == Config.TRUE:
+            CLI.colored_print("Django's secret key?", CLI.COLOR_SUCCESS)
+            self.__config["django_secret_key"] = CLI.get_response(
+                r"~^.{50,}$",
+                self.__config.get("django_secret_key"),
+                to_lower=False,
+                error_msg='Too short. 50 characters minimum.')
+
+            CLI.colored_print("Enketo's api key?", CLI.COLOR_SUCCESS)
+            self.__config["enketo_api_token"] = CLI.get_response(
+                r"~^.{50,}$",
+                self.__config.get("enketo_api_token"),
+                to_lower=False,
+                error_msg='Too short. 50 characters minimum.')
+
+            CLI.colored_print("Enketo's encryption key?", CLI.COLOR_SUCCESS)
+            self.__config["enketo_encryption_key"] = CLI.get_response(
+                r"~^.{50,}$",
+                self.__config.get("enketo_encryption_key"),
+                to_lower=False,
+                error_msg='Too short. 50 characters minimum.')
+
+            CLI.colored_print("Enketo's less secure encryption key?", CLI.COLOR_SUCCESS)
+            self.__config["enketo_less_secure_encryption_key"] = CLI.get_response(
+                r"~^.{10,}$",
+                self.__config.get("enketo_less_secure_encryption_key"),
+                to_lower=False,
+                error_msg='Too short. 10 characters minimum.')
 
     def __questions_smtp(self):
         self.__config["smtp_host"] = CLI.colored_input("SMTP server", CLI.COLOR_SUCCESS,
