@@ -13,9 +13,10 @@ class Updater:
     Updates kobo-install (this utility), restarts this script, and updates
     kobo-docker
     """
+    NO_UPDATE_SELF_OPTION = '--no-update-self'
 
-    @staticmethod
-    def run(version='stable', cron=False, update_self=True):
+    @classmethod
+    def run(cls, version='stable', cron=False, update_self=True):
         # Validate kobo-docker already exists and is valid
         Setup.validate_already_run()
 
@@ -28,6 +29,7 @@ class Updater:
             # NB:`argv[0]` does not automatically get set to the executable
             # path as it usually would, so we have to do it manually--hence the
             # double `sys.executable`
+            sys.argv.append(cls.NO_UPDATE_SELF_OPTION)
             os.execl(sys.executable, sys.executable, *sys.argv)
 
         # Update kobo-docker
