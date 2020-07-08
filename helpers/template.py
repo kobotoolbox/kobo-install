@@ -23,14 +23,15 @@ class Template:
     UNIQUE_ID_FILE = ".uniqid"
 
     @classmethod
-    def render(cls, config_object):
+    def render(cls, config_object, force=False):
 
         config = config_object.get_config()
         template_variables = cls.__get_template_variables(config_object)
 
         environment_directory = config_object.get_env_files_path()
         unique_id = cls.__read_unique_id(environment_directory)
-        if unique_id is not None and str(config.get("unique_id", "")) != str(unique_id):
+        if force is not True and \
+                unique_id is not None and str(config.get("unique_id", "")) != str(unique_id):
             CLI.colored_print("╔═════════════════════════════════════════════════════════════════════╗",
                               CLI.COLOR_WARNING)
             CLI.colored_print("║ WARNING!                                                            ║",

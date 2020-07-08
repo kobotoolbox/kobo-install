@@ -57,7 +57,7 @@ class Setup:
             current_config = config_object.get_config_template()
             current_config.update(config_object.get_config())
             config_object.set_config(current_config)
-            Template.render(config_object)
+            Template.render(config_object, force=True)
             sys.exit(0)
 
         CLI.colored_print("╔═════════════════════════════════════════════════════╗",
