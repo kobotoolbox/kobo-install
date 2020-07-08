@@ -30,7 +30,7 @@ class Config:
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
     KOBO_DOCKER_BRANCH = 'enketo-api-key'
-    KOBO_INSTALL_VERSION = '3.1.0'
+    KOBO_INSTALL_VERSION = '3.1.1'
 
     # Maybe overkill. Use this class as a singleton to get the same configuration
     # for each instantiation.
@@ -157,6 +157,12 @@ class Config:
                 and not self.__config.get("kc_postgres_db")
             ):
                 config["kc_postgres_db"] = self.__config["postgres_db"]
+
+            # Force update user's config to use new terminology.
+            backend_role = config.get('backend_server_role')
+            if backend_role in ['master', 'slave']:
+                config['backend_server_role'] = 'primary' \
+                    if backend_role == 'master' else 'secondary'
 
             self.__config = config
             self.__welcome()
