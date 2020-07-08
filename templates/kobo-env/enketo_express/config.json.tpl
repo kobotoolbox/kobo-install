@@ -3,8 +3,10 @@
     "linked form and data server": {
         "name": "KoBo Toolbox",
         "server url": "",
-        "encryption key": "${ENKETO_ENCRYPTION_KEY}"
+        "api key": "${ENKETO_API_KEY}"
     },
+    "encryption key": "${ENKETO_ENCRYPTION_KEY}",
+    "less secure encryption key": "${ENKETO_LESS_SECURE_ENCRYPTION_KEY}",
     "widgets": [
         "note",
         "select-desktop",
