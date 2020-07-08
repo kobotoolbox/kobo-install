@@ -15,7 +15,7 @@ class Updater:
     """
 
     @staticmethod
-    def run(version='stable', update_self=True):
+    def run(version='stable', cron=False, update_self=True):
         # Validate kobo-docker already exists and is valid
         Setup.validate_already_run()
 
@@ -33,4 +33,4 @@ class Updater:
         # Update kobo-docker
         Setup.update_kobodocker()
         CLI.colored_print("KoBoToolbox has been updated", CLI.COLOR_SUCCESS)
-        Setup.post_update()
+        Setup.post_update(cron)
