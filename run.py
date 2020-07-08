@@ -49,10 +49,10 @@ if __name__ == "__main__":
     try:
 
         # avoid inifinte self-updating loops
-        update_self = not "--no-update-self" in sys.argv
+        update_self = Updater.NO_UPDATE_SELF_OPTION not in sys.argv
         while True:
             try:
-                sys.argv.remove("--no-update-self")
+                sys.argv.remove(Updater.NO_UPDATE_SELF_OPTION)
             except ValueError:
                 break
 
