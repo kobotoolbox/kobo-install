@@ -1202,21 +1202,21 @@ class Config:
                 else:
                     self.__config["postgres_profile"] = "Mixed"
 
-            # use pgconfig.org API to build postgres config
-            endpoint = "https://api.pgconfig.org/v1/tuning/get-config?environment_name={profile}" \
-                       "&format=conf&include_pgbadger=false&max_connections={max_connections}&" \
-                       "pg_version=9.5&total_ram={ram}GB&drive_type={drive_type}".format(
-                           profile=self.__config["postgres_profile"],
-                           ram=self.__config["postgres_ram"],
-                           max_connections=self.__config["postgres_max_connections"],
-                           drive_type=self.__config["postgres_hard_drive_type"].upper()
-                       )
-            response = Network.curl(endpoint)
-            if response:
-                self.__config["postgres_settings_content"] = re.sub(r"(log|lc_).+(\n|$)", "", response)
-            else:
-                # If no response from API, keep defaults
-                self.__config["postgres_settings"] = Config.FALSE
+                # use pgconfig.org API to build postgres config
+                endpoint = "https://api.pgconfig.org/v1/tuning/get-config?environment_name={profile}" \
+                           "&format=conf&include_pgbadger=false&max_connections={max_connections}&" \
+                           "pg_version=9.5&total_ram={ram}GB&drive_type={drive_type}".format(
+                               profile=self.__config["postgres_profile"],
+                               ram=self.__config["postgres_ram"],
+                               max_connections=self.__config["postgres_max_connections"],
+                               drive_type=self.__config["postgres_hard_drive_type"].upper()
+                           )
+                response = Network.curl(endpoint)
+                if response:
+                    self.__config["postgres_settings_content"] = re.sub(r"(log|lc_).+(\n|$)", "", response)
+                else:
+                    # If no response from API, keep defaults
+                    self.__config["postgres_settings"] = Config.FALSE
 
     def __questions_ports(self):
         """
