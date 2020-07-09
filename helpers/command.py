@@ -329,12 +329,13 @@ class Command:
                                    "up", "-d"]
                 CLI.run_command(backend_command, config.get("kobodocker_path"))
 
-        # If this was previously a shared-database setup, migrate to separate
-        # databases for KPI and KoBoCAT
-        migrate_single_to_two_databases()
-
         # Start the front-end containers
         if not config_object.multi_servers or config_object.frontend:
+
+            # If this was previously a shared-database setup, migrate to separate
+            # databases for KPI and KoBoCAT
+            migrate_single_to_two_databases()
+
             frontend_command = ["docker-compose",
                                 "-f", "docker-compose.frontend.yml",
                                 "-f", "docker-compose.frontend.override.yml",
