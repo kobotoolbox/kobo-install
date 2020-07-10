@@ -174,8 +174,3 @@ or
 $kobo-install> sudo apt install tox
 $kobo-install> tox
 ```
-
-
-## To-Do
-
-- Handle secondary backend
