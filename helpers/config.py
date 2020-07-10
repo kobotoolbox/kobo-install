@@ -30,7 +30,7 @@ class Config:
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
     KOBO_DOCKER_BRANCH = '300-backups-venv-failure'
-    KOBO_INSTALL_VERSION = '3.1.4'
+    KOBO_INSTALL_VERSION = '3.2.0'
 
     # Maybe overkill. Use this class as a singleton to get the same configuration
     # for each instantiation.
