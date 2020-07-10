@@ -145,26 +145,7 @@ class Config:
             sys.exit(1)
         else:
 
-            config = self.get_config_template()
-            config.update(self.__config)
-
-            # If the configuration came from a previous version that had a
-            # single Postgres database, we need to make sure the new
-            # `kc_postgres_db` is set to the name of that single database,
-            # *not* the default from `get_config_template()`
-            if (
-                self.__config.get("postgres_db")
-                and not self.__config.get("kc_postgres_db")
-            ):
-                config["kc_postgres_db"] = self.__config["postgres_db"]
-
-            # Force update user's config to use new terminology.
-            backend_role = config.get('backend_server_role')
-            if backend_role in ['master', 'slave']:
-                config['backend_server_role'] = 'primary' \
-                    if backend_role == 'master' else 'secondary'
-
-            self.__config = config
+            self.__config = self.__get_upgraded_config()
             self.__welcome()
 
             self.__create_directory()
@@ -210,9 +191,9 @@ class Config:
 
             self.__questions_backup()
 
-            self.__config = config
             self.write_config()
-            return config
+
+            return self.__config
 
     @property
     def dev_mode(self):
@@ -612,6 +593,35 @@ class Config:
 
             self.__config["local_interface_ip"] = interfaces[self.__config.get("local_interface")]
             self.__config["primary_backend_ip"] = self.__config.get("local_interface_ip")
+
+    def __get_upgraded_config(self):
+        """
+        Sometimes during upgrades, some keys are changed/deleted/added.
+        This method helps to get a compliant dict to expected config
+
+        :return: dict
+        """
+
+        upgraded_config = self.get_config_template()
+        upgraded_config.update(self.__config)
+
+        # If the configuration came from a previous version that had a
+        # single Postgres database, we need to make sure the new
+        # `kc_postgres_db` is set to the name of that single database,
+        # *not* the default from `get_config_template()`
+        if (
+                self.__config.get("postgres_db")
+                and not self.__config.get("kc_postgres_db")
+        ):
+            upgraded_config["kc_postgres_db"] = self.__config["postgres_db"]
+
+        # Force update user's config to use new terminology.
+        backend_role = upgraded_config.get('backend_server_role')
+        if backend_role in ['master', 'slave']:
+            upgraded_config['backend_server_role'] = 'primary' \
+                if backend_role == 'master' else 'secondary'
+
+        return upgraded_config
 
     def __questions_advanced_options(self):
         """
