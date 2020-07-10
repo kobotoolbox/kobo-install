@@ -528,8 +528,18 @@ def test_update_postgres_db_name_from_single_database():
     config = config_object.get_config()
     old_db_name = "postgres_db_kobo"
     config_object._Config__config["postgres_db"] = old_db_name
-    assert config.get("kc_postgres_db") == config_object.get_config_template()["kc_postgres_db"]
+    del config_object._Config__config['kc_postgres_db']
     assert "postgres_db" in config
-    config = config_object._Config__upgrade_kc_db(config)
+    assert "kc_postgres_db" not in config
+    config = config_object._Config__get_upgraded_config()
     assert config.get("kc_postgres_db") == old_db_name
-    assert "postgres_db" not in config
+
+
+def test_new_terminology():
+    """
+    Ensure config uses `primary` instead of `master`
+    """
+    config_object = test_read_config()
+    config_object._Config__config["backend_server_role"] = 'master'
+    config = config_object._Config__get_upgraded_config()
+    assert config.get("backend_server_role") == 'primary'
