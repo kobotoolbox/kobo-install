@@ -947,90 +947,93 @@ class Config:
 
     def __questions_mongo(self):
         """
-        Mongo credentials.
+        Ask for MongoDB credentials only when server is for:
+        - primary backend
+        - single server installation
         """
-        mongo_user_username = self.__config["mongo_user_username"]
-        mongo_user_password = self.__config["mongo_user_password"]
-        mongo_root_username = self.__config["mongo_root_username"]
-        mongo_root_password = self.__config["mongo_root_password"]
+        if self.primary_backend or not self.multi_servers:
+            mongo_user_username = self.__config["mongo_user_username"]
+            mongo_user_password = self.__config["mongo_user_password"]
+            mongo_root_username = self.__config["mongo_root_username"]
+            mongo_root_password = self.__config["mongo_root_password"]
 
-        CLI.colored_print("MongoDB root's username?",
-                          CLI.COLOR_SUCCESS)
-        self.__config["mongo_root_username"] = CLI.get_response(
-            r"~^\w+$",
-            self.__config.get("mongo_root_username"),
-            to_lower=False)
+            CLI.colored_print("MongoDB root's username?",
+                              CLI.COLOR_SUCCESS)
+            self.__config["mongo_root_username"] = CLI.get_response(
+                r"~^\w+$",
+                self.__config.get("mongo_root_username"),
+                to_lower=False)
 
-        CLI.colored_print("MongoDB root's password?", CLI.COLOR_SUCCESS)
-        self.__config["mongo_root_password"] = CLI.get_response(
-            r"~^.{8,}$",
-            self.__config.get("mongo_root_password"),
-            to_lower=False,
-            error_msg='Too short. 8 characters minimum.')
+            CLI.colored_print("MongoDB root's password?", CLI.COLOR_SUCCESS)
+            self.__config["mongo_root_password"] = CLI.get_response(
+                r"~^.{8,}$",
+                self.__config.get("mongo_root_password"),
+                to_lower=False,
+                error_msg='Too short. 8 characters minimum.')
 
-        CLI.colored_print("MongoDB user's username?",
-                          CLI.COLOR_SUCCESS)
-        self.__config["mongo_user_username"] = CLI.get_response(
-            r"~^\w+$",
-            self.__config.get("mongo_user_username"),
-            to_lower=False)
+            CLI.colored_print("MongoDB user's username?",
+                              CLI.COLOR_SUCCESS)
+            self.__config["mongo_user_username"] = CLI.get_response(
+                r"~^\w+$",
+                self.__config.get("mongo_user_username"),
+                to_lower=False)
 
-        CLI.colored_print("MongoDB user's password?", CLI.COLOR_SUCCESS)
-        self.__config["mongo_user_password"] = CLI.get_response(
-            r"~^.{8,}$",
-            self.__config.get("mongo_user_password"),
-            to_lower=False,
-            error_msg='Too short. 8 characters minimum.')
+            CLI.colored_print("MongoDB user's password?", CLI.COLOR_SUCCESS)
+            self.__config["mongo_user_password"] = CLI.get_response(
+                r"~^.{8,}$",
+                self.__config.get("mongo_user_password"),
+                to_lower=False,
+                error_msg='Too short. 8 characters minimum.')
 
-        if (self.__config.get("mongo_secured") != Config.TRUE or
-            mongo_user_username != self.__config.get("mongo_user_username") or
-            mongo_user_password != self.__config.get("mongo_user_password") or
-            mongo_root_username != self.__config.get("mongo_root_username") or
-            mongo_root_password != self.__config.get("mongo_root_password")) and \
-                not self.first_time:
+            if (self.__config.get("mongo_secured") != Config.TRUE or
+                mongo_user_username != self.__config.get("mongo_user_username") or
+                mongo_user_password != self.__config.get("mongo_user_password") or
+                mongo_root_username != self.__config.get("mongo_root_username") or
+                mongo_root_password != self.__config.get("mongo_root_password")) and \
+                    not self.first_time:
 
-            # Because chances are high we cannot communicate with DB
-            # (e.g ports not exposed, containers down), we delegate the task
-            # to MongoDB container to update (create/delete) users.
-            # (see. `kobo-docker/mongo/upsert_users.sh`)
-            # We have to transmit old users (and their respective DB) to
-            # MongoDB to let it know which users need to be deleted.
+                # Because chances are high we cannot communicate with DB
+                # (e.g ports not exposed, containers down), we delegate the task
+                # to MongoDB container to update (create/delete) users.
+                # (see. `kobo-docker/mongo/upsert_users.sh`)
+                # We have to transmit old users (and their respective DB) to
+                # MongoDB to let it know which users need to be deleted.
 
-            # `content` will be read by MongoDB container at next boot
-            # It should contains users to delete if any.
-            # Its format should be: `<user><TAB><database>`
-            content = ''
+                # `content` will be read by MongoDB container at next boot
+                # It should contains users to delete if any.
+                # Its format should be: `<user><TAB><database>`
+                content = ''
 
-            if (mongo_user_username != self.__config.get("mongo_user_username") or
-                    mongo_root_username != self.__config.get("mongo_root_username")):
+                if (mongo_user_username != self.__config.get("mongo_user_username") or
+                        mongo_root_username != self.__config.get("mongo_root_username")):
 
-                CLI.colored_print("╔══════════════════════════════════════════════════════╗",
-                                  CLI.COLOR_WARNING)
-                CLI.colored_print("║ MongoDB root's and/or user's usernames have changed! ║",
-                                  CLI.COLOR_WARNING)
-                CLI.colored_print("╚══════════════════════════════════════════════════════╝",
-                                  CLI.COLOR_WARNING)
-                CLI.colored_print("Do you want to remove old users?", CLI.COLOR_SUCCESS)
-                CLI.colored_print("\t1) Yes")
-                CLI.colored_print("\t2) No")
-                delete_users = CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE)
+                    CLI.colored_print("╔══════════════════════════════════════════════════════╗",
+                                      CLI.COLOR_WARNING)
+                    CLI.colored_print("║ MongoDB root's and/or user's usernames have changed! ║",
+                                      CLI.COLOR_WARNING)
+                    CLI.colored_print("╚══════════════════════════════════════════════════════╝",
+                                      CLI.COLOR_WARNING)
+                    CLI.colored_print("Do you want to remove old users?", CLI.COLOR_SUCCESS)
+                    CLI.colored_print("\t1) Yes")
+                    CLI.colored_print("\t2) No")
+                    delete_users = CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE)
 
-                if delete_users == Config.TRUE:
-                    usernames_by_db = {
-                        mongo_user_username: 'formhub',
-                        mongo_root_username: 'admin'
-                    }
-                    for username, db in usernames_by_db.items():
-                        if username != "":
-                            content += "{cr}{username}\t{db}".format(
-                                cr="\n" if content else "",
-                                username=username,
-                                db=db
-                            )
+                    if delete_users == Config.TRUE:
+                        usernames_by_db = {
+                            mongo_user_username: 'formhub',
+                            mongo_root_username: 'admin'
+                        }
+                        for username, db in usernames_by_db.items():
+                            if username != "":
+                                content += "{cr}{username}\t{db}".format(
+                                    cr="\n" if content else "",
+                                    username=username,
+                                    db=db
+                                )
 
-            self.__write_upsert_db_users_trigger_file(content, 'mongo')
+                self.__write_upsert_db_users_trigger_file(content, 'mongo')
 
-        self.__config["mongo_secured"] = Config.TRUE
+            self.__config["mongo_secured"] = Config.TRUE
 
     def __questions_multi_servers(self):
         """
@@ -1354,29 +1357,35 @@ class Config:
             self.__config["kpi_raven_js"] = ""
 
     def __questions_redis(self):
-        CLI.colored_print("Redis password?", CLI.COLOR_SUCCESS)
-        self.__config["redis_password"] = CLI.get_response(
-            r"~^.{8,}|$",
-            self.__config.get("redis_password"),
-            to_lower=False,
-            error_msg='Too short. 8 characters minimum.')
+        """
+        Ask for redis password only when server is for:
+        - primary backend
+        - single server installation
+        """
+        if self.primary_backend or not self.multi_servers:
+            CLI.colored_print("Redis password?", CLI.COLOR_SUCCESS)
+            self.__config["redis_password"] = CLI.get_response(
+                r"~^.{8,}|$",
+                self.__config.get("redis_password"),
+                to_lower=False,
+                error_msg='Too short. 8 characters minimum.')
 
-        if not self.__config["redis_password"]:
-            CLI.colored_print("╔═════════════════════════════════════════════════╗",
-                              CLI.COLOR_WARNING)
-            CLI.colored_print("║ WARNING! it's STRONGLY recommended to set a     ║",
-                              CLI.COLOR_WARNING)
-            CLI.colored_print("║ password for Redis as well.                     ║",
-                              CLI.COLOR_WARNING)
-            CLI.colored_print("╚═════════════════════════════════════════════════╝",
-                              CLI.COLOR_WARNING)
+            if not self.__config["redis_password"]:
+                CLI.colored_print("╔═════════════════════════════════════════════════╗",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("║ WARNING! it's STRONGLY recommended to set a     ║",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("║ password for Redis as well.                     ║",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("╚═════════════════════════════════════════════════╝",
+                                  CLI.COLOR_WARNING)
 
-            CLI.colored_print("Do you want to continue?", CLI.COLOR_SUCCESS)
-            CLI.colored_print("\t1) Yes")
-            CLI.colored_print("\t2) No")
+                CLI.colored_print("Do you want to continue?", CLI.COLOR_SUCCESS)
+                CLI.colored_print("\t1) Yes")
+                CLI.colored_print("\t2) No")
 
-            if CLI.get_response([Config.TRUE, Config.FALSE], Config.FALSE) == Config.FALSE:
-                self.__questions_redis()
+                if CLI.get_response([Config.TRUE, Config.FALSE], Config.FALSE) == Config.FALSE:
+                    self.__questions_redis()
 
     def __questions_reverse_proxy(self):
 
