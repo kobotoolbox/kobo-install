@@ -1169,6 +1169,25 @@ class Config:
                                                                   self.__config.get("postgres_settings", Config.FALSE))
 
             if self.__config["postgres_settings"] == Config.TRUE:
+
+                # pgconfig.org API is often unresponsive and make kobo-install hang forever.
+                # A docker image is available, let's use it instead.
+                # (Hope docker hub is not down too).
+
+                # Find an open port.
+                open_port = 9080
+                while True:
+                    if not Network.is_port_open(open_port):
+                        break
+                    open_port += 1
+
+                # Start pgconfig.org API docker image
+                docker_command = ['docker', 'run', '--rm', '-p',
+                                  '127.0.0.1:{}:8080'.format(open_port),
+                                  '-d', '--name', 'pgconfig_container',
+                                  'sebastianwebber/pgconfig-api']
+                CLI.run_command(docker_command)
+
                 CLI.colored_print("Total Memory in GB?", CLI.COLOR_SUCCESS)
                 self.__config["postgres_ram"] = CLI.get_response(r"~^\d+$", self.__config.get("postgres_ram"))
 
@@ -1205,21 +1224,32 @@ class Config:
                 else:
                     self.__config["postgres_profile"] = "Mixed"
 
-                # use pgconfig.org API to build postgres config
-                endpoint = "https://api.pgconfig.org/v1/tuning/get-config?environment_name={profile}" \
+                endpoint = "http://127.0.0.1:{open_port}/v1/tuning/get-config?environment_name={profile}" \
                            "&format=conf&include_pgbadger=false&max_connections={max_connections}&" \
                            "pg_version=9.5&total_ram={ram}GB&drive_type={drive_type}".format(
-                               profile=self.__config["postgres_profile"],
-                               ram=self.__config["postgres_ram"],
-                               max_connections=self.__config["postgres_max_connections"],
-                               drive_type=self.__config["postgres_hard_drive_type"].upper()
-                           )
+                                open_port=open_port,
+                                profile=self.__config["postgres_profile"],
+                                ram=self.__config["postgres_ram"],
+                                max_connections=self.__config["postgres_max_connections"],
+                                drive_type=self.__config["postgres_hard_drive_type"].upper()
+                            )
                 response = Network.curl(endpoint)
                 if response:
-                    self.__config["postgres_settings_content"] = re.sub(r"(log|lc_).+(\n|$)", "", response)
+                    self.__config["postgres_settings_content"] = re.sub(
+                        r"(log|lc_).+(\n|$)", "", response)
                 else:
-                    # If no response from API, keep defaults
-                    self.__config["postgres_settings"] = Config.FALSE
+                    if self.__config["postgres_settings_content"] == '':
+                        CLI.colored_print("Use default settings.",
+                                          CLI.COLOR_INFO)
+                        # If no response from API, keep defaults
+                        self.__config["postgres_settings"] = Config.FALSE
+                    else:
+                        CLI.colored_print("\nKeep current settings.",
+                                          CLI.COLOR_INFO)
+
+                # Stop container
+                docker_command = ['docker', 'stop', '-t', '0', 'pgconfig_container']
+                CLI.run_command(docker_command)
 
     def __questions_ports(self):
         """
