@@ -349,6 +349,7 @@ class Config:
             "uwsgi_soft_limit": "128",
             "uwsgi_harakiri": "120",
             "uwsgi_worker_reload_mercy": "120",
+            "backup_from_primary": Config.TRUE,
         }
 
     def get_service_names(self):
@@ -644,6 +645,74 @@ class Config:
             self.__config["aws_secret_key"] = ""
             self.__config["aws_bucket_name"] = ""
 
+    def __questions_aws_backup_settings(self):
+
+        self.__config["aws_backup_bucket_name"] = CLI.colored_input(
+            "AWS Backups bucket name", CLI.COLOR_SUCCESS,
+            self.__config.get("aws_backup_bucket_name", ""))
+
+        if self.__config["aws_backup_bucket_name"] != "":
+
+            backup_from_primary = self.__config["backup_from_primary"] == Config.TRUE
+
+            CLI.colored_print("How many yearly backups to keep?", CLI.COLOR_SUCCESS)
+            self.__config["aws_backup_yearly_retention"] = CLI.get_response(
+                r"~^\d+$", self.__config.get("aws_backup_yearly_retention"))
+
+            CLI.colored_print("How many monthly backups to keep?", CLI.COLOR_SUCCESS)
+            self.__config["aws_backup_monthly_retention"] = CLI.get_response(
+                r"~^\d+$", self.__config.get("aws_backup_monthly_retention"))
+
+            CLI.colored_print("How many weekly backups to keep?", CLI.COLOR_SUCCESS)
+            self.__config["aws_backup_weekly_retention"] = CLI.get_response(
+                r"~^\d+$", self.__config.get("aws_backup_weekly_retention"))
+
+            CLI.colored_print("How many daily backups to keep?", CLI.COLOR_SUCCESS)
+            self.__config["aws_backup_daily_retention"] = CLI.get_response(
+                r"~^\d+$", self.__config.get("aws_backup_daily_retention"))
+
+            if (not self.multi_servers or
+                    (self.primary_backend and backup_from_primary) or
+                    (self.secondary_backend and not backup_from_primary)):
+                CLI.colored_print("PostgresSQL backup minimum size (in MB)?",
+                                  CLI.COLOR_SUCCESS)
+                CLI.colored_print(
+                    "Files below this size will be ignored when rotating backups.",
+                    CLI.COLOR_INFO)
+                self.__config["aws_postgres_backup_minimum_size"] = CLI.get_response(
+                    r"~^\d+$", self.__config.get("aws_postgres_backup_minimum_size"))
+
+            if self.primary_backend or not self.multi_servers:
+                CLI.colored_print("MongoDB backup minimum size (in MB)?",
+                                  CLI.COLOR_SUCCESS)
+                CLI.colored_print(
+                    "Files below this size will be ignored when rotating backups.",
+                    CLI.COLOR_INFO)
+                self.__config["aws_mongo_backup_minimum_size"] = CLI.get_response(
+                    r"~^\d+$", self.__config.get("aws_mongo_backup_minimum_size"))
+
+                CLI.colored_print("Redis backup minimum size (in MB)?",
+                                  CLI.COLOR_SUCCESS)
+                CLI.colored_print(
+                    "Files below this size will be ignored when rotating backups.",
+                    CLI.COLOR_INFO)
+                self.__config["aws_redis_backup_minimum_size"] = CLI.get_response(
+                    r"~^\d+$", self.__config.get("aws_redis_backup_minimum_size"))
+
+            CLI.colored_print("Chunk size of multipart uploads (in MB)?",
+                              CLI.COLOR_SUCCESS)
+            self.__config["aws_backup_upload_chunk_size"] = CLI.get_response(
+                r"~^\d+$", self.__config.get("aws_backup_upload_chunk_size"))
+
+            CLI.colored_print("Use AWS LifeCycle deletion rule?",
+                              CLI.COLOR_SUCCESS)
+            CLI.colored_print("\t1) Yes")
+            CLI.colored_print("\t2) No")
+            self.__config["aws_backup_bucket_deletion_rule_enabled"] = CLI.get_response(
+                [Config.TRUE, Config.FALSE],
+                self.__config.get("aws_backup_bucket_deletion_rule_enabled",
+                                  Config.FALSE))
+
     def __questions_backup(self):
         """
         Asks all questions about backups.
@@ -688,22 +757,28 @@ class Config:
 
                     if self.backend_questions:
 
-                        CLI.colored_print("PostgreSQL backup schedule?", CLI.COLOR_SUCCESS)
-                        self.__config["postgres_backup_schedule"] = CLI.get_response(
-                            "~{}".format(schedule_regex_pattern),
-                            self.__config.get(
-                                "postgres_backup_schedule",
-                                "0 2 * * 0"))
-
                         if self.primary_backend:
-                            CLI.colored_print("Run backups from primary backend server?", CLI.COLOR_SUCCESS)
+                            CLI.colored_print("Run PostgreSQL backup from primary backend server?",
+                                              CLI.COLOR_SUCCESS)
                             CLI.colored_print("\t1) Yes")
                             CLI.colored_print("\t2) No")
-                            self.__config["backup_from_primary"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                                                   self.__config.get(
-                                                                                       "backup_from_primary",
-                                                                                       Config.TRUE))
+                            self.__config["backup_from_primary"] = CLI.get_response(
+                                [Config.TRUE, Config.FALSE],
+                                self.__config.get("backup_from_primary", Config.TRUE))
+
+                        backup_from_primary = self.__config["backup_from_primary"] == Config.TRUE
+                        if (not self.multi_servers or
+                            (self.primary_backend and backup_from_primary) or
+                                (self.secondary_backend and not backup_from_primary)):
+                            CLI.colored_print("PostgreSQL backup schedule?", CLI.COLOR_SUCCESS)
+                            self.__config["postgres_backup_schedule"] = CLI.get_response(
+                                "~{}".format(schedule_regex_pattern),
+                                self.__config.get(
+                                    "postgres_backup_schedule",
+                                    "0 2 * * 0"))
+
                         if self.primary_backend or not self.multi_servers:
+
                             CLI.colored_print("MongoDB backup schedule?", CLI.COLOR_SUCCESS)
                             self.__config["mongo_backup_schedule"] = CLI.get_response(
                                 "~{}".format(schedule_regex_pattern),
@@ -717,58 +792,10 @@ class Config:
                                 self.__config.get(
                                     "redis_backup_schedule",
                                     "0 3 * * 0"))
+
                         if self.aws:
-                            self.__config["aws_backup_bucket_name"] = CLI.colored_input("AWS Backups bucket name",
-                                                                                        CLI.COLOR_SUCCESS,
-                                                                                        self.__config.get(
-                                                                                            "aws_backup_bucket_name",
-                                                                                            ""))
-                            if self.__config["aws_backup_bucket_name"] != "":
-                                CLI.colored_print("How many yearly backups to keep?", CLI.COLOR_SUCCESS)
-                                self.__config["aws_backup_yearly_retention"] = CLI.get_response(
-                                    r"~^\d+$", self.__config.get("aws_backup_yearly_retention", "2"))
+                            self.__questions_aws_backup_settings()
 
-                                CLI.colored_print("How many monthly backups to keep?", CLI.COLOR_SUCCESS)
-                                self.__config["aws_backup_monthly_retention"] = CLI.get_response(
-                                    r"~^\d+$", self.__config.get("aws_backup_monthly_retention", "12"))
-
-                                CLI.colored_print("How many weekly backups to keep?", CLI.COLOR_SUCCESS)
-                                self.__config["aws_backup_weekly_retention"] = CLI.get_response(
-                                    r"~^\d+$", self.__config.get("aws_backup_weekly_retention", "4"))
-
-                                CLI.colored_print("How many daily backups to keep?", CLI.COLOR_SUCCESS)
-                                self.__config["aws_backup_daily_retention"] = CLI.get_response(
-                                    r"~^\d+$", self.__config.get("aws_backup_daily_retention", "30"))
-
-                                CLI.colored_print("MongoDB backup minimum size (in MB)?", CLI.COLOR_SUCCESS)
-                                CLI.colored_print("Files below this size will be ignored when rotating backups.",
-                                                  CLI.COLOR_INFO)
-                                self.__config["aws_mongo_backup_minimum_size"] = CLI.get_response(
-                                    r"~^\d+$", self.__config.get("aws_mongo_backup_minimum_size", "50"))
-
-                                CLI.colored_print("PostgresSQL backup minimum size (in MB)?", CLI.COLOR_SUCCESS)
-                                CLI.colored_print("Files below this size will be ignored when rotating backups.",
-                                                  CLI.COLOR_INFO)
-                                self.__config["aws_postgres_backup_minimum_size"] = CLI.get_response(
-                                    r"~^\d+$", self.__config.get("aws_postgres_backup_minimum_size", "50"))
-
-                                CLI.colored_print("Redis backup minimum size (in MB)?", CLI.COLOR_SUCCESS)
-                                CLI.colored_print("Files below this size will be ignored when rotating backups.",
-                                                  CLI.COLOR_INFO)
-                                self.__config["aws_redis_backup_minimum_size"] = CLI.get_response(
-                                    r"~^\d+$", self.__config.get("aws_redis_backup_minimum_size", "5"))
-
-                                CLI.colored_print("Chunk size of multipart uploads (in MB)?", CLI.COLOR_SUCCESS)
-                                self.__config["aws_backup_upload_chunk_size"] = CLI.get_response(
-                                    r"~^\d+$", self.__config.get("aws_backup_upload_chunk_size", "15"))
-
-                                CLI.colored_print("Use AWS LifeCycle deletion rule?", CLI.COLOR_SUCCESS)
-                                CLI.colored_print("\t1) Yes")
-                                CLI.colored_print("\t2) No")
-                                self.__config["aws_backup_bucket_deletion_rule_enabled"] = CLI.get_response(
-                                    [Config.TRUE, Config.FALSE],
-                                    self.__config.get("aws_backup_bucket_deletion_rule_enabled",
-                                                      Config.FALSE))
         else:
             self.__config["use_backup"] = Config.FALSE
 
@@ -787,37 +814,45 @@ class Config:
             if self.local_install:
                 # NGinX different port
                 CLI.colored_print("Web server port?", CLI.COLOR_SUCCESS)
-                self.__config["exposed_nginx_docker_port"] = CLI.get_response(r"~^\d+$",
-                                                                              self.__config.get(
-                                                                                  "exposed_nginx_docker_port",
-                                                                                  Config.DEFAULT_NGINX_PORT))
+                self.__config["exposed_nginx_docker_port"] = CLI.get_response(
+                    r"~^\d+$", self.__config.get("exposed_nginx_docker_port",
+                                                 Config.DEFAULT_NGINX_PORT))
                 CLI.colored_print("Developer mode?", CLI.COLOR_SUCCESS)
                 CLI.colored_print("\t1) Yes")
                 CLI.colored_print("\t2) No")
-                self.__config["dev_mode"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                             self.__config.get("dev_mode", Config.FALSE))
+                self.__config["dev_mode"] = CLI.get_response(
+                    [Config.TRUE, Config.FALSE],
+                    self.__config.get("dev_mode", Config.FALSE))
                 self.__config["staging_mode"] = Config.FALSE
             else:
 
                 CLI.colored_print("Staging mode?", CLI.COLOR_SUCCESS)
                 CLI.colored_print("\t1) Yes")
                 CLI.colored_print("\t2) No")
-                self.__config["staging_mode"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                                 self.__config.get("staging_mode", Config.FALSE))
+                self.__config["staging_mode"] = CLI.get_response(
+                    [Config.TRUE, Config.FALSE],
+                    self.__config.get("staging_mode", Config.FALSE))
                 self.__config["dev_mode"] = Config.FALSE
 
             if self.dev_mode or self.staging_mode:
-                CLI.colored_print("╔═══════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
-                CLI.colored_print("║ Where are the files located locally? It can be absolute   ║", CLI.COLOR_WARNING)
-                CLI.colored_print("║ or relative to the directory of `kobo-docker`.            ║", CLI.COLOR_WARNING)
-                CLI.colored_print("║ Leave empty if you don't need to overload the repository. ║", CLI.COLOR_WARNING)
-                CLI.colored_print("╚═══════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
-                self.__config["kc_path"] = CLI.colored_input("KoBoCat files location", CLI.COLOR_SUCCESS,
-                                                             self.__config.get("kc_path"))
+                CLI.colored_print("╔═══════════════════════════════════════════════════════════╗",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("║ Where are the files located locally? It can be absolute   ║",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("║ or relative to the directory of `kobo-docker`.            ║",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("║ Leave empty if you don't need to overload the repository. ║",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("╚═══════════════════════════════════════════════════════════╝",
+                                  CLI.COLOR_WARNING)
+                self.__config["kc_path"] = CLI.colored_input(
+                    "KoBoCat files location", CLI.COLOR_SUCCESS,
+                    self.__config.get("kc_path"))
 
                 self.__clone_repo(self.__config["kc_path"], "kobocat")
-                self.__config["kpi_path"] = CLI.colored_input("KPI files location", CLI.COLOR_SUCCESS,
-                                                              self.__config.get("kpi_path"))
+                self.__config["kpi_path"] = CLI.colored_input(
+                    "KPI files location", CLI.COLOR_SUCCESS,
+                    self.__config.get("kpi_path"))
                 self.__clone_repo(self.__config["kpi_path"], "kpi")
 
                 # Create an unique id to build fresh image when starting containers
@@ -838,15 +873,17 @@ class Config:
                     CLI.colored_print("Enable DEBUG?", CLI.COLOR_SUCCESS)
                     CLI.colored_print("\t1) True")
                     CLI.colored_print("\t2) False")
-                    self.__config["debug"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                              self.__config.get("debug", Config.TRUE))
+                    self.__config["debug"] = CLI.get_response(
+                        [Config.TRUE, Config.FALSE],
+                        self.__config.get("debug", Config.TRUE))
 
                     # Frontend development
                     CLI.colored_print("How do you want to run `npm`?", CLI.COLOR_SUCCESS)
                     CLI.colored_print("\t1) From within the container")
                     CLI.colored_print("\t2) Locally")
-                    self.__config["npm_container"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                                      self.__config.get("npm_container", Config.TRUE))
+                    self.__config["npm_container"] = CLI.get_response(
+                        [Config.TRUE, Config.FALSE],
+                        self.__config.get("npm_container", Config.TRUE))
             else:
                 # Force reset paths
                 self.__reset(dev=True, reset_nginx_port=self.staging_mode)
