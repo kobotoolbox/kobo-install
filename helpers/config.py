@@ -158,7 +158,7 @@ class Config:
                     self.__questions_multi_servers()
                     if self.multi_servers:
                         self.__questions_roles()
-                        if self.frontend:
+                        if self.frontend or self.secondary_backend:
                             self.__questions_private_routes()
                     else:
                         self.__reset(private_dns=True)
@@ -557,7 +557,9 @@ class Config:
     def __detect_network(self):
 
         self.__config["local_interface_ip"] = Network.get_primary_ip()
-        self.__config["primary_backend_ip"] = self.__config["local_interface_ip"]
+
+        if self.frontend:
+            self.__config["primary_backend_ip"] = self.__config["local_interface_ip"]
 
         if self.advanced_options:
             CLI.colored_print("Please choose which network interface you want to use?", CLI.COLOR_SUCCESS)
@@ -592,7 +594,9 @@ class Config:
                 self.__config["local_interface"] = response
 
             self.__config["local_interface_ip"] = interfaces[self.__config.get("local_interface")]
-            self.__config["primary_backend_ip"] = self.__config.get("local_interface_ip")
+
+            if self.frontend:
+                self.__config["primary_backend_ip"] = self.__config.get("local_interface_ip")
 
     def __get_upgraded_config(self):
         """
@@ -1379,7 +1383,7 @@ class Config:
                                                                               Config.FALSE))
 
         if self.__config["use_private_dns"] == Config.FALSE:
-            CLI.colored_print("IP address (IPv4) of backend server?", CLI.COLOR_SUCCESS)
+            CLI.colored_print("IP address (IPv4) of primary backend server?", CLI.COLOR_SUCCESS)
             self.__config["primary_backend_ip"] = CLI.get_response(
                 r"~\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}",
                 self.__config.get("primary_backend_ip", self.__primary_ip))

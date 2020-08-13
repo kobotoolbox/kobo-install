@@ -368,9 +368,12 @@ class Command:
                                   "It can take a few minutes.", CLI.COLOR_SUCCESS)
                 cls.info()
             else:
-                CLI.colored_print(("Backend server should be up & running! "
-                                   "Please look at docker logs for further "
-                                   "information"), CLI.COLOR_WARNING)
+                CLI.colored_print(
+                    ("{} backend server is starting up and should be "
+                     "up & running soon!\nPlease look at docker logs for "
+                     "further information: `python3 run.py -cb logs -f`".format(
+                        config.get('backend_server_role'))),
+                    CLI.COLOR_WARNING)
 
     @classmethod
     def stop(cls, output=True, frontend_only=False):
@@ -407,8 +410,7 @@ class Command:
                 CLI.run_command(proxy_command, config_object.get_letsencrypt_repo_path())
 
         if not frontend_only:
-            if not config_object.multi_servers or config_object.primary_backend:
-
+            if not config_object.frontend:
                 backend_role = config.get("backend_server_role", "primary")
 
                 backend_command = [
