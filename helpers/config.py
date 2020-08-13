@@ -1478,7 +1478,7 @@ class Config(with_metaclass(Singleton)):
 
             CLI.colored_print("Auto-install HTTPS certificates with Let's Encrypt?", CLI.COLOR_SUCCESS)
             CLI.colored_print("\t1) Yes")
-            CLI.colored_print("\t2) No - Use my own reserve-proxy/load-balancer")
+            CLI.colored_print("\t2) No - Use my own reverse-proxy/load-balancer")
             self.__config["use_letsencrypt"] = CLI.get_response([Config.TRUE, Config.FALSE],
                                                                 self.__config.get("use_letsencrypt", Config.TRUE))
             self.__config["proxy"] = Config.TRUE
