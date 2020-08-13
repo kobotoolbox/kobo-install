@@ -265,7 +265,7 @@ class Command:
                             "-f", "docker-compose.maintenance.yml",
                             "-f", "docker-compose.maintenance.override.yml",
                             "-p", config_object.get_prefix("maintenance"),
-                            "up", "-d", "maintenance"]
+                            "up", "-d"]
 
         CLI.run_command(frontend_command, config.get("kobodocker_path"))
         CLI.colored_print("Maintenance mode has been started",
@@ -313,9 +313,7 @@ class Command:
                 sys.exit(1)
 
         # Start the back-end containers
-        if not frontend_only:
-            if not config_object.multi_servers or \
-                    config_object.primary_backend or config_object.secondary_backend:
+        if not frontend_only and config_object.backend:
                 backend_role = config.get("backend_server_role", "primary")
 
                 backend_command = ["docker-compose",
@@ -330,7 +328,7 @@ class Command:
                 CLI.run_command(backend_command, config.get("kobodocker_path"))
 
         # Start the front-end containers
-        if not config_object.multi_servers or config_object.frontend:
+        if config_object.frontend:
 
             # If this was previously a shared-database setup, migrate to separate
             # databases for KPI and KoBoCAT
@@ -409,20 +407,19 @@ class Command:
                                  "down"]
                 CLI.run_command(proxy_command, config_object.get_letsencrypt_repo_path())
 
-        if not frontend_only:
-            if not config_object.frontend:
-                backend_role = config.get("backend_server_role", "primary")
+        if not frontend_only and config_object.backend:
+            backend_role = config.get("backend_server_role", "primary")
 
-                backend_command = [
-                    "docker-compose",
-                    "-f",
-                    "docker-compose.backend.{}.yml".format(backend_role),
-                    "-f",
-                    "docker-compose.backend.{}.override.yml".format(backend_role),
-                    "-p", config_object.get_prefix("backend"),
-                    "down"
-                ]
-                CLI.run_command(backend_command, config.get("kobodocker_path"))
+            backend_command = [
+                "docker-compose",
+                "-f",
+                "docker-compose.backend.{}.yml".format(backend_role),
+                "-f",
+                "docker-compose.backend.{}.override.yml".format(backend_role),
+                "-p", config_object.get_prefix("backend"),
+                "down"
+            ]
+            CLI.run_command(backend_command, config.get("kobodocker_path"))
 
         if output:
             CLI.colored_print("KoBoToolbox has been stopped", CLI.COLOR_SUCCESS)

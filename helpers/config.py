@@ -15,10 +15,13 @@ from random import choice
 
 from helpers.cli import CLI
 from helpers.network import Network
-from helpers.singleton import Singleton
+from helpers.singleton import Singleton, with_metaclass
 
 
-class Config:
+# Use this class as a singleton to get the same configuration
+# for each instantiation.
+class Config(with_metaclass(Singleton)):
+
     CONFIG_FILE = ".run.conf"
     UNIQUE_ID_FILE = ".uniqid"
     UPSERT_DB_USERS_TRIGGER_FILE = ".upsert_db_users"
@@ -32,10 +35,6 @@ class Config:
     KOBO_DOCKER_BRANCH = '300-backups-venv-failure'
     KOBO_INSTALL_VERSION = '3.2.0'
 
-    # Maybe overkill. Use this class as a singleton to get the same configuration
-    # for each instantiation.
-    __metaclass__ = Singleton
-
     def __init__(self):
         self.__config = self.read_config()
         self.__first_time = None
@@ -48,10 +47,6 @@ class Config:
         :return: bool 
         """
         return self.__config.get("advanced") == Config.TRUE
-
-    @property
-    def block_common_http_ports(self):
-        return self.use_letsencrypt or self.__config.get("block_common_http_ports") == Config.TRUE
 
     def auto_detect_network(self):
         """
@@ -74,6 +69,15 @@ class Config:
         :return: bool
         """
         return self.__config.get("use_aws") == Config.TRUE
+
+    @property
+    def backend(self):
+        return not self.multi_servers or self.primary_backend or \
+            self.secondary_backend
+
+    @property
+    def block_common_http_ports(self):
+        return self.use_letsencrypt or self.__config.get("block_common_http_ports") == Config.TRUE
 
     @property
     def expose_backend_ports(self):

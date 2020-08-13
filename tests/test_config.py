@@ -1,54 +1,30 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-import json
 import pytest
 import os
 import shutil
 import tempfile
 import time
-
-
 try:
-    from unittest.mock import patch, mock_open, MagicMock
-    builtin_open = "builtins.open"
+    from unittest.mock import patch, MagicMock
 except ImportError:
-    from mock import patch, mock_open, MagicMock
-    builtin_open = "__builtin__.open"
+    from mock import patch, MagicMock
 
 from helpers.cli import CLI
 from helpers.config import Config
+from .utils import (
+    read_config,
+    write_trigger_upsert_db_users,
+)
 
 
-def reset_config(config_object):
-
-    config_dict = dict(Config.get_config_template())
-    config_dict["kobodocker_path"] = "/tmp"
-    config_object.__config = config_dict
-
-
-def write_trigger_upsert_db_users(*args):
-    content = args[1]
-    with open("/tmp/upsert_db_users", "w") as f:
-        f.write(content)
-
-
-def test_read_config(overrides=None):
-
-    config_dict = dict(Config.get_config_template())
-    config_dict["kobodocker_path"] = "/tmp"
-    if overrides is not None:
-        config_dict.update(overrides)
-    with patch(builtin_open, mock_open(read_data=json.dumps(config_dict))) as mock_file:
-        config_object = Config()
-        config_object.read_config()
-        assert config_object.get_config().get("kobodocker_path") == config_dict.get("kobodocker_path")
-
-    return config_object
+def test_read_config():
+    config_object = read_config()
 
 
 def test_advanced_options():
-    config_object = test_read_config()
+    config_object = read_config()
     with patch.object(CLI, "colored_input", return_value=Config.TRUE) as mock_ci:
         config_object._Config__questions_advanced_options()
         assert config_object.advanced_options
@@ -59,7 +35,7 @@ def test_advanced_options():
 
 
 def test_installation():
-    config_object = test_read_config()
+    config_object = read_config()
     with patch.object(CLI, "colored_input", return_value=Config.FALSE) as mock_ci:
         config_object._Config__questions_installation_type()
         assert not config_object.local_install
@@ -75,7 +51,7 @@ def test_installation():
 
 @patch("helpers.config.Config._Config__clone_repo", MagicMock(return_value=True))
 def test_staging_mode():
-    config_object = test_read_config()
+    config_object = read_config()
     kc_repo_path = tempfile.mkdtemp()
     kpi_repo_path = tempfile.mkdtemp()
 
@@ -122,7 +98,7 @@ def test_dev_mode():
 
 
 def test_server_roles_questions():
-    config_object = test_read_config()
+    config_object = read_config()
     assert config_object.frontend_questions
     assert config_object.backend_questions
 
@@ -143,7 +119,7 @@ def test_server_roles_questions():
 
 
 def test_use_https():
-    config_object = test_read_config()
+    config_object = read_config()
 
     assert config_object.is_secure
 
@@ -160,7 +136,7 @@ def test_use_https():
 
 @patch("helpers.config.Config._Config__clone_repo", MagicMock(return_value=True))
 def test_proxy_letsencrypt():
-    config_object = test_read_config()
+    config_object = read_config()
 
     assert config_object.proxy
     assert config_object.use_letsencrypt
@@ -182,7 +158,7 @@ def test_proxy_letsencrypt():
 
 
 def test_proxy_no_letsencrypt_advanced():
-        config_object = test_read_config()
+        config_object = read_config()
         # Force advanced options
         config_object._Config__config["advanced"] = Config.TRUE
         assert config_object.advanced_options
@@ -200,7 +176,7 @@ def test_proxy_no_letsencrypt_advanced():
 
 
 def test_proxy_no_letsencrypt():
-    config_object = test_read_config()
+    config_object = read_config()
 
     assert config_object.proxy
     assert config_object.use_letsencrypt
@@ -215,7 +191,7 @@ def test_proxy_no_letsencrypt():
 
 def test_proxy_no_letsencrypt_retains_custom_nginx_proxy_port():
     CUSTOM_PROXY_PORT = 9090
-    config_object = test_read_config(overrides={
+    config_object = read_config(overrides={
         'advanced': Config.TRUE,
         'use_letsencrypt': Config.FALSE,
         'nginx_proxy_port': str(CUSTOM_PROXY_PORT),
@@ -230,7 +206,7 @@ def test_proxy_no_letsencrypt_retains_custom_nginx_proxy_port():
 
 
 def test_no_proxy_no_ssl():
-    config_object = test_read_config()
+    config_object = read_config()
     assert config_object.is_secure
     assert config_object.get_config().get("nginx_proxy_port") == Config.DEFAULT_PROXY_PORT
 
@@ -249,7 +225,7 @@ def test_no_proxy_no_ssl():
 
 
 def test_proxy_no_ssl_advanced():
-    config_object = test_read_config()
+    config_object = read_config()
     # Force advanced options
     config_object._Config__config["advanced"] = Config.TRUE
     assert config_object.advanced_options
@@ -281,7 +257,7 @@ def test_proxy_no_ssl_advanced():
 
 
 def test_port_allowed():
-    config_object = test_read_config()
+    config_object = read_config()
     # Use let's encrypt by default
     assert not config_object._Config__is_port_allowed(Config.DEFAULT_NGINX_PORT)
     assert not config_object._Config__is_port_allowed("443")
@@ -295,7 +271,7 @@ def test_port_allowed():
 
 
 def test_create_directory():
-    config_object = test_read_config()
+    config_object = read_config()
     destination_path = tempfile.mkdtemp()
 
     with patch("helpers.cli.CLI.colored_input") as mock_colored_input:
@@ -309,7 +285,7 @@ def test_create_directory():
 
 @patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
 def test_maintenance():
-    config_object = test_read_config()
+    config_object = read_config()
 
     # First time
     with pytest.raises(SystemExit) as pytest_wrapped_e:
@@ -334,7 +310,7 @@ def test_maintenance():
 
 
 def test_exposed_ports():
-    config_object = test_read_config()
+    config_object = read_config()
     with patch.object(CLI, "colored_input", return_value=Config.TRUE) as mock_ci:
         # Choose multi servers options
         config_object._Config__questions_multi_servers()
@@ -367,7 +343,7 @@ def test_exposed_ports():
 
 @patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
 def test_force_secure_mongo():
-    config_object = test_read_config()
+    config_object = read_config()
     config_ = config_object.get_config()
 
     with patch("helpers.cli.CLI.colored_input") as mock_ci:
@@ -400,7 +376,7 @@ def test_force_secure_mongo():
 @patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',
        new=write_trigger_upsert_db_users)
 def test_secure_mongo_advanced_options():
-    config_object = test_read_config()
+    config_object = read_config()
     with patch("helpers.cli.CLI.colored_input") as mock_ci:
         mock_ci.side_effect = iter([
             "root",
@@ -415,7 +391,7 @@ def test_secure_mongo_advanced_options():
 @patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',
        new=write_trigger_upsert_db_users)
 def test_update_mongo_passwords():
-    config_object = test_read_config()
+    config_object = read_config()
     with patch("helpers.cli.CLI.colored_input") as mock_ci:
         config_object._Config__first_time = False
         config_object._Config__config["mongo_root_username"] = 'root'
@@ -435,7 +411,7 @@ def test_update_mongo_passwords():
 @patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',
        new=write_trigger_upsert_db_users)
 def test_update_mongo_usernames():
-    config_object = test_read_config()
+    config_object = read_config()
     with patch("helpers.cli.CLI.colored_input") as mock_ci:
         config_object._Config__first_time = False
         config_object._Config__config["mongo_root_username"] = 'root'
@@ -466,7 +442,7 @@ def test_update_postgres_password():
     When password changes, file must contain `<user><TAB><deletion boolean>`
     Users should not be deleted if they already exist.
     """
-    config_object = test_read_config()
+    config_object = read_config()
     with patch("helpers.cli.CLI.colored_input") as mock_ci:
         config_object._Config__first_time = False
         config_object._Config__config["postgres_user"] = 'user'
@@ -496,7 +472,7 @@ def test_update_postgres_username():
 
     When username changes, file must contain `<user><TAB><deletion boolean>`
     """
-    config_object = test_read_config()
+    config_object = read_config()
     with patch("helpers.cli.CLI.colored_input") as mock_ci:
         config_object._Config__first_time = False
         config_object._Config__config["postgres_user"] = 'user'
@@ -524,7 +500,7 @@ def test_update_postgres_db_name_from_single_database():
     With two databases, KoBoCat has its own database. We ensure that
     `kc_postgres_db` gets `postgres_db` value.
     """
-    config_object = test_read_config()
+    config_object = read_config()
     config = config_object.get_config()
     old_db_name = "postgres_db_kobo"
     config_object._Config__config["postgres_db"] = old_db_name
@@ -539,7 +515,7 @@ def test_new_terminology():
     """
     Ensure config uses `primary` instead of `master`
     """
-    config_object = test_read_config()
+    config_object = read_config()
     config_object._Config__config["backend_server_role"] = 'master'
     config = config_object._Config__get_upgraded_config()
     assert config.get("backend_server_role") == 'primary'
