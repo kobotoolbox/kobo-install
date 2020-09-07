@@ -44,7 +44,7 @@ def migrate_single_to_two_databases():
                       CLI.COLOR_INFO)
     frontend_command = kpi_run_command + _kpi_db_alias_kludge(" ".join([
                            "python", "manage.py",
-                           "wait_for_database", "--retries", "45"
+                           "wait_for_database", "--retries", "300"
                        ]))
     CLI.run_command(frontend_command, config.get("kobodocker_path"))
     CLI.colored_print("The PostgreSQL database is running!", CLI.COLOR_SUCCESS)
