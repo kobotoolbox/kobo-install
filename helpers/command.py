@@ -265,7 +265,7 @@ class Command:
                             "-f", "docker-compose.maintenance.yml",
                             "-f", "docker-compose.maintenance.override.yml",
                             "-p", config_object.get_prefix("maintenance"),
-                            "up", "-d", "maintenance"]
+                            "up", "-d"]
 
         CLI.run_command(frontend_command, config.get("kobodocker_path"))
         CLI.colored_print("Maintenance mode has been started",
@@ -313,9 +313,7 @@ class Command:
                 sys.exit(1)
 
         # Start the back-end containers
-        if not frontend_only:
-            if not config_object.multi_servers or \
-                    config_object.primary_backend or config_object.secondary_backend:
+        if not frontend_only and config_object.backend:
                 backend_role = config.get("backend_server_role", "primary")
 
                 backend_command = ["docker-compose",
@@ -329,12 +327,13 @@ class Command:
                                    "up", "-d"]
                 CLI.run_command(backend_command, config.get("kobodocker_path"))
 
-        # If this was previously a shared-database setup, migrate to separate
-        # databases for KPI and KoBoCAT
-        migrate_single_to_two_databases()
-
         # Start the front-end containers
-        if not config_object.multi_servers or config_object.frontend:
+        if config_object.frontend:
+
+            # If this was previously a shared-database setup, migrate to separate
+            # databases for KPI and KoBoCAT
+            migrate_single_to_two_databases()
+
             frontend_command = ["docker-compose",
                                 "-f", "docker-compose.frontend.yml",
                                 "-f", "docker-compose.frontend.override.yml",
@@ -367,9 +366,12 @@ class Command:
                                   "It can take a few minutes.", CLI.COLOR_SUCCESS)
                 cls.info()
             else:
-                CLI.colored_print(("Backend server should be up & running! "
-                                   "Please look at docker logs for further "
-                                   "information"), CLI.COLOR_WARNING)
+                CLI.colored_print(
+                    ("{} backend server is starting up and should be "
+                     "up & running soon!\nPlease look at docker logs for "
+                     "further information: `python3 run.py -cb logs -f`".format(
+                        config.get('backend_server_role'))),
+                    CLI.COLOR_WARNING)
 
     @classmethod
     def stop(cls, output=True, frontend_only=False):
@@ -405,21 +407,19 @@ class Command:
                                  "down"]
                 CLI.run_command(proxy_command, config_object.get_letsencrypt_repo_path())
 
-        if not frontend_only:
-            if not config_object.multi_servers or config_object.primary_backend:
+        if not frontend_only and config_object.backend:
+            backend_role = config.get("backend_server_role", "primary")
 
-                backend_role = config.get("backend_server_role", "primary")
-
-                backend_command = [
-                    "docker-compose",
-                    "-f",
-                    "docker-compose.backend.{}.yml".format(backend_role),
-                    "-f",
-                    "docker-compose.backend.{}.override.yml".format(backend_role),
-                    "-p", config_object.get_prefix("backend"),
-                    "down"
-                ]
-                CLI.run_command(backend_command, config.get("kobodocker_path"))
+            backend_command = [
+                "docker-compose",
+                "-f",
+                "docker-compose.backend.{}.yml".format(backend_role),
+                "-f",
+                "docker-compose.backend.{}.override.yml".format(backend_role),
+                "-p", config_object.get_prefix("backend"),
+                "down"
+            ]
+            CLI.run_command(backend_command, config.get("kobodocker_path"))
 
         if output:
             CLI.colored_print("KoBoToolbox has been stopped", CLI.COLOR_SUCCESS)

@@ -15,10 +15,13 @@ from random import choice
 
 from helpers.cli import CLI
 from helpers.network import Network
-from helpers.singleton import Singleton
+from helpers.singleton import Singleton, with_metaclass
 
 
-class Config:
+# Use this class as a singleton to get the same configuration
+# for each instantiation.
+class Config(with_metaclass(Singleton)):
+
     CONFIG_FILE = ".run.conf"
     UNIQUE_ID_FILE = ".uniqid"
     UPSERT_DB_USERS_TRIGGER_FILE = ".upsert_db_users"
@@ -29,12 +32,8 @@ class Config:
     DEFAULT_PROXY_PORT = "8080"
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
-    KOBO_DOCKER_BRANCH = '2.020.34a'
-    KOBO_INSTALL_VERSION = '3.1.3'
-
-    # Maybe overkill. Use this class as a singleton to get the same configuration
-    # for each instantiation.
-    __metaclass__ = Singleton
+    KOBO_DOCKER_BRANCH = '2.020.37'
+    KOBO_INSTALL_VERSION = '3.2.1'
 
     def __init__(self):
         self.__config = self.read_config()
@@ -48,10 +47,6 @@ class Config:
         :return: bool 
         """
         return self.__config.get("advanced") == Config.TRUE
-
-    @property
-    def block_common_http_ports(self):
-        return self.use_letsencrypt or self.__config.get("block_common_http_ports") == Config.TRUE
 
     def auto_detect_network(self):
         """
@@ -74,6 +69,15 @@ class Config:
         :return: bool
         """
         return self.__config.get("use_aws") == Config.TRUE
+
+    @property
+    def backend(self):
+        return not self.multi_servers or self.primary_backend or \
+            self.secondary_backend
+
+    @property
+    def block_common_http_ports(self):
+        return self.use_letsencrypt or self.__config.get("block_common_http_ports") == Config.TRUE
 
     @property
     def expose_backend_ports(self):
@@ -145,26 +149,7 @@ class Config:
             sys.exit(1)
         else:
 
-            config = self.get_config_template()
-            config.update(self.__config)
-
-            # If the configuration came from a previous version that had a
-            # single Postgres database, we need to make sure the new
-            # `kc_postgres_db` is set to the name of that single database,
-            # *not* the default from `get_config_template()`
-            if (
-                self.__config.get("postgres_db")
-                and not self.__config.get("kc_postgres_db")
-            ):
-                config["kc_postgres_db"] = self.__config["postgres_db"]
-
-            # Force update user's config to use new terminology.
-            backend_role = config.get('backend_server_role')
-            if backend_role in ['master', 'slave']:
-                config['backend_server_role'] = 'primary' \
-                    if backend_role == 'master' else 'secondary'
-
-            self.__config = config
+            self.__config = self.__get_upgraded_config()
             self.__welcome()
 
             self.__create_directory()
@@ -177,7 +162,7 @@ class Config:
                     self.__questions_multi_servers()
                     if self.multi_servers:
                         self.__questions_roles()
-                        if self.frontend:
+                        if self.frontend or self.secondary_backend:
                             self.__questions_private_routes()
                     else:
                         self.__reset(private_dns=True)
@@ -210,9 +195,9 @@ class Config:
 
             self.__questions_backup()
 
-            self.__config = config
             self.write_config()
-            return config
+
+            return self.__config
 
     @property
     def dev_mode(self):
@@ -349,6 +334,7 @@ class Config:
             "uwsgi_soft_limit": "128",
             "uwsgi_harakiri": "120",
             "uwsgi_worker_reload_mercy": "120",
+            "backup_from_primary": Config.TRUE,
         }
 
     def get_service_names(self):
@@ -575,7 +561,9 @@ class Config:
     def __detect_network(self):
 
         self.__config["local_interface_ip"] = Network.get_primary_ip()
-        self.__config["primary_backend_ip"] = self.__config["local_interface_ip"]
+
+        if self.frontend:
+            self.__config["primary_backend_ip"] = self.__config["local_interface_ip"]
 
         if self.advanced_options:
             CLI.colored_print("Please choose which network interface you want to use?", CLI.COLOR_SUCCESS)
@@ -610,7 +598,38 @@ class Config:
                 self.__config["local_interface"] = response
 
             self.__config["local_interface_ip"] = interfaces[self.__config.get("local_interface")]
-            self.__config["primary_backend_ip"] = self.__config.get("local_interface_ip")
+
+            if self.frontend:
+                self.__config["primary_backend_ip"] = self.__config.get("local_interface_ip")
+
+    def __get_upgraded_config(self):
+        """
+        Sometimes during upgrades, some keys are changed/deleted/added.
+        This method helps to get a compliant dict to expected config
+
+        :return: dict
+        """
+
+        upgraded_config = self.get_config_template()
+        upgraded_config.update(self.__config)
+
+        # If the configuration came from a previous version that had a
+        # single Postgres database, we need to make sure the new
+        # `kc_postgres_db` is set to the name of that single database,
+        # *not* the default from `get_config_template()`
+        if (
+                self.__config.get("postgres_db")
+                and not self.__config.get("kc_postgres_db")
+        ):
+            upgraded_config["kc_postgres_db"] = self.__config["postgres_db"]
+
+        # Force update user's config to use new terminology.
+        backend_role = upgraded_config.get('backend_server_role')
+        if backend_role in ['master', 'slave']:
+            upgraded_config['backend_server_role'] = 'primary' \
+                if backend_role == 'master' else 'secondary'
+
+        return upgraded_config
 
     def __questions_advanced_options(self):
         """
@@ -643,6 +662,74 @@ class Config:
             self.__config["aws_access_key"] = ""
             self.__config["aws_secret_key"] = ""
             self.__config["aws_bucket_name"] = ""
+
+    def __questions_aws_backup_settings(self):
+
+        self.__config["aws_backup_bucket_name"] = CLI.colored_input(
+            "AWS Backups bucket name", CLI.COLOR_SUCCESS,
+            self.__config.get("aws_backup_bucket_name", ""))
+
+        if self.__config["aws_backup_bucket_name"] != "":
+
+            backup_from_primary = self.__config["backup_from_primary"] == Config.TRUE
+
+            CLI.colored_print("How many yearly backups to keep?", CLI.COLOR_SUCCESS)
+            self.__config["aws_backup_yearly_retention"] = CLI.get_response(
+                r"~^\d+$", self.__config.get("aws_backup_yearly_retention"))
+
+            CLI.colored_print("How many monthly backups to keep?", CLI.COLOR_SUCCESS)
+            self.__config["aws_backup_monthly_retention"] = CLI.get_response(
+                r"~^\d+$", self.__config.get("aws_backup_monthly_retention"))
+
+            CLI.colored_print("How many weekly backups to keep?", CLI.COLOR_SUCCESS)
+            self.__config["aws_backup_weekly_retention"] = CLI.get_response(
+                r"~^\d+$", self.__config.get("aws_backup_weekly_retention"))
+
+            CLI.colored_print("How many daily backups to keep?", CLI.COLOR_SUCCESS)
+            self.__config["aws_backup_daily_retention"] = CLI.get_response(
+                r"~^\d+$", self.__config.get("aws_backup_daily_retention"))
+
+            if (not self.multi_servers or
+                    (self.primary_backend and backup_from_primary) or
+                    (self.secondary_backend and not backup_from_primary)):
+                CLI.colored_print("PostgresSQL backup minimum size (in MB)?",
+                                  CLI.COLOR_SUCCESS)
+                CLI.colored_print(
+                    "Files below this size will be ignored when rotating backups.",
+                    CLI.COLOR_INFO)
+                self.__config["aws_postgres_backup_minimum_size"] = CLI.get_response(
+                    r"~^\d+$", self.__config.get("aws_postgres_backup_minimum_size"))
+
+            if self.primary_backend or not self.multi_servers:
+                CLI.colored_print("MongoDB backup minimum size (in MB)?",
+                                  CLI.COLOR_SUCCESS)
+                CLI.colored_print(
+                    "Files below this size will be ignored when rotating backups.",
+                    CLI.COLOR_INFO)
+                self.__config["aws_mongo_backup_minimum_size"] = CLI.get_response(
+                    r"~^\d+$", self.__config.get("aws_mongo_backup_minimum_size"))
+
+                CLI.colored_print("Redis backup minimum size (in MB)?",
+                                  CLI.COLOR_SUCCESS)
+                CLI.colored_print(
+                    "Files below this size will be ignored when rotating backups.",
+                    CLI.COLOR_INFO)
+                self.__config["aws_redis_backup_minimum_size"] = CLI.get_response(
+                    r"~^\d+$", self.__config.get("aws_redis_backup_minimum_size"))
+
+            CLI.colored_print("Chunk size of multipart uploads (in MB)?",
+                              CLI.COLOR_SUCCESS)
+            self.__config["aws_backup_upload_chunk_size"] = CLI.get_response(
+                r"~^\d+$", self.__config.get("aws_backup_upload_chunk_size"))
+
+            CLI.colored_print("Use AWS LifeCycle deletion rule?",
+                              CLI.COLOR_SUCCESS)
+            CLI.colored_print("\t1) Yes")
+            CLI.colored_print("\t2) No")
+            self.__config["aws_backup_bucket_deletion_rule_enabled"] = CLI.get_response(
+                [Config.TRUE, Config.FALSE],
+                self.__config.get("aws_backup_bucket_deletion_rule_enabled",
+                                  Config.FALSE))
 
     def __questions_backup(self):
         """
@@ -688,22 +775,28 @@ class Config:
 
                     if self.backend_questions:
 
-                        CLI.colored_print("PostgreSQL backup schedule?", CLI.COLOR_SUCCESS)
-                        self.__config["postgres_backup_schedule"] = CLI.get_response(
-                            "~{}".format(schedule_regex_pattern),
-                            self.__config.get(
-                                "postgres_backup_schedule",
-                                "0 2 * * 0"))
-
                         if self.primary_backend:
-                            CLI.colored_print("Run backups from primary backend server?", CLI.COLOR_SUCCESS)
+                            CLI.colored_print("Run PostgreSQL backup from primary backend server?",
+                                              CLI.COLOR_SUCCESS)
                             CLI.colored_print("\t1) Yes")
                             CLI.colored_print("\t2) No")
-                            self.__config["backup_from_primary"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                                                   self.__config.get(
-                                                                                       "backup_from_primary",
-                                                                                       Config.TRUE))
+                            self.__config["backup_from_primary"] = CLI.get_response(
+                                [Config.TRUE, Config.FALSE],
+                                self.__config.get("backup_from_primary", Config.TRUE))
+
+                        backup_from_primary = self.__config["backup_from_primary"] == Config.TRUE
+                        if (not self.multi_servers or
+                            (self.primary_backend and backup_from_primary) or
+                                (self.secondary_backend and not backup_from_primary)):
+                            CLI.colored_print("PostgreSQL backup schedule?", CLI.COLOR_SUCCESS)
+                            self.__config["postgres_backup_schedule"] = CLI.get_response(
+                                "~{}".format(schedule_regex_pattern),
+                                self.__config.get(
+                                    "postgres_backup_schedule",
+                                    "0 2 * * 0"))
+
                         if self.primary_backend or not self.multi_servers:
+
                             CLI.colored_print("MongoDB backup schedule?", CLI.COLOR_SUCCESS)
                             self.__config["mongo_backup_schedule"] = CLI.get_response(
                                 "~{}".format(schedule_regex_pattern),
@@ -717,58 +810,10 @@ class Config:
                                 self.__config.get(
                                     "redis_backup_schedule",
                                     "0 3 * * 0"))
+
                         if self.aws:
-                            self.__config["aws_backup_bucket_name"] = CLI.colored_input("AWS Backups bucket name",
-                                                                                        CLI.COLOR_SUCCESS,
-                                                                                        self.__config.get(
-                                                                                            "aws_backup_bucket_name",
-                                                                                            ""))
-                            if self.__config["aws_backup_bucket_name"] != "":
-                                CLI.colored_print("How many yearly backups to keep?", CLI.COLOR_SUCCESS)
-                                self.__config["aws_backup_yearly_retention"] = CLI.get_response(
-                                    r"~^\d+$", self.__config.get("aws_backup_yearly_retention", "2"))
+                            self.__questions_aws_backup_settings()
 
-                                CLI.colored_print("How many monthly backups to keep?", CLI.COLOR_SUCCESS)
-                                self.__config["aws_backup_monthly_retention"] = CLI.get_response(
-                                    r"~^\d+$", self.__config.get("aws_backup_monthly_retention", "12"))
-
-                                CLI.colored_print("How many weekly backups to keep?", CLI.COLOR_SUCCESS)
-                                self.__config["aws_backup_weekly_retention"] = CLI.get_response(
-                                    r"~^\d+$", self.__config.get("aws_backup_weekly_retention", "4"))
-
-                                CLI.colored_print("How many daily backups to keep?", CLI.COLOR_SUCCESS)
-                                self.__config["aws_backup_daily_retention"] = CLI.get_response(
-                                    r"~^\d+$", self.__config.get("aws_backup_daily_retention", "30"))
-
-                                CLI.colored_print("MongoDB backup minimum size (in MB)?", CLI.COLOR_SUCCESS)
-                                CLI.colored_print("Files below this size will be ignored when rotating backups.",
-                                                  CLI.COLOR_INFO)
-                                self.__config["aws_mongo_backup_minimum_size"] = CLI.get_response(
-                                    r"~^\d+$", self.__config.get("aws_mongo_backup_minimum_size", "50"))
-
-                                CLI.colored_print("PostgresSQL backup minimum size (in MB)?", CLI.COLOR_SUCCESS)
-                                CLI.colored_print("Files below this size will be ignored when rotating backups.",
-                                                  CLI.COLOR_INFO)
-                                self.__config["aws_postgres_backup_minimum_size"] = CLI.get_response(
-                                    r"~^\d+$", self.__config.get("aws_postgres_backup_minimum_size", "50"))
-
-                                CLI.colored_print("Redis backup minimum size (in MB)?", CLI.COLOR_SUCCESS)
-                                CLI.colored_print("Files below this size will be ignored when rotating backups.",
-                                                  CLI.COLOR_INFO)
-                                self.__config["aws_redis_backup_minimum_size"] = CLI.get_response(
-                                    r"~^\d+$", self.__config.get("aws_redis_backup_minimum_size", "5"))
-
-                                CLI.colored_print("Chunk size of multipart uploads (in MB)?", CLI.COLOR_SUCCESS)
-                                self.__config["aws_backup_upload_chunk_size"] = CLI.get_response(
-                                    r"~^\d+$", self.__config.get("aws_backup_upload_chunk_size", "15"))
-
-                                CLI.colored_print("Use AWS LifeCycle deletion rule?", CLI.COLOR_SUCCESS)
-                                CLI.colored_print("\t1) Yes")
-                                CLI.colored_print("\t2) No")
-                                self.__config["aws_backup_bucket_deletion_rule_enabled"] = CLI.get_response(
-                                    [Config.TRUE, Config.FALSE],
-                                    self.__config.get("aws_backup_bucket_deletion_rule_enabled",
-                                                      Config.FALSE))
         else:
             self.__config["use_backup"] = Config.FALSE
 
@@ -787,37 +832,45 @@ class Config:
             if self.local_install:
                 # NGinX different port
                 CLI.colored_print("Web server port?", CLI.COLOR_SUCCESS)
-                self.__config["exposed_nginx_docker_port"] = CLI.get_response(r"~^\d+$",
-                                                                              self.__config.get(
-                                                                                  "exposed_nginx_docker_port",
-                                                                                  Config.DEFAULT_NGINX_PORT))
+                self.__config["exposed_nginx_docker_port"] = CLI.get_response(
+                    r"~^\d+$", self.__config.get("exposed_nginx_docker_port",
+                                                 Config.DEFAULT_NGINX_PORT))
                 CLI.colored_print("Developer mode?", CLI.COLOR_SUCCESS)
                 CLI.colored_print("\t1) Yes")
                 CLI.colored_print("\t2) No")
-                self.__config["dev_mode"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                             self.__config.get("dev_mode", Config.FALSE))
+                self.__config["dev_mode"] = CLI.get_response(
+                    [Config.TRUE, Config.FALSE],
+                    self.__config.get("dev_mode", Config.FALSE))
                 self.__config["staging_mode"] = Config.FALSE
             else:
 
                 CLI.colored_print("Staging mode?", CLI.COLOR_SUCCESS)
                 CLI.colored_print("\t1) Yes")
                 CLI.colored_print("\t2) No")
-                self.__config["staging_mode"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                                 self.__config.get("staging_mode", Config.FALSE))
+                self.__config["staging_mode"] = CLI.get_response(
+                    [Config.TRUE, Config.FALSE],
+                    self.__config.get("staging_mode", Config.FALSE))
                 self.__config["dev_mode"] = Config.FALSE
 
             if self.dev_mode or self.staging_mode:
-                CLI.colored_print("╔═══════════════════════════════════════════════════════════╗", CLI.COLOR_WARNING)
-                CLI.colored_print("║ Where are the files located locally? It can be absolute   ║", CLI.COLOR_WARNING)
-                CLI.colored_print("║ or relative to the directory of `kobo-docker`.            ║", CLI.COLOR_WARNING)
-                CLI.colored_print("║ Leave empty if you don't need to overload the repository. ║", CLI.COLOR_WARNING)
-                CLI.colored_print("╚═══════════════════════════════════════════════════════════╝", CLI.COLOR_WARNING)
-                self.__config["kc_path"] = CLI.colored_input("KoBoCat files location", CLI.COLOR_SUCCESS,
-                                                             self.__config.get("kc_path"))
+                CLI.colored_print("╔═══════════════════════════════════════════════════════════╗",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("║ Where are the files located locally? It can be absolute   ║",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("║ or relative to the directory of `kobo-docker`.            ║",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("║ Leave empty if you don't need to overload the repository. ║",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("╚═══════════════════════════════════════════════════════════╝",
+                                  CLI.COLOR_WARNING)
+                self.__config["kc_path"] = CLI.colored_input(
+                    "KoBoCat files location", CLI.COLOR_SUCCESS,
+                    self.__config.get("kc_path"))
 
                 self.__clone_repo(self.__config["kc_path"], "kobocat")
-                self.__config["kpi_path"] = CLI.colored_input("KPI files location", CLI.COLOR_SUCCESS,
-                                                              self.__config.get("kpi_path"))
+                self.__config["kpi_path"] = CLI.colored_input(
+                    "KPI files location", CLI.COLOR_SUCCESS,
+                    self.__config.get("kpi_path"))
                 self.__clone_repo(self.__config["kpi_path"], "kpi")
 
                 # Create an unique id to build fresh image when starting containers
@@ -838,15 +891,17 @@ class Config:
                     CLI.colored_print("Enable DEBUG?", CLI.COLOR_SUCCESS)
                     CLI.colored_print("\t1) True")
                     CLI.colored_print("\t2) False")
-                    self.__config["debug"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                              self.__config.get("debug", Config.TRUE))
+                    self.__config["debug"] = CLI.get_response(
+                        [Config.TRUE, Config.FALSE],
+                        self.__config.get("debug", Config.TRUE))
 
                     # Frontend development
                     CLI.colored_print("How do you want to run `npm`?", CLI.COLOR_SUCCESS)
                     CLI.colored_print("\t1) From within the container")
                     CLI.colored_print("\t2) Locally")
-                    self.__config["npm_container"] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                                      self.__config.get("npm_container", Config.TRUE))
+                    self.__config["npm_container"] = CLI.get_response(
+                        [Config.TRUE, Config.FALSE],
+                        self.__config.get("npm_container", Config.TRUE))
             else:
                 # Force reset paths
                 self.__reset(dev=True, reset_nginx_port=self.staging_mode)
@@ -947,90 +1002,93 @@ class Config:
 
     def __questions_mongo(self):
         """
-        Mongo credentials.
+        Ask for MongoDB credentials only when server is for:
+        - primary backend
+        - single server installation
         """
-        mongo_user_username = self.__config["mongo_user_username"]
-        mongo_user_password = self.__config["mongo_user_password"]
-        mongo_root_username = self.__config["mongo_root_username"]
-        mongo_root_password = self.__config["mongo_root_password"]
+        if self.primary_backend or not self.multi_servers:
+            mongo_user_username = self.__config["mongo_user_username"]
+            mongo_user_password = self.__config["mongo_user_password"]
+            mongo_root_username = self.__config["mongo_root_username"]
+            mongo_root_password = self.__config["mongo_root_password"]
 
-        CLI.colored_print("MongoDB root's username?",
-                          CLI.COLOR_SUCCESS)
-        self.__config["mongo_root_username"] = CLI.get_response(
-            r"~^\w+$",
-            self.__config.get("mongo_root_username"),
-            to_lower=False)
+            CLI.colored_print("MongoDB root's username?",
+                              CLI.COLOR_SUCCESS)
+            self.__config["mongo_root_username"] = CLI.get_response(
+                r"~^\w+$",
+                self.__config.get("mongo_root_username"),
+                to_lower=False)
 
-        CLI.colored_print("MongoDB root's password?", CLI.COLOR_SUCCESS)
-        self.__config["mongo_root_password"] = CLI.get_response(
-            r"~^.{8,}$",
-            self.__config.get("mongo_root_password"),
-            to_lower=False,
-            error_msg='Too short. 8 characters minimum.')
+            CLI.colored_print("MongoDB root's password?", CLI.COLOR_SUCCESS)
+            self.__config["mongo_root_password"] = CLI.get_response(
+                r"~^.{8,}$",
+                self.__config.get("mongo_root_password"),
+                to_lower=False,
+                error_msg='Too short. 8 characters minimum.')
 
-        CLI.colored_print("MongoDB user's username?",
-                          CLI.COLOR_SUCCESS)
-        self.__config["mongo_user_username"] = CLI.get_response(
-            r"~^\w+$",
-            self.__config.get("mongo_user_username"),
-            to_lower=False)
+            CLI.colored_print("MongoDB user's username?",
+                              CLI.COLOR_SUCCESS)
+            self.__config["mongo_user_username"] = CLI.get_response(
+                r"~^\w+$",
+                self.__config.get("mongo_user_username"),
+                to_lower=False)
 
-        CLI.colored_print("MongoDB user's password?", CLI.COLOR_SUCCESS)
-        self.__config["mongo_user_password"] = CLI.get_response(
-            r"~^.{8,}$",
-            self.__config.get("mongo_user_password"),
-            to_lower=False,
-            error_msg='Too short. 8 characters minimum.')
+            CLI.colored_print("MongoDB user's password?", CLI.COLOR_SUCCESS)
+            self.__config["mongo_user_password"] = CLI.get_response(
+                r"~^.{8,}$",
+                self.__config.get("mongo_user_password"),
+                to_lower=False,
+                error_msg='Too short. 8 characters minimum.')
 
-        if (self.__config.get("mongo_secured") != Config.TRUE or
-            mongo_user_username != self.__config.get("mongo_user_username") or
-            mongo_user_password != self.__config.get("mongo_user_password") or
-            mongo_root_username != self.__config.get("mongo_root_username") or
-            mongo_root_password != self.__config.get("mongo_root_password")) and \
-                not self.first_time:
+            if (self.__config.get("mongo_secured") != Config.TRUE or
+                mongo_user_username != self.__config.get("mongo_user_username") or
+                mongo_user_password != self.__config.get("mongo_user_password") or
+                mongo_root_username != self.__config.get("mongo_root_username") or
+                mongo_root_password != self.__config.get("mongo_root_password")) and \
+                    not self.first_time:
 
-            # Because chances are high we cannot communicate with DB
-            # (e.g ports not exposed, containers down), we delegate the task
-            # to MongoDB container to update (create/delete) users.
-            # (see. `kobo-docker/mongo/upsert_users.sh`)
-            # We have to transmit old users (and their respective DB) to
-            # MongoDB to let it know which users need to be deleted.
+                # Because chances are high we cannot communicate with DB
+                # (e.g ports not exposed, containers down), we delegate the task
+                # to MongoDB container to update (create/delete) users.
+                # (see. `kobo-docker/mongo/upsert_users.sh`)
+                # We have to transmit old users (and their respective DB) to
+                # MongoDB to let it know which users need to be deleted.
 
-            # `content` will be read by MongoDB container at next boot
-            # It should contains users to delete if any.
-            # Its format should be: `<user><TAB><database>`
-            content = ''
+                # `content` will be read by MongoDB container at next boot
+                # It should contains users to delete if any.
+                # Its format should be: `<user><TAB><database>`
+                content = ''
 
-            if (mongo_user_username != self.__config.get("mongo_user_username") or
-                    mongo_root_username != self.__config.get("mongo_root_username")):
+                if (mongo_user_username != self.__config.get("mongo_user_username") or
+                        mongo_root_username != self.__config.get("mongo_root_username")):
 
-                CLI.colored_print("╔══════════════════════════════════════════════════════╗",
-                                  CLI.COLOR_WARNING)
-                CLI.colored_print("║ MongoDB root's and/or user's usernames have changed! ║",
-                                  CLI.COLOR_WARNING)
-                CLI.colored_print("╚══════════════════════════════════════════════════════╝",
-                                  CLI.COLOR_WARNING)
-                CLI.colored_print("Do you want to remove old users?", CLI.COLOR_SUCCESS)
-                CLI.colored_print("\t1) Yes")
-                CLI.colored_print("\t2) No")
-                delete_users = CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE)
+                    CLI.colored_print("╔══════════════════════════════════════════════════════╗",
+                                      CLI.COLOR_WARNING)
+                    CLI.colored_print("║ MongoDB root's and/or user's usernames have changed! ║",
+                                      CLI.COLOR_WARNING)
+                    CLI.colored_print("╚══════════════════════════════════════════════════════╝",
+                                      CLI.COLOR_WARNING)
+                    CLI.colored_print("Do you want to remove old users?", CLI.COLOR_SUCCESS)
+                    CLI.colored_print("\t1) Yes")
+                    CLI.colored_print("\t2) No")
+                    delete_users = CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE)
 
-                if delete_users == Config.TRUE:
-                    usernames_by_db = {
-                        mongo_user_username: 'formhub',
-                        mongo_root_username: 'admin'
-                    }
-                    for username, db in usernames_by_db.items():
-                        if username != "":
-                            content += "{cr}{username}\t{db}".format(
-                                cr="\n" if content else "",
-                                username=username,
-                                db=db
-                            )
+                    if delete_users == Config.TRUE:
+                        usernames_by_db = {
+                            mongo_user_username: 'formhub',
+                            mongo_root_username: 'admin'
+                        }
+                        for username, db in usernames_by_db.items():
+                            if username != "":
+                                content += "{cr}{username}\t{db}".format(
+                                    cr="\n" if content else "",
+                                    username=username,
+                                    db=db
+                                )
 
-            self.__write_upsert_db_users_trigger_file(content, 'mongo')
+                self.__write_upsert_db_users_trigger_file(content, 'mongo')
 
-        self.__config["mongo_secured"] = Config.TRUE
+            self.__config["mongo_secured"] = Config.TRUE
 
     def __questions_multi_servers(self):
         """
@@ -1166,6 +1224,25 @@ class Config:
                                                                   self.__config.get("postgres_settings", Config.FALSE))
 
             if self.__config["postgres_settings"] == Config.TRUE:
+
+                # pgconfig.org API is often unresponsive and make kobo-install hang forever.
+                # A docker image is available, let's use it instead.
+                # (Hope docker hub is not down too).
+
+                # Find an open port.
+                open_port = 9080
+                while True:
+                    if not Network.is_port_open(open_port):
+                        break
+                    open_port += 1
+
+                # Start pgconfig.org API docker image
+                docker_command = ['docker', 'run', '--rm', '-p',
+                                  '127.0.0.1:{}:8080'.format(open_port),
+                                  '-d', '--name', 'pgconfig_container',
+                                  'sebastianwebber/pgconfig-api']
+                CLI.run_command(docker_command)
+
                 CLI.colored_print("Total Memory in GB?", CLI.COLOR_SUCCESS)
                 self.__config["postgres_ram"] = CLI.get_response(r"~^\d+$", self.__config.get("postgres_ram"))
 
@@ -1202,21 +1279,32 @@ class Config:
                 else:
                     self.__config["postgres_profile"] = "Mixed"
 
-            # use pgconfig.org API to build postgres config
-            endpoint = "https://api.pgconfig.org/v1/tuning/get-config?environment_name={profile}" \
-                       "&format=conf&include_pgbadger=false&max_connections={max_connections}&" \
-                       "pg_version=9.5&total_ram={ram}GB&drive_type={drive_type}".format(
-                           profile=self.__config["postgres_profile"],
-                           ram=self.__config["postgres_ram"],
-                           max_connections=self.__config["postgres_max_connections"],
-                           drive_type=self.__config["postgres_hard_drive_type"].upper()
-                       )
-            response = Network.curl(endpoint)
-            if response:
-                self.__config["postgres_settings_content"] = re.sub(r"(log|lc_).+(\n|$)", "", response)
-            else:
-                # If no response from API, keep defaults
-                self.__config["postgres_settings"] = Config.FALSE
+                endpoint = "http://127.0.0.1:{open_port}/v1/tuning/get-config?environment_name={profile}" \
+                           "&format=conf&include_pgbadger=false&max_connections={max_connections}&" \
+                           "pg_version=9.5&total_ram={ram}GB&drive_type={drive_type}".format(
+                                open_port=open_port,
+                                profile=self.__config["postgres_profile"],
+                                ram=self.__config["postgres_ram"],
+                                max_connections=self.__config["postgres_max_connections"],
+                                drive_type=self.__config["postgres_hard_drive_type"].upper()
+                            )
+                response = Network.curl(endpoint)
+                if response:
+                    self.__config["postgres_settings_content"] = re.sub(
+                        r"(log|lc_).+(\n|$)", "", response)
+                else:
+                    if self.__config["postgres_settings_content"] == '':
+                        CLI.colored_print("Use default settings.",
+                                          CLI.COLOR_INFO)
+                        # If no response from API, keep defaults
+                        self.__config["postgres_settings"] = Config.FALSE
+                    else:
+                        CLI.colored_print("\nKeep current settings.",
+                                          CLI.COLOR_INFO)
+
+                # Stop container
+                docker_command = ['docker', 'stop', '-t', '0', 'pgconfig_container']
+                CLI.run_command(docker_command)
 
     def __questions_ports(self):
         """
@@ -1299,7 +1387,7 @@ class Config:
                                                                               Config.FALSE))
 
         if self.__config["use_private_dns"] == Config.FALSE:
-            CLI.colored_print("IP address (IPv4) of backend server?", CLI.COLOR_SUCCESS)
+            CLI.colored_print("IP address (IPv4) of primary backend server?", CLI.COLOR_SUCCESS)
             self.__config["primary_backend_ip"] = CLI.get_response(
                 r"~\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}",
                 self.__config.get("primary_backend_ip", self.__primary_ip))
@@ -1354,29 +1442,35 @@ class Config:
             self.__config["kpi_raven_js"] = ""
 
     def __questions_redis(self):
-        CLI.colored_print("Redis password?", CLI.COLOR_SUCCESS)
-        self.__config["redis_password"] = CLI.get_response(
-            r"~^.{8,}|$",
-            self.__config.get("redis_password"),
-            to_lower=False,
-            error_msg='Too short. 8 characters minimum.')
+        """
+        Ask for redis password only when server is for:
+        - primary backend
+        - single server installation
+        """
+        if self.primary_backend or not self.multi_servers:
+            CLI.colored_print("Redis password?", CLI.COLOR_SUCCESS)
+            self.__config["redis_password"] = CLI.get_response(
+                r"~^.{8,}|$",
+                self.__config.get("redis_password"),
+                to_lower=False,
+                error_msg='Too short. 8 characters minimum.')
 
-        if not self.__config["redis_password"]:
-            CLI.colored_print("╔═════════════════════════════════════════════════╗",
-                              CLI.COLOR_WARNING)
-            CLI.colored_print("║ WARNING! it's STRONGLY recommended to set a     ║",
-                              CLI.COLOR_WARNING)
-            CLI.colored_print("║ password for Redis as well.                     ║",
-                              CLI.COLOR_WARNING)
-            CLI.colored_print("╚═════════════════════════════════════════════════╝",
-                              CLI.COLOR_WARNING)
+            if not self.__config["redis_password"]:
+                CLI.colored_print("╔═════════════════════════════════════════════════╗",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("║ WARNING! it's STRONGLY recommended to set a     ║",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("║ password for Redis as well.                     ║",
+                                  CLI.COLOR_WARNING)
+                CLI.colored_print("╚═════════════════════════════════════════════════╝",
+                                  CLI.COLOR_WARNING)
 
-            CLI.colored_print("Do you want to continue?", CLI.COLOR_SUCCESS)
-            CLI.colored_print("\t1) Yes")
-            CLI.colored_print("\t2) No")
+                CLI.colored_print("Do you want to continue?", CLI.COLOR_SUCCESS)
+                CLI.colored_print("\t1) Yes")
+                CLI.colored_print("\t2) No")
 
-            if CLI.get_response([Config.TRUE, Config.FALSE], Config.FALSE) == Config.FALSE:
-                self.__questions_redis()
+                if CLI.get_response([Config.TRUE, Config.FALSE], Config.FALSE) == Config.FALSE:
+                    self.__questions_redis()
 
     def __questions_reverse_proxy(self):
 
