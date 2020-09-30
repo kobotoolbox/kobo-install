@@ -33,7 +33,7 @@ class Config(with_metaclass(Singleton)):
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
     KOBO_DOCKER_BRANCH = '2.020.40a'
-    KOBO_INSTALL_VERSION = '3.2.1'
+    KOBO_INSTALL_VERSION = '3.3.0'
 
     def __init__(self):
         self.__config = self.read_config()
