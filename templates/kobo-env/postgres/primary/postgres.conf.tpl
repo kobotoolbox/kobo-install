@@ -14,3 +14,7 @@
 # Total Memory (RAM): ${POSTGRES_RAM}GB
 
 ${POSTGRES_SETTINGS}
+
+${USE_WAL_E}archive_mode = on
+${USE_WAL_E}archive_command = 'envdir /var/lib/postgresql/data/wal-e.d/env wal-e wal-push %p'
+${USE_WAL_E}archive_timeout = 60
