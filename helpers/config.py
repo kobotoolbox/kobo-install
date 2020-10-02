@@ -286,7 +286,23 @@ class Config(with_metaclass(Singleton)):
             "postgres_profile": "Mixed",
             "postgres_max_connections": "100",
             "postgres_hard_drive_type": "hdd",
-            "postgres_settings_content": "",
+            "postgres_settings_content": "\n".join([
+                "# Memory Configuration",
+                "shared_buffers = 512MB",
+                "effective_cache_size = 2GB",
+                "work_mem = 10MB",
+                "maintenance_work_mem = 128MB",
+                "",
+                "# Checkpoint Related Configuration",
+                "min_wal_size = 512MB",
+                "max_wal_size = 2GB",
+                "checkpoint_completion_target = 0.9",
+                "wal_buffers = 15MB",
+                "",
+                "# Network Related Configuration",
+                "listen_addresses = '*'",
+                "max_connections = 100",
+            ]),
             "custom_secret_keys": Config.FALSE,
             "enketo_api_token": binascii.hexlify(os.urandom(60)).decode("utf-8"),
             "enketo_encryption_key": binascii.hexlify(os.urandom(60)).decode("utf-8"),
@@ -753,7 +769,7 @@ class Config(with_metaclass(Singleton)):
                     # continuous archiving
                     if self.primary_backend or not self.multi_servers:
                         CLI.colored_print(
-                            "Do you want to use WAL-E for continuous archiving of backups?", 
+                            "Do you want to use WAL-E for continuous archiving of PostgreSQL backups?", 
                             CLI.COLOR_SUCCESS)   
                         CLI.colored_print("\t1) Yes")
                         CLI.colored_print("\t2) No")
@@ -764,11 +780,8 @@ class Config(with_metaclass(Singleton)):
                         if self.__config.get('use_wal_e') == Config.TRUE:
                             # Forcing postgres backup schedule and settings
                             self.__config["postgres_backup_schedule"] == ''
-                            self.__config["postgres_settings"] = Config.TRUE
                             # Not entirely sure if this is what you were asking for
                             self.__config["backup_from_primary"] = Config.TRUE
-
-                    #   ------------------------------------------------------------  #
 
                     schedule_regex_pattern = (r"^((((\d+(,\d+)*)|(\d+-\d+)|(\*(\/\d+)?)))"
                                               r"(\s+(((\d+(,\d+)*)|(\d+\-\d+)|(\*(\/\d+)?)))){4})$")
@@ -1329,6 +1342,28 @@ class Config(with_metaclass(Singleton)):
                 # Stop container
                 docker_command = ['docker', 'stop', '-t', '0', 'pgconfig_container']
                 CLI.run_command(docker_command)
+            else:
+                # Forcing the default settings to remain even if there
+                # is an existing value in .run.conf. Without this,
+                # the value for `postgres_settings_content` would not update
+                default_postgres_settings_content = "\n".join([
+                                                        "# Memory Configuration",
+                                                        "shared_buffers = 512MB",
+                                                        "effective_cache_size = 2GB",
+                                                        "work_mem = 10MB",
+                                                        "maintenance_work_mem = 128MB",
+                                                        "",
+                                                        "# Checkpoint Related Configuration",
+                                                        "min_wal_size = 512MB",
+                                                        "max_wal_size = 2GB",
+                                                        "checkpoint_completion_target = 0.9",
+                                                        "wal_buffers = 15MB",
+                                                        "",
+                                                        "# Network Related Configuration",
+                                                        "listen_addresses = '*'",
+                                                        "max_connections = 100",
+                                                    ])
+                self.__config["postgres_settings_content"] = default_postgres_settings_content
 
     def __questions_ports(self):
         """
