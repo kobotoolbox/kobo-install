@@ -32,7 +32,7 @@ class Config(with_metaclass(Singleton)):
     DEFAULT_PROXY_PORT = "8080"
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
-    KOBO_DOCKER_BRANCH = '300-backups-venv-failure'
+    KOBO_DOCKER_BRANCH = 'support-kobokitten'
     KOBO_INSTALL_VERSION = '3.2.0'
 
     def __init__(self):
