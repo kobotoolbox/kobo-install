@@ -16,5 +16,5 @@
 ${POSTGRES_SETTINGS}
 
 ${USE_WAL_E_BACKUP}archive_mode = on
-${USE_WAL_E_BACKUP}archive_command = 'envdir /var/lib/postgresql/data/wal-e.d/env wal-e wal-push %p'
+${USE_WAL_E_BACKUP}archive_command = 'envdir $$PGDATA/wal-e.d/env wal-e wal-push %p'
 ${USE_WAL_E_BACKUP}archive_timeout = 60
