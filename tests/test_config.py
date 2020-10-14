@@ -377,6 +377,10 @@ def test_force_secure_mongo():
        new=write_trigger_upsert_db_users)
 def test_secure_mongo_advanced_options():
     config_object = read_config()
+    config_object._Config__config["advanced"] = Config.TRUE
+
+    # Try when setup is run for the first time.
+    config_object._Config__first_time = True
     with patch("helpers.cli.CLI.colored_input") as mock_ci:
         mock_ci.side_effect = iter([
             "root",
@@ -386,6 +390,45 @@ def test_secure_mongo_advanced_options():
         ])
         config_object._Config__questions_mongo()
         assert not os.path.exists("/tmp/upsert_db_users")
+
+    # Try when setup has been already run once
+    # If it's an upgrade, users should not see:
+    # ╔══════════════════════════════════════════════════════╗
+    # ║ MongoDB root's and/or user's usernames have changed! ║
+    # ╚══════════════════════════════════════════════════════╝
+    config_object._Config__first_time = False
+    config_object._Config__config["mongo_secured"] = Config.FALSE
+
+    with patch("helpers.cli.CLI.colored_input") as mock_ci:
+        mock_ci.side_effect = iter([
+            "root",
+            "root_password",
+            "mongo_kobo_user",
+            "mongo_password"
+        ])
+        config_object._Config__questions_mongo()
+        assert os.path.exists("/tmp/upsert_db_users")
+        assert os.path.getsize("/tmp/upsert_db_users") == 0
+        os.remove("/tmp/upsert_db_users")
+
+    # Try when setup has been already run once
+    # If it's NOT an upgrade, Users should see:
+    # ╔══════════════════════════════════════════════════════╗
+    # ║ MongoDB root's and/or user's usernames have changed! ║
+    # ╚══════════════════════════════════════════════════════╝
+    config_object._Config__config["mongo_secured"] = Config.TRUE
+    with patch("helpers.cli.CLI.colored_input") as mock_ci:
+        mock_ci.side_effect = iter([
+            "root",
+            "root_passw0rd",
+            "kobo_user",
+            "mongo_password",
+            Config.TRUE
+        ])
+        config_object._Config__questions_mongo()
+        assert os.path.exists("/tmp/upsert_db_users")
+        assert os.path.getsize("/tmp/upsert_db_users") != 0
+        os.remove("/tmp/upsert_db_users")
 
 
 @patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',

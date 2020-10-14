@@ -9,10 +9,8 @@ except ImportError:
     from mock import patch, mock_open
     builtin_open = "__builtin__.open"
 
-from six import with_metaclass
-
 from helpers.config import Config
-from helpers.singleton import Singleton
+from helpers.singleton import Singleton, with_metaclass
 
 
 def read_config(overrides=None):
@@ -44,7 +42,7 @@ def run_command(command, cwd=None, polling=False):
     return mock_docker.compose(command, cwd)
 
 
-def write_trigger_upsert_db_users_mock(*args):
+def write_trigger_upsert_db_users(*args):
     content = args[1]
     with open("/tmp/upsert_db_users", "w") as f:
         f.write(content)
