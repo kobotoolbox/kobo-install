@@ -766,22 +766,23 @@ class Config(with_metaclass(Singleton)):
                         self.__questions_aws()
 
                     # Prompting user whether they want to use WAL-E for
-                    # continuous archiving
-                    if self.primary_backend or not self.multi_servers:
-                        CLI.colored_print(
-                            "Do you want to use WAL-E for continuous archiving of PostgreSQL backups?", 
-                            CLI.COLOR_SUCCESS)   
-                        CLI.colored_print("\t1) Yes")
-                        CLI.colored_print("\t2) No")
-                        self.__config["use_wal_e"] = CLI.get_response(
-                            [Config.TRUE, Config.FALSE],
-                            self.__config.get("use_wal_e", Config.FALSE))
+                    # continuous archiving - only if they are using aws for backups
+                    if self.aws:
+                        if self.primary_backend or not self.multi_servers:
+                            CLI.colored_print(
+                                "Do you want to use WAL-E for continuous archiving of PostgreSQL backups?", 
+                                CLI.COLOR_SUCCESS)   
+                            CLI.colored_print("\t1) Yes")
+                            CLI.colored_print("\t2) No")
+                            self.__config["use_wal_e"] = CLI.get_response(
+                                [Config.TRUE, Config.FALSE],
+                                self.__config.get("use_wal_e", Config.FALSE))
 
-                        if self.__config.get('use_wal_e') == Config.TRUE:
-                            # Forcing postgres backup schedule and settings
-                            self.__config["postgres_backup_schedule"] == ''
-                            # Not entirely sure if this is what you were asking for
-                            self.__config["backup_from_primary"] = Config.TRUE
+                            if self.__config.get('use_wal_e') == Config.TRUE:
+                                # Forcing postgres backup schedule and settings
+                                self.__config["postgres_backup_schedule"] == ''
+                                # Not entirely sure if this is what you were asking for
+                                self.__config["backup_from_primary"] = Config.TRUE
 
                     schedule_regex_pattern = (r"^((((\d+(,\d+)*)|(\d+-\d+)|(\*(\/\d+)?)))"
                                               r"(\s+(((\d+(,\d+)*)|(\d+\-\d+)|(\*(\/\d+)?)))){4})$")
@@ -810,27 +811,25 @@ class Config(with_metaclass(Singleton)):
 
                     if self.backend_questions:
                         
-                        # Only asking these Postgres config questions if WAL-E not being used
-                        if self.__config['use_wal_e'] == Config.FALSE:
-                            if self.primary_backend:
-                                CLI.colored_print("Run PostgreSQL backup from primary backend server?",
-                                                CLI.COLOR_SUCCESS)
-                                CLI.colored_print("\t1) Yes")
-                                CLI.colored_print("\t2) No")
-                                self.__config["backup_from_primary"] = CLI.get_response(
-                                    [Config.TRUE, Config.FALSE],
-                                    self.__config.get("backup_from_primary", Config.TRUE))
+                        if self.primary_backend:
+                            CLI.colored_print("Run PostgreSQL backup from primary backend server?",
+                                            CLI.COLOR_SUCCESS)
+                            CLI.colored_print("\t1) Yes")
+                            CLI.colored_print("\t2) No")
+                            self.__config["backup_from_primary"] = CLI.get_response(
+                                [Config.TRUE, Config.FALSE],
+                                self.__config.get("backup_from_primary", Config.TRUE))
 
-                            backup_from_primary = self.__config["backup_from_primary"] == Config.TRUE
-                            if (not self.multi_servers or
-                                (self.primary_backend and backup_from_primary) or
-                                    (self.secondary_backend and not backup_from_primary)):
-                                CLI.colored_print("PostgreSQL backup schedule?", CLI.COLOR_SUCCESS)
-                                self.__config["postgres_backup_schedule"] = CLI.get_response(
-                                    "~{}".format(schedule_regex_pattern),
-                                    self.__config.get(
-                                        "postgres_backup_schedule",
-                                        "0 2 * * 0"))
+                        backup_from_primary = self.__config["backup_from_primary"] == Config.TRUE
+                        if (not self.multi_servers or
+                            (self.primary_backend and backup_from_primary) or
+                                (self.secondary_backend and not backup_from_primary)):
+                            CLI.colored_print("PostgreSQL backup schedule?", CLI.COLOR_SUCCESS)
+                            self.__config["postgres_backup_schedule"] = CLI.get_response(
+                                "~{}".format(schedule_regex_pattern),
+                                self.__config.get(
+                                    "postgres_backup_schedule",
+                                    "0 2 * * 0"))
 
                         if self.primary_backend or not self.multi_servers:
 
