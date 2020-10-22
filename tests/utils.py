@@ -34,18 +34,25 @@ def reset_config(config_object):
     config_object.__config = config_dict
 
 
-def run_command(command, cwd=None, polling=False):
-    if 'docker-compose' != command[0]:
-        raise Exception('Command: `{}` is not implemented!'.format(command[0]))
-
-    mock_docker = MockDocker()
-    return mock_docker.compose(command, cwd)
-
-
 def write_trigger_upsert_db_users(*args):
     content = args[1]
     with open("/tmp/upsert_db_users", "w") as f:
         f.write(content)
+
+
+class MockCommand:
+    """
+    Create a mock class for Python2 retro compatibility.
+    Python2 does not pass the class as the first argument explicitly when
+    `run_command` (as a standalone method) is used as a mock.
+    """
+    @classmethod
+    def run_command(cls, command, cwd=None, polling=False):
+        if 'docker-compose' != command[0]:
+            raise Exception('Command: `{}` is not implemented!'.format(command[0]))
+
+        mock_docker = MockDocker()
+        return mock_docker.compose(command, cwd)
 
 
 class MockDocker(with_metaclass(Singleton)):
