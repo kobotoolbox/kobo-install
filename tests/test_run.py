@@ -12,7 +12,7 @@ from helpers.command import Command
 from helpers.config import Config
 from .utils import (
     read_config,
-    run_command,
+    MockCommand,
     MockDocker,
 )
 
@@ -24,7 +24,7 @@ from .utils import (
 @patch('helpers.command.Command.info',
        MagicMock(return_value=True))
 @patch('helpers.cli.CLI.run_command',
-       new=run_command)
+       new=MockCommand.run_command)
 def test_toggle_trivial():
     config_object = read_config()
     Command.start()
@@ -46,7 +46,7 @@ def test_toggle_trivial():
 @patch('helpers.command.Command.info',
        MagicMock(return_value=True))
 @patch('helpers.cli.CLI.run_command',
-       new=run_command)
+       new=MockCommand.run_command)
 def test_toggle_no_letsencrypt():
     config_object = read_config()
     config_object._Config__config['use_letsencrypt'] = Config.FALSE
@@ -68,7 +68,7 @@ def test_toggle_no_letsencrypt():
 @patch('helpers.command.Command.info',
        MagicMock(return_value=True))
 @patch('helpers.cli.CLI.run_command',
-       new=run_command)
+       new=MockCommand.run_command)
 def test_toggle_frontend():
     config_object = read_config()
     Command.start(frontend_only=True)
@@ -89,7 +89,7 @@ def test_toggle_frontend():
 @patch('helpers.command.Command.info',
        MagicMock(return_value=True))
 @patch('helpers.cli.CLI.run_command',
-       new=run_command)
+       new=MockCommand.run_command)
 def test_toggle_primary_backend():
     config_object = read_config()
     config_object._Config__config['backend_server_role'] = 'primary'
@@ -113,7 +113,7 @@ def test_toggle_primary_backend():
 @patch('helpers.command.Command.info',
        MagicMock(return_value=True))
 @patch('helpers.cli.CLI.run_command',
-       new=run_command)
+       new=MockCommand.run_command)
 def test_toggle_secondary_backend():
     config_object = read_config()
     config_object._Config__config['backend_server_role'] = 'secondary'
@@ -137,7 +137,7 @@ def test_toggle_secondary_backend():
 @patch('helpers.command.Command.info',
        MagicMock(return_value=True))
 @patch('helpers.cli.CLI.run_command',
-       new=run_command)
+       new=MockCommand.run_command)
 def test_toggle_maintenance():
     config_object = read_config()
     mock_docker = MockDocker()
