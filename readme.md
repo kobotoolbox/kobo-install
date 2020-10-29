@@ -109,8 +109,8 @@ User can choose between 2 types of installations:
 |MongoDB user's username|  **kobo**  | ✓ | ✓ |
 |MongoDB user's password|  **Autogenerate**  | ✓ | ✓ |
 |Redis password<sup>4</sup>|  **Autogenerate**  | ✓ | ✓ |
-|Use AWS storage|  **No**  | ✓ | ✓ (frontend only) |
-|Use WAL-E PostgreSQL backups<sup>5</sup> |  **No**  | ✓ | ✓ (frontend only) |
+|Use AWS storage<sup>5</sup>|  **No**  | ✓ | ✓ |
+|Use WAL-E PostgreSQL backups<sup>6</sup> |  **No**  | ✓ | ✓ (backend only) |
 |uWGI workers|  **start: 2, max: 4**  | ✓ | ✓ (frontend only) |
 |uWGI memory limit|  **128 MB**  | ✓ | ✓ (frontend only) |
 |uWGI harakiri timeout |  **120s**  | ✓ | ✓ (frontend only) |
@@ -131,7 +131,9 @@ User can choose between 2 types of installations:
 
 <sup>4)</sup> _Redis password is optional but **strongly** recommended_
 
-<sup>5)</sup> _WAL-E backups for PostgreSQL are only available when using AWS storage_
+<sup>5)</sup> _If AWS storage is selected, credentials must be provided if backups are activated_
+
+<sup>6)</sup> _WAL-E backups for PostgreSQL are only available when using AWS storage_
 
 ℹ  Intercom App ID [must now](https://github.com/kobotoolbox/kpi/pull/2285) be configured through "Per user settings" in the Django admin interface of KPI.
 

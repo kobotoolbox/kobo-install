@@ -770,8 +770,9 @@ class Config(with_metaclass(Singleton)):
                     if self.aws:
                         if self.primary_backend or not self.multi_servers:
                             CLI.colored_print(
-                                "Do you want to use WAL-E for continuous archiving of PostgreSQL backups?", 
-                                CLI.COLOR_SUCCESS)   
+                                "Do you want to use WAL-E for continuous archiving of PostgreSQL backups?",
+                                CLI.COLOR_SUCCESS,
+                            )
                             CLI.colored_print("\t1) Yes")
                             CLI.colored_print("\t2) No")
                             self.__config["use_wal_e"] = CLI.get_response(
@@ -811,14 +812,20 @@ class Config(with_metaclass(Singleton)):
 
                     if self.backend_questions:
                         
-                        if self.primary_backend:
-                            CLI.colored_print("Run PostgreSQL backup from primary backend server?",
-                                            CLI.COLOR_SUCCESS)
-                            CLI.colored_print("\t1) Yes")
-                            CLI.colored_print("\t2) No")
-                            self.__config["backup_from_primary"] = CLI.get_response(
-                                [Config.TRUE, Config.FALSE],
-                                self.__config.get("backup_from_primary", Config.TRUE))
+                        if self.__config['use_wal_e'] == Config.TRUE:
+                            self.__config["backup_from_primary"] = Config.FALSE
+                        else:
+                            if self.primary_backend:
+                                CLI.colored_print("Run PostgreSQL backup from primary backend server?",
+                                                CLI.COLOR_SUCCESS)
+                                CLI.colored_print("\t1) Yes")
+                                CLI.colored_print("\t2) No")
+                                self.__config["backup_from_primary"] = CLI.get_response(
+                                    [Config.TRUE, Config.FALSE],
+                                    self.__config.get("backup_from_primary", Config.TRUE))
+                            else:
+                                print('I got here')
+                                self.__config["backup_from_primary"] = Config.FALSE
 
                         backup_from_primary = self.__config["backup_from_primary"] == Config.TRUE
                         if (not self.multi_servers or
