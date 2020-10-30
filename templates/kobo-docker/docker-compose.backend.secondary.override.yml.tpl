@@ -6,8 +6,8 @@ services:
     extends:
       file: docker-compose.backend.template.yml
       service: postgres
-    ${OVERRIDE_POSTGRES_SETTINGS}volumes:
-    ${OVERRIDE_POSTGRES_SETTINGS}  - ../kobo-env/postgres/secondary/postgres.conf:/kobo-docker-scripts/secondary/postgres.conf
+    volumes:
+      - ../kobo-env/postgres/secondary/postgres.conf:/kobo-docker-scripts/secondary/postgres.conf
     ports:
       - ${POSTGRES_PORT}:5432
     ${ADD_BACKEND_EXTRA_HOSTS}extra_hosts:

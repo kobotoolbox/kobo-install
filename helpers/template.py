@@ -215,6 +215,7 @@ class Template:
             "REDIS_MAIN_PORT": config.get("redis_main_port", "6739"),
             "REDIS_CACHE_PORT": config.get("redis_cache_port", "6380"),
             "USE_BACKUP": "" if config.get("use_backup") == Config.TRUE else "#",
+            "USE_WAL_E": _get_value("use_wal_e"),
             "USE_AWS_BACKUP": "" if config_object.aws and
                                     config.get("use_backup") == Config.TRUE and
                                     config.get("aws_backup_bucket_name") != "" else "#",

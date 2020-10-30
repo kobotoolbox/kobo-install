@@ -4,8 +4,8 @@ version: '2.2'
 services:
 
   postgres:
-    ${OVERRIDE_POSTGRES_SETTINGS}volumes:
-    ${OVERRIDE_POSTGRES_SETTINGS}  - ../kobo-env/postgres/primary/postgres.conf:/kobo-docker-scripts/primary/postgres.conf
+    volumes:
+      - ../kobo-env/postgres/primary/postgres.conf:/kobo-docker-scripts/primary/postgres.conf
     ${POSTGRES_BACKUP_FROM_SECONDARY}environment:
     ${POSTGRES_BACKUP_FROM_SECONDARY}  - POSTGRES_BACKUP_FROM_SECONDARY=True
     ${EXPOSE_BACKEND_PORTS}ports:

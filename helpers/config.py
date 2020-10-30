@@ -32,8 +32,8 @@ class Config(with_metaclass(Singleton)):
     DEFAULT_PROXY_PORT = "8080"
     DEFAULT_NGINX_PORT = "80"
     DEFAULT_NGINX_HTTPS_PORT = "443"
-    KOBO_DOCKER_BRANCH = '2.020.44'
-    KOBO_INSTALL_VERSION = '3.3.0'
+    KOBO_DOCKER_BRANCH = 'add-wale-support'
+    KOBO_INSTALL_VERSION = '3.4.0'
 
     def __init__(self):
         self.__config = self.read_config()
@@ -286,7 +286,23 @@ class Config(with_metaclass(Singleton)):
             "postgres_profile": "Mixed",
             "postgres_max_connections": "100",
             "postgres_hard_drive_type": "hdd",
-            "postgres_settings_content": "",
+            "postgres_settings_content": "\n".join([
+                "# Memory Configuration",
+                "shared_buffers = 512MB",
+                "effective_cache_size = 2GB",
+                "work_mem = 10MB",
+                "maintenance_work_mem = 128MB",
+                "",
+                "# Checkpoint Related Configuration",
+                "min_wal_size = 512MB",
+                "max_wal_size = 2GB",
+                "checkpoint_completion_target = 0.9",
+                "wal_buffers = 15MB",
+                "",
+                "# Network Related Configuration",
+                "listen_addresses = '*'",
+                "max_connections = 100",
+            ]),
             "custom_secret_keys": Config.FALSE,
             "enketo_api_token": binascii.hexlify(os.urandom(60)).decode("utf-8"),
             "enketo_encryption_key": binascii.hexlify(os.urandom(60)).decode("utf-8"),
@@ -295,6 +311,7 @@ class Config(with_metaclass(Singleton)):
             # we want to keep the same value when users upgrade.
             "enketo_less_secure_encryption_key": 'this $3cr3t key is crackable',
             "use_backup": Config.FALSE,
+            "use_wal_e": Config.FALSE,
             "kobocat_media_schedule": "0 0 * * 0",
             "mongo_backup_schedule": "0 1 * * 0",
             "postgres_backup_schedule": "0 2 * * 0",
@@ -748,6 +765,29 @@ class Config(with_metaclass(Singleton)):
                     if self.backend_questions and not self.frontend_questions:
                         self.__questions_aws()
 
+                    # Prompting user whether they want to use WAL-E for
+                    # continuous archiving - only if they are using aws for backups
+                    if self.aws:
+                        if self.primary_backend or not self.multi_servers:
+                            CLI.colored_print(
+                                "Do you want to use WAL-E for continuous archiving of PostgreSQL backups?",
+                                CLI.COLOR_SUCCESS,
+                            )
+                            CLI.colored_print("\t1) Yes")
+                            CLI.colored_print("\t2) No")
+                            self.__config["use_wal_e"] = CLI.get_response(
+                                [Config.TRUE, Config.FALSE],
+                                self.__config.get("use_wal_e", Config.FALSE))
+
+                            if self.__config['use_wal_e'] == Config.TRUE:
+                                self.__config['backup_from_primary'] = Config.TRUE
+                        else:
+                            # WAL-E cannot run on secondary
+                            self.__config['use_wal_e'] = Config.FALSE
+                    else:
+                        # WAL-E is only supported with AWS
+                        self.__config['use_wal_e'] = Config.FALSE
+
                     schedule_regex_pattern = (r"^((((\d+(,\d+)*)|(\d+-\d+)|(\*(\/\d+)?)))"
                                               r"(\s+(((\d+(,\d+)*)|(\d+\-\d+)|(\*(\/\d+)?)))){4})$")
                     CLI.colored_print("╔═════════════════════════════════════════════════════════════════╗",
@@ -774,15 +814,21 @@ class Config(with_metaclass(Singleton)):
                                 "0 0 * * 0"))
 
                     if self.backend_questions:
-
-                        if self.primary_backend:
-                            CLI.colored_print("Run PostgreSQL backup from primary backend server?",
-                                              CLI.COLOR_SUCCESS)
-                            CLI.colored_print("\t1) Yes")
-                            CLI.colored_print("\t2) No")
-                            self.__config["backup_from_primary"] = CLI.get_response(
-                                [Config.TRUE, Config.FALSE],
-                                self.__config.get("backup_from_primary", Config.TRUE))
+                        if self.__config['use_wal_e'] == Config.TRUE:
+                            self.__config['backup_from_primary'] = Config.TRUE
+                        else:
+                            if self.primary_backend:
+                                CLI.colored_print(
+                                    "Run PostgreSQL backup from primary backend server?",
+                                    CLI.COLOR_SUCCESS
+                                )
+                                CLI.colored_print("\t1) Yes")
+                                CLI.colored_print("\t2) No")
+                                self.__config["backup_from_primary"] = CLI.get_response(
+                                    [Config.TRUE, Config.FALSE],
+                                    self.__config.get("backup_from_primary", Config.TRUE))
+                            else:
+                                self.__config["backup_from_primary"] = Config.FALSE
 
                         backup_from_primary = self.__config["backup_from_primary"] == Config.TRUE
                         if (not self.multi_servers or
@@ -1305,6 +1351,28 @@ class Config(with_metaclass(Singleton)):
                 # Stop container
                 docker_command = ['docker', 'stop', '-t', '0', 'pgconfig_container']
                 CLI.run_command(docker_command)
+            else:
+                # Forcing the default settings to remain even if there
+                # is an existing value in .run.conf. Without this,
+                # the value for `postgres_settings_content` would not update
+                default_postgres_settings_content = "\n".join([
+                                                        "# Memory Configuration",
+                                                        "shared_buffers = 512MB",
+                                                        "effective_cache_size = 2GB",
+                                                        "work_mem = 10MB",
+                                                        "maintenance_work_mem = 128MB",
+                                                        "",
+                                                        "# Checkpoint Related Configuration",
+                                                        "min_wal_size = 512MB",
+                                                        "max_wal_size = 2GB",
+                                                        "checkpoint_completion_target = 0.9",
+                                                        "wal_buffers = 15MB",
+                                                        "",
+                                                        "# Network Related Configuration",
+                                                        "listen_addresses = '*'",
+                                                        "max_connections = 100",
+                                                    ])
+                self.__config["postgres_settings_content"] = default_postgres_settings_content
 
     def __questions_ports(self):
         """
