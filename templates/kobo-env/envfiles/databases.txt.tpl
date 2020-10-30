@@ -43,7 +43,7 @@ KOBO_POSTGRES_PRIMARY_ENDPOINT=primary.postgres.${PRIVATE_DOMAIN_NAME}
 ${USE_BACKUP}POSTGRES_BACKUP_SCHEDULE=${POSTGRES_BACKUP_SCHEDULE}
 
 # WAL-E archiving and backup support
-{USE_WAL_E_BACKUP}USE_WAL_E=1
+${USE_WAL_E}USE_WAL_E=1
 
 #--------------------------------------------------------------------------------
 # REDIS
