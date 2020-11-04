@@ -131,7 +131,7 @@ class Command:
         nginx_port = config.get('exposed_nginx_docker_port')
 
         main_url = '{}://{}.{}{}'.format(
-            'https' if config.get('https') == True else 'http',
+            'https' if config.get('https') is True else 'http',
             config.get('kpi_subdomain'),
             config.get('public_domain_name'),
             ':{}'.format(nginx_port) if (
@@ -146,10 +146,10 @@ class Command:
         hostname = '{}.{}'.format(config.get('kpi_subdomain'),
                                   config.get('public_domain_name'))
         nginx_port = int(Config.DEFAULT_NGINX_HTTPS_PORT) \
-            if config.get('https') == True \
+            if config.get('https') is True \
             else int(config.get('exposed_nginx_docker_port',
                                 Config.DEFAULT_NGINX_PORT))
-        https = config.get('https') == True
+        https = config.get('https') is True
         already_retried = False
         while not stop:
             if Network.status_check(hostname,

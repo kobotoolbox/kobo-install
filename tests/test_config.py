@@ -104,7 +104,7 @@ def test_dev_mode():
             'exposed_nginx_docker_port') == '8080'
         assert config.get('kpi_path') == kpi_repo_path and config.get(
             'kc_path') == kc_repo_path
-        assert config.get('npm_container') == False
+        assert config['npm_container']is False
 
     shutil.rmtree(kc_repo_path)
     shutil.rmtree(kpi_repo_path)

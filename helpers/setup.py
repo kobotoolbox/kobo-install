@@ -73,7 +73,7 @@ class Setup:
         CLI.colored_print('\t1) Yes')
         CLI.colored_print('\t2) No')
         response = CLI.get_response(default=True)
-        if response == True:
+        if response is True:
             current_config = config_object.build()
             Template.render(config_object)
             config_object.init_letsencrypt()
@@ -84,7 +84,7 @@ class Setup:
             CLI.colored_print('\t1) Yes')
             CLI.colored_print('\t2) No')
             response = CLI.get_response(default=True)
-            if response == True:
+            if response is True:
                 Command.start()
 
     @staticmethod
@@ -125,7 +125,7 @@ class Setup:
     @classmethod
     def update_hosts(cls, config):
 
-        if config.get('local_installation') == True:
+        if config.get('local_installation') is True:
             start_sentence = '### (BEGIN) KoBoToolbox local routes'
             end_sentence = '### (END) KoBoToolbox local routes'
 
@@ -178,7 +178,7 @@ class Setup:
                 config['review_host'] = CLI.get_response(
                     default=config.get('review_host', False))
 
-                if config['review_host'] == True:
+                if config['review_host'] is True:
                     print(tmp_host)
                     CLI.colored_input('Press any keys when ready')
 

@@ -46,7 +46,7 @@ class Config(with_metaclass(Singleton)):
         Returns:
             bool
         """
-        return self.__config['advanced'] == True
+        return self.__config['advanced'] is True
 
     def auto_detect_network(self):
         """
@@ -73,7 +73,7 @@ class Config(with_metaclass(Singleton)):
         Returns:
             bool
         """
-        return self.__config.get('use_aws') == True
+        return self.__config.get('use_aws') is True
 
     @property
     def backend(self):
@@ -83,11 +83,11 @@ class Config(with_metaclass(Singleton)):
     @property
     def block_common_http_ports(self):
         return self.use_letsencrypt or self.__config.get(
-            'block_common_http_ports') == True
+            'block_common_http_ports') is True
 
     @property
     def expose_backend_ports(self):
-        return self.__config.get('expose_backend_ports') == True
+        return self.__config.get('expose_backend_ports') is True
 
     def get_env_files_path(self):
         current_path = os.path.realpath(os.path.normpath(os.path.join(
@@ -213,7 +213,7 @@ class Config(with_metaclass(Singleton)):
 
     @property
     def dev_mode(self):
-        return self.__config.get('dev_mode') == True
+        return self.__config.get('dev_mode') is True
 
     @property
     def first_time(self):
@@ -413,7 +413,7 @@ class Config(with_metaclass(Singleton)):
 
     @property
     def is_secure(self):
-        return self.__config.get('https') == True
+        return self.__config.get('https') is True
 
     def init_letsencrypt(self):
         if self.use_letsencrypt:
@@ -432,7 +432,7 @@ class Config(with_metaclass(Singleton)):
         Returns:
             bool
         """
-        return self.__config.get('local_installation') == True
+        return self.__config.get('local_installation') is True
 
     def maintenance(self):
         self.__questions_maintenance()
@@ -457,7 +457,7 @@ class Config(with_metaclass(Singleton)):
         Returns:
             bool
         """
-        return self.__config.get('multi') == True
+        return self.__config.get('multi') is True
 
     @property
     def proxy(self):
@@ -467,7 +467,7 @@ class Config(with_metaclass(Singleton)):
         Returns:
             bool
         """
-        return self.__config.get('proxy') == True
+        return self.__config.get('proxy') is True
 
     def read_config(self):
         """
@@ -529,16 +529,16 @@ class Config(with_metaclass(Singleton)):
 
     @property
     def staging_mode(self):
-        return self.__config.get('staging_mode') == True
+        return self.__config.get('staging_mode') is True
 
     @property
     def use_letsencrypt(self):
         return self.local_install is False and \
-               self.__config['use_letsencrypt'] == True
+               self.__config['use_letsencrypt'] is True
 
     @property
     def use_private_dns(self):
-        return self.__config['use_private_dns'] == True
+        return self.__config['use_private_dns'] is True
 
     def write_config(self):
         """
@@ -798,7 +798,7 @@ class Config(with_metaclass(Singleton)):
         CLI.colored_print('\t2) No')
         self.__config['use_aws'] = CLI.get_response(
             default=self.__config['use_aws'])
-        if self.__config['use_aws'] == True:
+        if self.__config['use_aws'] is True:
             self.__config['aws_access_key'] = CLI.colored_input(
                 'AWS Access Key', CLI.COLOR_SUCCESS,
                 self.__config.get('aws_access_key', ''))
@@ -822,7 +822,7 @@ class Config(with_metaclass(Singleton)):
         if self.__config['aws_backup_bucket_name'] != '':
 
             backup_from_primary = self.__config[
-                                      'backup_from_primary'] == True
+                                      'backup_from_primary'] is True
 
             CLI.colored_print('How many yearly backups to keep?',
                               CLI.COLOR_SUCCESS)
@@ -908,7 +908,7 @@ class Config(with_metaclass(Singleton)):
             self.__config['use_backup'] = CLI.get_response(
                 default=self.__config['use_backup'])
 
-            if self.__config.get('use_backup') == True:
+            if self.__config.get('use_backup') is True:
                 if self.advanced_options:
                     if self.backend_questions and not self.frontend_questions:
                         self.__questions_aws()
@@ -928,7 +928,7 @@ class Config(with_metaclass(Singleton)):
                             self.__config['use_wal_e'] = CLI.get_response(
                                 default=self.__config['use_wal_e'])
 
-                            if self.__config['use_wal_e'] == True:
+                            if self.__config['use_wal_e'] is True:
                                 self.__config[
                                     'backup_from_primary'] = True
                         else:
@@ -963,7 +963,7 @@ class Config(with_metaclass(Singleton)):
                                 '0 0 * * 0'))
 
                     if self.backend_questions:
-                        if self.__config['use_wal_e'] == True:
+                        if self.__config['use_wal_e'] is True:
                             self.__config['backup_from_primary'] = True
                         else:
                             if self.primary_backend:
@@ -981,7 +981,7 @@ class Config(with_metaclass(Singleton)):
                                     'backup_from_primary'] = False
 
                         backup_from_primary = \
-                            self.__config['backup_from_primary'] == True
+                            self.__config['backup_from_primary'] is True
 
                         if (not self.multi_servers or
                                 (self.primary_backend and backup_from_primary)
@@ -1287,7 +1287,7 @@ class Config(with_metaclass(Singleton)):
                     CLI.colored_print('\t2) No')
                     delete_users = CLI.get_response(default=True)
 
-                    if delete_users == True:
+                    if delete_users is True:
                         usernames_by_db = {
                             mongo_user_username: 'formhub',
                             mongo_root_username: 'admin'
@@ -1348,7 +1348,7 @@ class Config(with_metaclass(Singleton)):
 
         if (kc_postgres_db != self.__config['kc_postgres_db'] or
                 (kpi_postgres_db != self.__config['kpi_postgres_db'] and
-                 self.__config.get('two_databases') == True)):
+                 self.__config.get('two_databases') is True)):
             message = (
                 'WARNING!\n\n'
                 'PostgreSQL database names have changed!\n'
@@ -1414,7 +1414,7 @@ class Config(with_metaclass(Singleton)):
                 CLI.colored_print('\t2) No')
                 delete_user = CLI.get_response(default=True)
 
-                if delete_user == True:
+                if delete_user is True:
                     content = '{username}\ttrue'.format(username=postgres_user)
                     message = (
                         'WARNING!\n\n'
@@ -1435,7 +1435,7 @@ class Config(with_metaclass(Singleton)):
             self.__config['postgres_settings'] = CLI.get_response(
                 default=self.__config.get('postgres_settings', False))
 
-            if self.__config['postgres_settings'] == True:
+            if self.__config['postgres_settings'] is True:
 
                 # pgconfig.org API is often unresponsive and make kobo-install
                 # hang forever.
@@ -1597,7 +1597,7 @@ class Config(with_metaclass(Singleton)):
             default=self.__config.get('customized_ports',
                                       False))
 
-        if self.__config.get('customized_ports') == False:
+        if self.__config['customized_ports'] is False:
             reset_ports()
             return
 
@@ -1633,7 +1633,7 @@ class Config(with_metaclass(Singleton)):
             default=self.__config.get('use_private_dns',
                                       False))
 
-        if self.__config['use_private_dns'] == False:
+        if self.__config['use_private_dns'] is False:
             CLI.colored_print('IP address (IPv4) of primary backend server?',
                               CLI.COLOR_SUCCESS)
             self.__config['primary_backend_ip'] = CLI.get_response(
@@ -1686,7 +1686,7 @@ class Config(with_metaclass(Singleton)):
         self.__config['raven_settings'] = CLI.get_response(
             default=self.__config.get('raven_settings', False))
 
-        if self.__config.get('raven_settings') == True:
+        if self.__config.get('raven_settings') is True:
             self.__config['kpi_raven'] = CLI.colored_input('KPI Raven token',
                                                            CLI.COLOR_SUCCESS,
                                                            self.__config.get(
@@ -1728,7 +1728,7 @@ class Config(with_metaclass(Singleton)):
                 CLI.colored_print('\t1) Yes')
                 CLI.colored_print('\t2) No')
 
-                if CLI.get_response(default=False) == False:
+                if CLI.get_response(default=False) is False:
                     self.__questions_redis()
 
     def __questions_reverse_proxy(self):
@@ -1769,7 +1769,7 @@ class Config(with_metaclass(Singleton)):
                     CLI.colored_print('\t1) Yes')
                     CLI.colored_print('\t2) No')
 
-                    if CLI.get_response(default=True) == True:
+                    if CLI.get_response(default=True) is True:
                         self.__config['letsencrypt_email'] = letsencrypt_email
                         break
 
@@ -1871,7 +1871,7 @@ class Config(with_metaclass(Singleton)):
         self.__config['custom_secret_keys'] = CLI.get_response(
             default=self.__config.get('custom_secret_keys'))
 
-        if self.__config['custom_secret_keys'] == True:
+        if self.__config['custom_secret_keys'] is True:
             CLI.colored_print("Django's secret key?", CLI.COLOR_SUCCESS)
             self.__config['django_secret_key'] = CLI.get_response(
                 r'~^.{50,}$',
@@ -1970,7 +1970,7 @@ class Config(with_metaclass(Singleton)):
             self.__config['uwsgi_settings'] = CLI.get_response(
                 default=self.__config.get('uwsgi_settings', False))
 
-            if self.__config.get('uwsgi_settings') == True:
+            if self.__config.get('uwsgi_settings') is True:
                 CLI.colored_print('Number of uWSGi workers to start?',
                                   CLI.COLOR_SUCCESS)
                 self.__config['uwsgi_workers_start'] = CLI.get_response(
