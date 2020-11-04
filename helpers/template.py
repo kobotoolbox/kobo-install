@@ -50,9 +50,7 @@ class Template:
             CLI.colored_print('\t1) Yes')
             CLI.colored_print('\t2) No')
 
-            if CLI.get_response(
-                    [Config.TRUE, Config.FALSE],
-                    Config.FALSE) == Config.FALSE:
+            if CLI.get_response(default=False) == False:
                 sys.exit()
 
         cls.__write_unique_id(environment_directory, config.get('unique_id'))
@@ -146,7 +144,7 @@ class Template:
         config = config_object.get_config()
 
         def _get_value(property_, true_value='', false_value='#',
-                       comparison_value=Config.TRUE):
+                       comparison_value=True):
             return true_value \
                 if config.get(property_) == comparison_value \
                 else false_value
@@ -187,13 +185,13 @@ class Template:
             'POSTGRES_PASSWORD': config.get('postgres_password', ''),
             'POSTGRES_PASSWORD_URL_ENCODED': quote_plus(
                 config.get('postgres_password', '')),
-            'DEBUG': config.get('debug', False) == Config.TRUE,
+            'DEBUG': config.get('debug', False) == True,
             'SMTP_HOST': config.get('smtp_host', ''),
             'SMTP_PORT': config.get('smtp_port', ''),
             'SMTP_USER': config.get('smtp_user', ''),
             'SMTP_PASSWORD': config.get('smtp_password', ''),
             'SMTP_USE_TLS': config.get('smtp_use_tls',
-                                       Config.TRUE) == Config.TRUE,
+                                       True) == True,
             'DEFAULT_FROM_EMAIL': config.get('default_from_email', ''),
             'PRIMARY_BACKEND_IP': config.get('primary_backend_ip'),
             'LOCAL_INTERFACE_IP': config.get('local_interface_ip'),
@@ -231,20 +229,20 @@ class Template:
             'POSTGRES_SETTINGS': config.get('postgres_settings_content', ''),
             'POSTGRES_BACKUP_FROM_SECONDARY': _get_value(
                 'backup_from_primary',
-                comparison_value=Config.FALSE),
+                comparison_value=False),
             'POSTGRES_PORT': config.get('postgresql_port', '5432'),
             'MONGO_PORT': config.get('mongo_port', '27017'),
             'REDIS_MAIN_PORT': config.get('redis_main_port', '6739'),
             'REDIS_CACHE_PORT': config.get('redis_cache_port', '6380'),
             'USE_BACKUP': '' if config.get(
-                'use_backup') == Config.TRUE else '#',
+                'use_backup') == True else '#',
             'USE_WAL_E': _get_value('use_wal_e'),
             'USE_AWS_BACKUP': '' if config_object.aws and
-                                    config.get('use_backup') == Config.TRUE and
+                                    config.get('use_backup') == True and
                                     config.get(
                                         'aws_backup_bucket_name') != '' else '#',
             'USE_MEDIA_BACKUP': '' if (not config_object.aws and
-                                       config.get('use_backup') == Config.TRUE) else '#',
+                                       config.get('use_backup') == True) else '#',
             'KOBOCAT_MEDIA_BACKUP_SCHEDULE': config.get(
                 'kobocat_media_backup_schedule'),
             'MONGO_BACKUP_SCHEDULE': config.get('mongo_backup_schedule'),
@@ -276,10 +274,10 @@ class Template:
             'MAINTENANCE_EMAIL': config.get('maintenance_email', ''),
             'USE_NPM_FROM_HOST': '' if (config_object.dev_mode and
                                         config.get(
-                                            'npm_container') == Config.FALSE) else '#',
+                                            'npm_container') == False) else '#',
             'DOCKER_PREFIX': config_object.get_prefix('backend'),
             'USE_BACKEND_NETWORK': _get_value('expose_backend_ports',
-                                              comparison_value=Config.FALSE),
+                                              comparison_value=False),
             'EXPOSE_BACKEND_PORTS': _get_value('expose_backend_ports'),
             'USE_FAKE_DNS': _get_value('local_installation'),
             'ADD_BACKEND_EXTRA_HOSTS': '' if (

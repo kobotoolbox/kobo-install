@@ -131,7 +131,7 @@ class Command:
         nginx_port = config.get('exposed_nginx_docker_port')
 
         main_url = '{}://{}.{}{}'.format(
-            'https' if config.get('https') == Config.TRUE else 'http',
+            'https' if config.get('https') == True else 'http',
             config.get('kpi_subdomain'),
             config.get('public_domain_name'),
             ':{}'.format(nginx_port) if (
@@ -146,10 +146,10 @@ class Command:
         hostname = '{}.{}'.format(config.get('kpi_subdomain'),
                                   config.get('public_domain_name'))
         nginx_port = int(Config.DEFAULT_NGINX_HTTPS_PORT) \
-            if config.get('https') == Config.TRUE \
+            if config.get('https') == True \
             else int(config.get('exposed_nginx_docker_port',
                                 Config.DEFAULT_NGINX_PORT))
-        https = config.get('https') == Config.TRUE
+        https = config.get('https') == True
         already_retried = False
         while not stop:
             if Network.status_check(hostname,
@@ -167,10 +167,9 @@ class Command:
                         timeout), CLI.COLOR_SUCCESS)
                     CLI.colored_print('\t1) Yes')
                     CLI.colored_print('\t2) No')
-                    response = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                Config.TRUE)
+                    response = CLI.get_response(default=True)
 
-                    if response == Config.TRUE:
+                    if response is True:
                         start = int(time.time())
                         continue
                     else:
@@ -187,9 +186,8 @@ class Command:
                                 CLI.COLOR_SUCCESS)
                             CLI.colored_print('\t1) Yes')
                             CLI.colored_print('\t2) No')
-                            response = CLI.get_response(
-                                [Config.TRUE, Config.FALSE], Config.TRUE)
-                            if response == Config.TRUE:
+                            response = CLI.get_response(default=True)
+                            if response is True:
                                 start = int(time.time())
                                 cls.restart_frontend()
                                 continue

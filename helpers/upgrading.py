@@ -91,8 +91,8 @@ def migrate_single_to_two_databases():
         CLI.colored_print('Do you want to proceed?', CLI.COLOR_SUCCESS)
         CLI.colored_print('\t1) Yes')
         CLI.colored_print('\t2) No')
-        response = CLI.get_response([Config.TRUE, Config.FALSE], Config.FALSE)
-        if response != Config.TRUE:
+        response = CLI.get_response(default=False)
+        if response is False:
             sys.exit(0)
 
         backend_command = [

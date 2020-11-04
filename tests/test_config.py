@@ -32,7 +32,7 @@ def test_advanced_options():
         assert config_object.advanced_options
 
     with patch.object(CLI, 'colored_input',
-                      return_value=Config.FALSE) as mock_ci:
+                      return_value=False) as mock_ci:
         config_object._Config__questions_advanced_options()
         assert not config_object.advanced_options
 
@@ -40,7 +40,7 @@ def test_advanced_options():
 def test_installation():
     config_object = read_config()
     with patch.object(CLI, 'colored_input',
-                      return_value=Config.FALSE) as mock_ci:
+                      return_value=False) as mock_ci:
         config_object._Config__questions_installation_type()
         assert not config_object.local_install
 
@@ -89,8 +89,8 @@ def test_dev_mode():
                                                Config.TRUE,
                                                kc_repo_path,
                                                kpi_repo_path,
-                                               Config.FALSE,
-                                               Config.FALSE])
+                                               False,
+                                               False])
 
         config_object._Config__questions_dev_mode()
         config = config_object.get_config()
@@ -100,13 +100,13 @@ def test_dev_mode():
             'exposed_nginx_docker_port') == '8080'
         assert config.get('kpi_path') == kpi_repo_path and config.get(
             'kc_path') == kc_repo_path
-        assert config.get('npm_container') == Config.FALSE
+        assert config.get('npm_container') == False
 
     shutil.rmtree(kc_repo_path)
     shutil.rmtree(kpi_repo_path)
 
     with patch.object(CLI, 'colored_input',
-                      return_value=Config.FALSE) as mock_ci:
+                      return_value=False) as mock_ci:
         config_object._Config__questions_dev_mode()
         config = config_object.get_config()
         assert not config_object.dev_mode
@@ -190,7 +190,7 @@ def test_proxy_no_letsencrypt_advanced():
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
         mock_colored_input.side_effect = iter(
-            [Config.FALSE, Config.FALSE, proxy_port])
+            [False, False, proxy_port])
         config_object._Config__questions_reverse_proxy()
         assert config_object.proxy
         assert not config_object.use_letsencrypt
@@ -205,7 +205,7 @@ def test_proxy_no_letsencrypt():
     assert config_object.use_letsencrypt
 
     with patch.object(CLI, 'colored_input',
-                      return_value=Config.FALSE) as mock_ci:
+                      return_value=False) as mock_ci:
         config_object._Config__questions_reverse_proxy()
         assert config_object.proxy
         assert not config_object.use_letsencrypt
@@ -218,7 +218,7 @@ def test_proxy_no_letsencrypt_retains_custom_nginx_proxy_port():
     CUSTOM_PROXY_PORT = 9090
     config_object = read_config(overrides={
         'advanced': Config.TRUE,
-        'use_letsencrypt': Config.FALSE,
+        'use_letsencrypt': False,
         'nginx_proxy_port': str(CUSTOM_PROXY_PORT),
     })
     with patch.object(
@@ -239,12 +239,12 @@ def test_no_proxy_no_ssl():
     proxy_port = Config.DEFAULT_NGINX_PORT
 
     with patch.object(CLI, 'colored_input',
-                      return_value=Config.FALSE) as mock_ci:
+                      return_value=False) as mock_ci:
         config_object._Config__questions_https()
         assert not config_object.is_secure
 
         with patch.object(CLI, 'colored_input',
-                          return_value=Config.FALSE) as mock_ci_2:
+                          return_value=False) as mock_ci_2:
             config_object._Config__questions_reverse_proxy()
             assert not config_object.proxy
             assert not config_object.use_letsencrypt
@@ -261,7 +261,7 @@ def test_proxy_no_ssl_advanced():
     assert config_object.is_secure
 
     with patch.object(CLI, 'colored_input',
-                      return_value=Config.FALSE) as mock_ci:
+                      return_value=False) as mock_ci:
         config_object._Config__questions_https()
         assert not config_object.is_secure
 
@@ -269,7 +269,7 @@ def test_proxy_no_ssl_advanced():
         proxy_port = Config.DEFAULT_NGINX_PORT
         with patch('helpers.cli.CLI.colored_input') as mock_colored_input_1:
             mock_colored_input_1.side_effect = iter(
-                [Config.TRUE, Config.FALSE, proxy_port])
+                [Config.TRUE, False, proxy_port])
             config_object._Config__questions_reverse_proxy()
             assert config_object.proxy
             assert not config_object.use_letsencrypt
@@ -298,8 +298,8 @@ def test_port_allowed():
     assert config_object._Config__is_port_allowed(Config.DEFAULT_PROXY_PORT)
 
     # Don't use let's encrypt
-    config_object._Config__config['use_letsencrypt'] = Config.FALSE
-    config_object._Config__config['block_common_http_ports'] = Config.FALSE
+    config_object._Config__config['use_letsencrypt'] = False
+    config_object._Config__config['block_common_http_ports'] = False
     assert config_object._Config__is_port_allowed(Config.DEFAULT_NGINX_PORT)
     assert config_object._Config__is_port_allowed('443')
 
@@ -363,12 +363,12 @@ def test_exposed_ports():
             assert config_object.expose_backend_ports
 
     with patch.object(CLI, 'colored_input',
-                      return_value=Config.FALSE) as mock_ci_1:
+                      return_value=False) as mock_ci_1:
         # Choose to single server
         config_object._Config__questions_multi_servers()
 
         with patch.object(CLI, 'colored_input',
-                          return_value=Config.FALSE) as mock_ci_2:
+                          return_value=False) as mock_ci_2:
             # Choose to not expose ports
             config_object._Config__questions_ports()
 
@@ -398,7 +398,7 @@ def test_force_secure_mongo():
             config_['kpi_subdomain'],
             config_['kc_subdomain'],
             config_['ee_subdomain'],
-            Config.FALSE,  # Do you want to use HTTPS?
+            False,  # Do you want to use HTTPS?
             config_.get('smtp_host', ''),
             config_.get('smtp_port', '25'),
             config_.get('smtp_user', ''),
@@ -435,7 +435,7 @@ def test_secure_mongo_advanced_options():
     # ║ MongoDB root's and/or user's usernames have changed! ║
     # ╚══════════════════════════════════════════════════════╝
     config_object._Config__first_time = False
-    config_object._Config__config['mongo_secured'] = Config.FALSE
+    config_object._Config__config['mongo_secured'] = False
 
     with patch('helpers.cli.CLI.colored_input') as mock_ci:
         mock_ci.side_effect = iter([
@@ -533,7 +533,7 @@ def test_update_postgres_password():
             'koboform',
             'user',
             'user_password',
-            Config.FALSE  # Tweak settings
+            False  # Tweak settings
         ])
         config_object._Config__questions_postgres()
         assert os.path.exists('/tmp/upsert_db_users')
@@ -564,7 +564,7 @@ def test_update_postgres_username():
             'another_user',
             'password',
             Config.TRUE,  # Delete user
-            Config.FALSE  # Tweak settings
+            False  # Tweak settings
         ])
         config_object._Config__questions_postgres()
         assert os.path.exists('/tmp/upsert_db_users')

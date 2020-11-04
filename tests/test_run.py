@@ -49,7 +49,7 @@ def test_toggle_trivial():
        new=MockCommand.run_command)
 def test_toggle_no_letsencrypt():
     config_object = read_config()
-    config_object._Config__config['use_letsencrypt'] = Config.FALSE
+    config_object._Config__config['use_letsencrypt'] = False
     Command.start()
     mock_docker = MockDocker()
     expected_containers = MockDocker.FRONTEND_CONTAINERS + \

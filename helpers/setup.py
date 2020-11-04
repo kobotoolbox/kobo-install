@@ -72,8 +72,8 @@ class Setup:
         CLI.colored_print('Do you want to proceed?', CLI.COLOR_SUCCESS)
         CLI.colored_print('\t1) Yes')
         CLI.colored_print('\t2) No')
-        response = CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE)
-        if response == Config.TRUE:
+        response = CLI.get_response(default=True)
+        if response == True:
             current_config = config_object.build()
             Template.render(config_object)
             config_object.init_letsencrypt()
@@ -83,8 +83,8 @@ class Setup:
                               CLI.COLOR_SUCCESS)
             CLI.colored_print('\t1) Yes')
             CLI.colored_print('\t2) No')
-            response = CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE)
-            if response == Config.TRUE:
+            response = CLI.get_response(default=True)
+            if response == True:
                 Command.start()
 
     @staticmethod
@@ -125,7 +125,7 @@ class Setup:
     @classmethod
     def update_hosts(cls, config):
 
-        if config.get('local_installation') == Config.TRUE:
+        if config.get('local_installation') == True:
             start_sentence = '### (BEGIN) KoBoToolbox local routes'
             end_sentence = '### (END) KoBoToolbox local routes'
 
@@ -164,7 +164,7 @@ class Setup:
             with open('/tmp/etchosts', 'w') as f:
                 f.write(tmp_host)
 
-            if config.get('review_host') != Config.FALSE:
+            if config.get('review_host') != False:
                 CLI.colored_print('╔═══════════════════════════════════════════════════════════════════╗',
                                   CLI.COLOR_WARNING)
                 CLI.colored_print('║ Administrative privileges are required to update your /etc/hosts. ║',
@@ -176,10 +176,9 @@ class Setup:
                 CLI.colored_print('\t1) Yes')
                 CLI.colored_print('\t2) No')
                 config['review_host'] = CLI.get_response(
-                    [Config.TRUE, Config.FALSE],
-                    config.get('review_host', Config.FALSE))
+                    default=config.get('review_host', False))
 
-                if config['review_host'] == Config.TRUE:
+                if config['review_host'] == True:
                     print(tmp_host)
                     CLI.colored_input('Press any keys when ready')
 

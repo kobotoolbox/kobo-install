@@ -14,6 +14,7 @@ else:
 
 
 class CLI(object):
+
     NO_COLOR = '\033[0m'
     COLOR_ERROR = '\033[91m'
     COLOR_SUCCESS = '\033[92m'
@@ -22,13 +23,33 @@ class CLI(object):
 
     EMPTY_CHARACTER = '-'
 
+    DEFAULT_CHOICES = {
+        '1': True,
+        '2': False,
+    }
+    DEFAULT_RESPONSES = dict((v, k) for k, v in DEFAULT_CHOICES.items())
+
     @classmethod
     def get_response(cls, validators=None, default='', to_lower=True,
                      error_msg="Sorry, I didn't understand that!"):
 
+        use_default = False
+        # If not validators are provided, let's use default validation
+        # "Yes/No", where "Yes" equals 1, and "No" equals 2
+        # Example:
+        #   Are you sure?
+        #       1) Yes
+        #       2) No
+        if validators is None:
+            use_default = True
+            default = cls.DEFAULT_RESPONSES[default]
+            validators = cls.DEFAULT_CHOICES.keys()
+
         while True:
             try:
                 response = cls.colored_input('', cls.COLOR_WARNING, default)
+                print(type(response))
+                print(response)
 
                 if (response.lower() in map(lambda x: x.lower(), validators) or
                         validators is None or
@@ -43,6 +64,9 @@ class CLI(object):
             except ValueError:
                 cls.colored_print("Sorry, I didn't understand that.",
                                   cls.COLOR_ERROR)
+
+        if use_default:
+            return cls.DEFAULT_CHOICES[response]
 
         return response.lower() if to_lower else response
 
