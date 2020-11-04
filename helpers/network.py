@@ -34,9 +34,9 @@ class Network:
         :return: dict
         """
         ip_dict = {}
-        excluded_interfaces = ("lo", "docker", "br-", "veth", "vmnet")
+        excluded_interfaces = ('lo', 'docker', 'br-', 'veth', 'vmnet')
 
-        if platform.system() == "Linux":
+        if platform.system() == 'Linux':
             # Max possible bytes for interface result.  Will truncate if more than 4096 characters to describe interfaces.
             MAX_BYTES = 4096
 
@@ -97,14 +97,14 @@ class Network:
             try:
                 import netifaces
             except ImportError:
-                CLI.colored_print("You must install netinfaces first! Please type `pip install netifaces --user`", CLI.COLOR_ERROR)
+                CLI.colored_print('You must install netinfaces first! Please type `pip install netifaces --user`', CLI.COLOR_ERROR)
                 sys.exit(1)
 
             for interface in netifaces.interfaces():
                 if not interface.startswith(excluded_interfaces) or all:
                     ifaddresses = netifaces.ifaddresses(interface)
-                    if ifaddresses.get(netifaces.AF_INET) and ifaddresses.get(netifaces.AF_INET)[0].get("addr"):
-                        ip_dict[interface] = ifaddresses.get(netifaces.AF_INET)[0].get("addr")
+                    if ifaddresses.get(netifaces.AF_INET) and ifaddresses.get(netifaces.AF_INET)[0].get('addr'):
+                        ip_dict[interface] = ifaddresses.get(netifaces.AF_INET)[0].get('addr')
 
         return ip_dict
 
@@ -117,7 +117,7 @@ class Network:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
             # doesn't even have to be reachable
-            s.connect(("10.255.255.255", 1))
+            s.connect(('10.255.255.255', 1))
             ip_address = s.getsockname()[0]
         except:
             ip_address = None
@@ -137,16 +137,16 @@ class Network:
             if ip_address == primary_ip:
                 return interface
 
-        return "eth0"
+        return 'eth0'
 
     @staticmethod
     def status_check(hostname, endpoint, port=80, secure=False):
         try:
             if secure:
-                conn = httplib.HTTPSConnection("{}:{}".format(hostname, port), timeout=10)
+                conn = httplib.HTTPSConnection('{}:{}'.format(hostname, port), timeout=10)
             else:
-                conn = httplib.HTTPConnection("{}:{}".format(hostname, port), timeout=10)
-            conn.request("GET", endpoint)
+                conn = httplib.HTTPConnection('{}:{}'.format(hostname, port), timeout=10)
+            conn.request('GET', endpoint)
             response = conn.getresponse()
             return response.status
         except:
@@ -157,7 +157,7 @@ class Network:
     @staticmethod
     def is_port_open(port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        result = sock.connect_ex(("127.0.0.1", int(port)))
+        result = sock.connect_ex(('127.0.0.1', int(port)))
         return result == 0
 
     @staticmethod

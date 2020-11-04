@@ -3,10 +3,10 @@ from __future__ import unicode_literals
 
 try:
     from unittest.mock import patch, MagicMock
-    builtin_open = "builtins.open"
+    builtin_open = 'builtins.open'
 except ImportError:
     from mock import patch, MagicMock
-    builtin_open = "__builtin__.open"
+    builtin_open = '__builtin__.open'
 
 from helpers.command import Command
 from helpers.config import Config

@@ -4,10 +4,10 @@ from __future__ import unicode_literals
 import json
 try:
     from unittest.mock import patch, mock_open
-    builtin_open = "builtins.open"
+    builtin_open = 'builtins.open'
 except ImportError:
     from mock import patch, mock_open
-    builtin_open = "__builtin__.open"
+    builtin_open = '__builtin__.open'
 
 from helpers.config import Config
 from helpers.singleton import Singleton, with_metaclass
@@ -16,13 +16,13 @@ from helpers.singleton import Singleton, with_metaclass
 def read_config(overrides=None):
 
     config_dict = dict(Config.get_config_template())
-    config_dict["kobodocker_path"] = "/tmp"
+    config_dict['kobodocker_path'] = '/tmp'
     if overrides is not None:
         config_dict.update(overrides)
     with patch(builtin_open, mock_open(read_data=json.dumps(config_dict))) as mock_file:
         config_object = Config()
         config_object.read_config()
-        assert config_object.get_config().get("kobodocker_path") == config_dict.get("kobodocker_path")
+        assert config_object.get_config().get('kobodocker_path') == config_dict.get('kobodocker_path')
 
     return config_object
 
@@ -30,13 +30,13 @@ def read_config(overrides=None):
 def reset_config(config_object):
 
     config_dict = dict(Config.get_config_template())
-    config_dict["kobodocker_path"] = "/tmp"
+    config_dict['kobodocker_path'] = '/tmp'
     config_object.__config = config_dict
 
 
 def write_trigger_upsert_db_users(*args):
     content = args[1]
-    with open("/tmp/upsert_db_users", "w") as f:
+    with open('/tmp/upsert_db_users', 'w') as f:
         f.write(content)
 
 
@@ -74,7 +74,7 @@ class MockDocker(with_metaclass(Singleton)):
         letsencrypt = cwd == config_object.get_letsencrypt_repo_path()
 
         if command[-2] == 'config':
-            return "\n".join([c for c in self.FRONTEND_CONTAINERS if c != 'nginx'])
+            return '\n'.join([c for c in self.FRONTEND_CONTAINERS if c != 'nginx'])
         if command[-2] == 'up':
             if letsencrypt:
                 self.__containers += self.LETSENCRYPT
