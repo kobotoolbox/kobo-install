@@ -283,41 +283,68 @@ class Config(with_metaclass(Singleton)):
 
         primary_ip = Network.get_primary_ip()
 
+        # Keep properties sorted alphabetically
         return {
             'advanced': False,
+            'aws_backup_bucket_deletion_rule_enabled': False,
+            'aws_backup_bucket_name': '',
+            'aws_backup_daily_retention': '30',
+            'aws_backup_monthly_retention': '12',
+            'aws_backup_upload_chunk_size': '15',
+            'aws_backup_weekly_retention': '4',
+            'aws_backup_yearly_retention': '2',
+            'aws_mongo_backup_minimum_size': '50',
+            'aws_postgres_backup_minimum_size': '50',
+            'aws_redis_backup_minimum_size': '5',
+            'backend_server_role': 'primary',
+            'backup_from_primary': True,
+            'block_common_http_ports': True,
+            'custom_secret_keys': False,
             'customized_ports': False,
             'debug': False,
+            'django_secret_key': binascii.hexlify(os.urandom(50)).decode('utf-8'),
+            'ee_subdomain': 'ee',
+            'enketo_api_token': binascii.hexlify(os.urandom(60)).decode('utf-8'),
+            'enketo_encryption_key': binascii.hexlify(os.urandom(60)).decode('utf-8'),
+            # default value from enketo. Because it was not customizable before
+            # we want to keep the same value when users upgrade.
+            'enketo_less_secure_encryption_key': 'this $3cr3t key is crackable',
+            'expose_backend_ports': False,
+            'exposed_nginx_docker_port': Config.DEFAULT_NGINX_PORT,
+            'https': True,
+            'internal_domain_name': 'docker.internal',
+            'kc_path': '',
+            'kc_postgres_db': 'kobocat',
+            'kc_subdomain': 'kc',
+            'kobocat_media_schedule': '0 0 * * 0',
             'kobodocker_path': os.path.realpath(os.path.normpath(os.path.join(
                 os.path.dirname(os.path.realpath(__file__)),
                 '..',
                 '..',
                 'kobo-docker'))
             ),
-            'internal_domain_name': 'docker.internal',
-            'private_domain_name': 'kobo.private',
-            'public_domain_name': 'kobo.local',
-            'kpi_subdomain': 'kf',
-            'kc_subdomain': 'kc',
-            'ee_subdomain': 'ee',
-            'kc_postgres_db': 'kobocat',
-            'kpi_postgres_db': 'koboform',
-            'postgres_user': 'kobo',
-            'postgres_password': Config.generate_password(),
-            'kc_path': '',
             'kpi_path': '',
-            'super_user_username': 'super_admin',
-            'super_user_password': Config.generate_password(),
-            'postgres_replication_password': Config.generate_password(),
-            'use_aws': False,
-            'use_private_dns': False,
-            'primary_backend_ip': primary_ip,
+            'kpi_postgres_db': 'koboform',
+            'kpi_subdomain': 'kf',
+            'local_installation': False,
             'local_interface_ip': primary_ip,
+            'mongo_backup_schedule': '0 1 * * 0',
+            'mongo_port': '27017',
+            'mongo_root_password': Config.generate_password(),
+            'mongo_root_username': 'root',
+            'mongo_user_password': Config.generate_password(),
+            'mongo_user_username': 'kobo',
             'multi': False,
-            'postgres_settings': False,
-            'postgres_ram': '2',
-            'postgres_profile': 'Mixed',
-            'postgres_max_connections': '100',
+            'nginx_proxy_port': Config.DEFAULT_PROXY_PORT,
+            'npm_container': True,
+            'postgres_backup_schedule': '0 2 * * 0',
             'postgres_hard_drive_type': 'hdd',
+            'postgres_max_connections': '100',
+            'postgres_password': Config.generate_password(),
+            'postgres_profile': 'Mixed',
+            'postgres_ram': '2',
+            'postgres_replication_password': Config.generate_password(),
+            'postgres_settings': False,
             'postgres_settings_content': '\n'.join([
                 '# Memory Configuration',
                 'shared_buffers = 512MB',
@@ -335,61 +362,32 @@ class Config(with_metaclass(Singleton)):
                 "listen_addresses = '*'",
                 'max_connections = 100',
             ]),
-            'custom_secret_keys': False,
-            'enketo_api_token': binascii.hexlify(os.urandom(60)).decode(
-                'utf-8'),
-            'enketo_encryption_key': binascii.hexlify(os.urandom(60)).decode(
-                'utf-8'),
-            'django_secret_key': binascii.hexlify(os.urandom(50)).decode(
-                'utf-8'),
-            # default value from enketo. Because it was not customizable before
-            # we want to keep the same value when users upgrade.
-            'enketo_less_secure_encryption_key': 'this $3cr3t key is crackable',
-            'use_backup': False,
-            'use_wal_e': False,
-            'kobocat_media_schedule': '0 0 * * 0',
-            'mongo_backup_schedule': '0 1 * * 0',
-            'postgres_backup_schedule': '0 2 * * 0',
-            'redis_backup_schedule': '0 3 * * 0',
-            'aws_backup_bucket_name': '',
-            'aws_backup_yearly_retention': '2',
-            'aws_backup_monthly_retention': '12',
-            'aws_backup_weekly_retention': '4',
-            'aws_backup_daily_retention': '30',
-            'aws_mongo_backup_minimum_size': '50',
-            'aws_postgres_backup_minimum_size': '50',
-            'aws_redis_backup_minimum_size': '5',
-            'aws_backup_upload_chunk_size': '15',
-            'aws_backup_bucket_deletion_rule_enabled': False,
-            'backend_server_role': 'primary',
-            'use_letsencrypt': True,
-            'proxy': True,
-            'https': True,
-            'nginx_proxy_port': Config.DEFAULT_PROXY_PORT,
-            'exposed_nginx_docker_port': Config.DEFAULT_NGINX_PORT,
-            'expose_backend_ports': False,
+            'postgres_user': 'kobo',
             'postgresql_port': '5432',
-            'mongo_port': '27017',
-            'redis_main_port': '6379',
-            'redis_cache_port': '6380',
-            'local_installation': False,
-            'block_common_http_ports': True,
-            'npm_container': True,
-            'mongo_root_username': 'root',
-            'mongo_root_password': Config.generate_password(),
-            'mongo_user_username': 'kobo',
-            'mongo_user_password': Config.generate_password(),
-            'redis_password': Config.generate_password(),
-            'uwsgi_workers_start': '1',
-            'uwsgi_workers_max': '2',
-            'uwsgi_max_requests': '512',
-            'uwsgi_soft_limit': '128',
-            'uwsgi_harakiri': '120',
-            'uwsgi_worker_reload_mercy': '120',
-            'backup_from_primary': True,
+            'primary_backend_ip': primary_ip,
+            'private_domain_name': 'kobo.private',
+            'proxy': True,
+            'public_domain_name': 'kobo.local',
             'raven_settings': False,
+            'redis_backup_schedule': '0 3 * * 0',
+            'redis_cache_port': '6380',
+            'redis_main_port': '6379',
+            'redis_password': Config.generate_password(),
             'smtp_use_tls': True,
+            'super_user_password': Config.generate_password(),
+            'super_user_username': 'super_admin',
+            'use_aws': False,
+            'use_backup': False,
+            'use_letsencrypt': True,
+            'use_private_dns': False,
+            'use_wal_e': False,
+            'uwsgi_harakiri': '120',
+            'uwsgi_max_requests': '512',
             'uwsgi_settings': False,
+            'uwsgi_soft_limit': '128',
+            'uwsgi_worker_reload_mercy': '120',
+            'uwsgi_workers_max': '2',
+            'uwsgi_workers_start': '1',
         }
 
     def get_service_names(self):
@@ -876,7 +874,7 @@ class Config(with_metaclass(Singleton)):
             self.__config[
                 'aws_backup_bucket_deletion_rule_enabled'] = CLI.get_response(
                 default=self.__config.get('aws_backup_bucket_deletion_rule_enabled',
-                                  False))
+                                          False))
 
     def __questions_backup(self):
         """
@@ -1611,7 +1609,7 @@ class Config(with_metaclass(Singleton)):
             CLI.colored_print('\t2) No')
             self.__config['expose_backend_ports'] = CLI.get_response(
                 default=self.__config.get('expose_backend_ports',
-                                  False))
+                                          False))
         else:
             self.__config['expose_backend_ports'] = True
 
@@ -1641,7 +1639,7 @@ class Config(with_metaclass(Singleton)):
         CLI.colored_print('\t2) No')
         self.__config['customized_ports'] = CLI.get_response(
             default=self.__config.get('customized_ports',
-                                                           False))
+                                      False))
 
         if self.__config.get('customized_ports') == False:
             reset_ports()
@@ -1677,7 +1675,7 @@ class Config(with_metaclass(Singleton)):
 
         self.__config['use_private_dns'] = CLI.get_response(
             default=self.__config.get('use_private_dns',
-                              False))
+                                      False))
 
         if self.__config['use_private_dns'] == False:
             CLI.colored_print('IP address (IPv4) of primary backend server?',
@@ -1863,7 +1861,7 @@ class Config(with_metaclass(Singleton)):
                     CLI.colored_print('\t2) No')
                     self.__config['block_common_http_ports'] = CLI.get_response(
                         default=self.__config.get('block_common_http_ports',
-                                          False))
+                                                  False))
                 else:
                     self.__config['block_common_http_ports'] = True
 
@@ -2138,9 +2136,9 @@ class Config(with_metaclass(Singleton)):
             postgres_dir_path = os.path.join(self.__config['kobodocker_path'],
                                              '.vols', 'db')
             mongo_data_exists = (
-                        os.path.exists(mongo_dir_path) and os.path.isdir(
-                    mongo_dir_path) and
-                        os.listdir(mongo_dir_path))
+                    os.path.exists(mongo_dir_path) and os.path.isdir(
+                mongo_dir_path) and
+                    os.listdir(mongo_dir_path))
             postgres_data_exists = os.path.exists(
                 postgres_dir_path) and os.path.isdir(postgres_dir_path)
 
