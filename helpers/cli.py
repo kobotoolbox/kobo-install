@@ -48,8 +48,8 @@ class CLI(object):
         while True:
             try:
                 response = cls.colored_input('', cls.COLOR_WARNING, default)
-                print(type(response))
-                print(response)
+
+                print('VALIDATORS', validators)
 
                 if (response.lower() in map(lambda x: x.lower(), validators) or
                         validators is None or

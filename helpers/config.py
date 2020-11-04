@@ -25,8 +25,6 @@ class Config(with_metaclass(Singleton)):
     CONFIG_FILE = '.run.conf'
     UNIQUE_ID_FILE = '.uniqid'
     UPSERT_DB_USERS_TRIGGER_FILE = '.upsert_db_users'
-    TRUE = '1'
-    FALSE = '2'
     LETSENCRYPT_DOCKER_DIR = 'nginx-certbot'
     ENV_FILES_DIR = 'kobo-env'
     DEFAULT_PROXY_PORT = '8080'
@@ -171,7 +169,6 @@ class Config(with_metaclass(Singleton)):
         else:
 
             self.__config = self.__get_upgraded_config()
-            print('SELF.__conffig', self.__config)
             self.__welcome()
 
             self.__create_directory()
@@ -757,7 +754,6 @@ class Config(with_metaclass(Singleton)):
             'expose_backend_ports',
             'https',
             'local_installation',
-            'mongo_secured',
             'multi',
             'npm_container',
             'postgres_settings',
@@ -771,11 +767,19 @@ class Config(with_metaclass(Singleton)):
             'use_backup',
             'use_letsencrypt',
             'use_private_dns',
+            'use_wal_e',
             'uwsgi_settings',
         ]
         for property_ in boolean_properties:
-            upgraded_config[property_] = True if upgraded_config[property_] == \
-                                                 '1' else False
+            try:
+                if isinstance(upgraded_config[property_], bool):
+                    continue
+            except KeyError:
+                pass
+            else:
+                upgraded_config[property_] = True \
+                    if upgraded_config[property_] == '1' else False
+
         return upgraded_config
 
     def __questions_advanced_options(self):
@@ -786,6 +790,7 @@ class Config(with_metaclass(Singleton)):
                           CLI.COLOR_SUCCESS)
         CLI.colored_print('\t1) Yes')
         CLI.colored_print('\t2) No')
+
         self.__config['advanced'] = CLI.get_response(
             default=self.__config['advanced'])
 
@@ -2140,7 +2145,7 @@ class Config(with_metaclass(Singleton)):
         a non secure version of KoBoInstall
         """
         # ToDo remove duplicated code with `__questions_mongo`
-        if not self.__config['mongo_secured'] and not self.first_time:
+        if not self.__config.get('mongo_secured') and not self.first_time:
             self.__write_upsert_db_users_trigger_file('', 'mongo')
 
         self.__config['mongo_secured'] = True

@@ -9,7 +9,6 @@ except ImportError:
     builtin_open = '__builtin__.open'
 
 from helpers.command import Command
-from helpers.config import Config
 from .utils import (
     read_config,
     MockCommand,
@@ -94,7 +93,7 @@ def test_toggle_primary_backend():
     config_object = read_config()
     config_object._Config__config['backend_server_role'] = 'primary'
     config_object._Config__config['server_role'] = 'backend'
-    config_object._Config__config['multi'] = Config.TRUE
+    config_object._Config__config['multi'] = True
 
     Command.start()
     mock_docker = MockDocker()
@@ -118,7 +117,7 @@ def test_toggle_secondary_backend():
     config_object = read_config()
     config_object._Config__config['backend_server_role'] = 'secondary'
     config_object._Config__config['server_role'] = 'backend'
-    config_object._Config__config['multi'] = Config.TRUE
+    config_object._Config__config['multi'] = True
 
     mock_docker = MockDocker()
     Command.start()

@@ -19,6 +19,9 @@ from .utils import (
     write_trigger_upsert_db_users,
 )
 
+CHOICE_YES = '1'
+CHOICE_NO = '2'
+
 
 def test_read_config():
     config_object = read_config()
@@ -27,12 +30,12 @@ def test_read_config():
 def test_advanced_options():
     config_object = read_config()
     with patch.object(CLI, 'colored_input',
-                      return_value=Config.TRUE) as mock_ci:
+                      return_value=CHOICE_YES) as mock_ci:
         config_object._Config__questions_advanced_options()
         assert config_object.advanced_options
 
     with patch.object(CLI, 'colored_input',
-                      return_value=False) as mock_ci:
+                      return_value=CHOICE_NO) as mock_ci:
         config_object._Config__questions_advanced_options()
         assert not config_object.advanced_options
 
@@ -40,12 +43,12 @@ def test_advanced_options():
 def test_installation():
     config_object = read_config()
     with patch.object(CLI, 'colored_input',
-                      return_value=False) as mock_ci:
+                      return_value=CHOICE_NO) as mock_ci:
         config_object._Config__questions_installation_type()
         assert not config_object.local_install
 
     with patch.object(CLI, 'colored_input',
-                      return_value=Config.TRUE) as mock_ci:
+                      return_value=CHOICE_YES) as mock_ci:
         config_object._Config__questions_installation_type()
         assert config_object.local_install
         assert not config_object.multi_servers
@@ -62,7 +65,7 @@ def test_staging_mode():
     kpi_repo_path = tempfile.mkdtemp()
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
-        mock_colored_input.side_effect = iter([Config.TRUE,
+        mock_colored_input.side_effect = iter([CHOICE_YES,
                                                kc_repo_path,
                                                kpi_repo_path])
         config_object._Config__questions_dev_mode()
@@ -86,11 +89,12 @@ def test_dev_mode():
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
         mock_colored_input.side_effect = iter(['8080',
-                                               Config.TRUE,
+                                               CHOICE_YES,
                                                kc_repo_path,
                                                kpi_repo_path,
-                                               False,
-                                               False])
+                                               CHOICE_YES,
+                                               CHOICE_NO,
+                                               ])
 
         config_object._Config__questions_dev_mode()
         config = config_object.get_config()
@@ -106,7 +110,7 @@ def test_dev_mode():
     shutil.rmtree(kpi_repo_path)
 
     with patch.object(CLI, 'colored_input',
-                      return_value=False) as mock_ci:
+                      return_value=CHOICE_NO) as mock_ci:
         config_object._Config__questions_dev_mode()
         config = config_object.get_config()
         assert not config_object.dev_mode
@@ -120,7 +124,7 @@ def test_server_roles_questions():
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
         mock_colored_input.side_effect = iter(
-            [Config.TRUE, 'frontend', 'backend', 'secondary'])
+            [CHOICE_YES, 'frontend', 'backend', 'secondary'])
 
         config_object._Config__questions_multi_servers()
 
@@ -140,13 +144,13 @@ def test_use_https():
     assert config_object.is_secure
 
     with patch.object(CLI, 'colored_input',
-                      return_value=Config.TRUE) as mock_ci:
+                      return_value=CHOICE_YES) as mock_ci:
         config_object._Config__questions_https()
         assert not config_object.local_install
         assert config_object.is_secure
 
     with patch.object(CLI, 'colored_input',
-                      return_value=Config.TRUE) as mock_ci:
+                      return_value=CHOICE_YES) as mock_ci:
         config_object._Config__questions_installation_type()
         assert config_object.local_install
         assert not config_object.is_secure
@@ -165,9 +169,9 @@ def test_proxy_letsencrypt():
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
         # Use default options
-        mock_colored_input.side_effect = iter([Config.TRUE,
+        mock_colored_input.side_effect = iter([CHOICE_YES,
                                                'test@test.com',
-                                               Config.TRUE,
+                                               CHOICE_YES,
                                                Config.DEFAULT_NGINX_PORT])
         config_object._Config__questions_reverse_proxy()
         assert config_object.proxy
@@ -182,7 +186,7 @@ def test_proxy_letsencrypt():
 def test_proxy_no_letsencrypt_advanced():
     config_object = read_config()
     # Force advanced options
-    config_object._Config__config['advanced'] = Config.TRUE
+    config_object._Config__config['advanced'] = True
     assert config_object.advanced_options
     assert config_object.proxy
     assert config_object.use_letsencrypt
@@ -190,7 +194,7 @@ def test_proxy_no_letsencrypt_advanced():
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
         mock_colored_input.side_effect = iter(
-            [False, False, proxy_port])
+            [CHOICE_NO, CHOICE_NO, proxy_port])
         config_object._Config__questions_reverse_proxy()
         assert config_object.proxy
         assert not config_object.use_letsencrypt
@@ -205,7 +209,7 @@ def test_proxy_no_letsencrypt():
     assert config_object.use_letsencrypt
 
     with patch.object(CLI, 'colored_input',
-                      return_value=False) as mock_ci:
+                      return_value=CHOICE_NO) as mock_ci:
         config_object._Config__questions_reverse_proxy()
         assert config_object.proxy
         assert not config_object.use_letsencrypt
@@ -217,7 +221,7 @@ def test_proxy_no_letsencrypt():
 def test_proxy_no_letsencrypt_retains_custom_nginx_proxy_port():
     CUSTOM_PROXY_PORT = 9090
     config_object = read_config(overrides={
-        'advanced': Config.TRUE,
+        'advanced': True,
         'use_letsencrypt': False,
         'nginx_proxy_port': str(CUSTOM_PROXY_PORT),
     })
@@ -239,12 +243,12 @@ def test_no_proxy_no_ssl():
     proxy_port = Config.DEFAULT_NGINX_PORT
 
     with patch.object(CLI, 'colored_input',
-                      return_value=False) as mock_ci:
+                      return_value=CHOICE_NO) as mock_ci:
         config_object._Config__questions_https()
         assert not config_object.is_secure
 
         with patch.object(CLI, 'colored_input',
-                          return_value=False) as mock_ci_2:
+                          return_value=CHOICE_NO) as mock_ci_2:
             config_object._Config__questions_reverse_proxy()
             assert not config_object.proxy
             assert not config_object.use_letsencrypt
@@ -256,12 +260,12 @@ def test_no_proxy_no_ssl():
 def test_proxy_no_ssl_advanced():
     config_object = read_config()
     # Force advanced options
-    config_object._Config__config['advanced'] = Config.TRUE
+    config_object._Config__config['advanced'] = True
     assert config_object.advanced_options
     assert config_object.is_secure
 
     with patch.object(CLI, 'colored_input',
-                      return_value=False) as mock_ci:
+                      return_value=CHOICE_NO) as mock_ci:
         config_object._Config__questions_https()
         assert not config_object.is_secure
 
@@ -269,7 +273,7 @@ def test_proxy_no_ssl_advanced():
         proxy_port = Config.DEFAULT_NGINX_PORT
         with patch('helpers.cli.CLI.colored_input') as mock_colored_input_1:
             mock_colored_input_1.side_effect = iter(
-                [Config.TRUE, False, proxy_port])
+                [CHOICE_YES, CHOICE_NO, proxy_port])
             config_object._Config__questions_reverse_proxy()
             assert config_object.proxy
             assert not config_object.use_letsencrypt
@@ -281,7 +285,7 @@ def test_proxy_no_ssl_advanced():
         proxy_port = Config.DEFAULT_PROXY_PORT
         with patch('helpers.cli.CLI.colored_input') as mock_colored_input_2:
             mock_colored_input_2.side_effect = iter(
-                [Config.TRUE, Config.TRUE, proxy_port])
+                [CHOICE_YES, CHOICE_YES, proxy_port])
             config_object._Config__questions_reverse_proxy()
             assert config_object.proxy
             assert not config_object.use_letsencrypt
@@ -309,7 +313,7 @@ def test_create_directory():
     destination_path = tempfile.mkdtemp()
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
-        mock_colored_input.side_effect = iter([destination_path, Config.TRUE])
+        mock_colored_input.side_effect = iter([destination_path, CHOICE_YES])
         config_object._Config__create_directory()
         config = config_object.get_config()
         assert config.get('kobodocker_path') == destination_path
@@ -346,14 +350,14 @@ def test_maintenance():
 def test_exposed_ports():
     config_object = read_config()
     with patch.object(CLI, 'colored_input',
-                      return_value=Config.TRUE) as mock_ci:
+                      return_value=CHOICE_YES) as mock_ci:
         # Choose multi servers options
         config_object._Config__questions_multi_servers()
 
         with patch('helpers.cli.CLI.colored_input') as mock_ci:
             # Choose to customize ports
             mock_ci.side_effect = iter(
-                [Config.TRUE, '5532', '27117', '6479', '6480'])
+                [CHOICE_YES, '5532', '27117', '6479', '6480'])
             config_object._Config__questions_ports()
 
             assert config_object._Config__config['postgresql_port'] == '5532'
@@ -363,12 +367,12 @@ def test_exposed_ports():
             assert config_object.expose_backend_ports
 
     with patch.object(CLI, 'colored_input',
-                      return_value=False) as mock_ci_1:
+                      return_value=CHOICE_NO) as mock_ci_1:
         # Choose to single server
         config_object._Config__questions_multi_servers()
 
         with patch.object(CLI, 'colored_input',
-                          return_value=False) as mock_ci_2:
+                          return_value=CHOICE_NO) as mock_ci_2:
             # Choose to not expose ports
             config_object._Config__questions_ports()
 
@@ -389,33 +393,34 @@ def test_force_secure_mongo():
         # force MongoDB to 'upsert' users.
         config_object._Config__first_time = False
         # Run with no advanced options
+
         mock_ci.side_effect = iter([
             config_['kobodocker_path'],
-            Config.TRUE,  # Confirm path
-            config_['advanced'],
-            config_['local_installation'],
+            CHOICE_YES,  # Confirm path
+            CHOICE_NO,
+            CHOICE_NO,
             config_['public_domain_name'],
             config_['kpi_subdomain'],
             config_['kc_subdomain'],
             config_['ee_subdomain'],
-            False,  # Do you want to use HTTPS?
+            CHOICE_NO,  # Do you want to use HTTPS?
             config_.get('smtp_host', ''),
             config_.get('smtp_port', '25'),
             config_.get('smtp_user', ''),
             'test@test.com',
             config_['super_user_username'],
             config_['super_user_password'],
-            config_['use_backup']
+            CHOICE_NO,
         ])
         new_config = config_object.build()
-        assert new_config.get('mongo_secured') == Config.TRUE
+        assert new_config['mongo_secured'] is True
 
 
 @patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',
        new=write_trigger_upsert_db_users)
 def test_secure_mongo_advanced_options():
     config_object = read_config()
-    config_object._Config__config['advanced'] = Config.TRUE
+    config_object._Config__config['advanced'] = True
 
     # Try when setup is run for the first time.
     config_object._Config__first_time = True
@@ -424,7 +429,7 @@ def test_secure_mongo_advanced_options():
             'root',
             'root_password',
             'mongo_kobo_user',
-            'mongo_password'
+            'mongo_password',
         ])
         config_object._Config__questions_mongo()
         assert not os.path.exists('/tmp/upsert_db_users')
@@ -442,7 +447,7 @@ def test_secure_mongo_advanced_options():
             'root',
             'root_password',
             'mongo_kobo_user',
-            'mongo_password'
+            'mongo_password',
         ])
         config_object._Config__questions_mongo()
         assert os.path.exists('/tmp/upsert_db_users')
@@ -454,14 +459,14 @@ def test_secure_mongo_advanced_options():
     # ╔══════════════════════════════════════════════════════╗
     # ║ MongoDB root's and/or user's usernames have changed! ║
     # ╚══════════════════════════════════════════════════════╝
-    config_object._Config__config['mongo_secured'] = Config.TRUE
+    config_object._Config__config['mongo_secured'] = True
     with patch('helpers.cli.CLI.colored_input') as mock_ci:
         mock_ci.side_effect = iter([
             'root',
             'root_passw0rd',
             'kobo_user',
             'mongo_password',
-            Config.TRUE
+            CHOICE_YES,
         ])
         config_object._Config__questions_mongo()
         assert os.path.exists('/tmp/upsert_db_users')
@@ -502,7 +507,7 @@ def test_update_mongo_usernames():
             'root_password',
             'another_user',
             'mongo_password',
-            Config.TRUE  # Delete users
+            CHOICE_YES  # Delete users
         ])
         config_object._Config__questions_mongo()
         assert os.path.exists('/tmp/upsert_db_users')
@@ -533,7 +538,7 @@ def test_update_postgres_password():
             'koboform',
             'user',
             'user_password',
-            False  # Tweak settings
+            CHOICE_NO,  # Tweak settings
         ])
         config_object._Config__questions_postgres()
         assert os.path.exists('/tmp/upsert_db_users')
@@ -563,8 +568,8 @@ def test_update_postgres_username():
             'koboform',
             'another_user',
             'password',
-            Config.TRUE,  # Delete user
-            False  # Tweak settings
+            CHOICE_YES,  # Delete user
+            CHOICE_NO,  # Tweak settings
         ])
         config_object._Config__questions_postgres()
         assert os.path.exists('/tmp/upsert_db_users')
