@@ -64,10 +64,14 @@ class Network:
             # NOTE: mutated_byte_buffer is just a reference to mutable_byte_buffer - for the sake of clarity we've defined them as
             # separate variables, however they are the same address space - that's how fcntl.ioctl() works since the mutate_flag=True
             # by default.
-            mutated_byte_buffer = fcntl.ioctl(sock.fileno(), SIOCGIFCONF, mutable_byte_buffer)
+            mutated_byte_buffer = fcntl.ioctl(
+                sock.fileno(), SIOCGIFCONF, mutable_byte_buffer
+            )
 
             # Get our max_bytes of our mutated byte buffer that points to the names variable address space.
-            max_bytes_out, names_address_out = struct.unpack('iL', mutated_byte_buffer)
+            max_bytes_out, names_address_out = struct.unpack(
+                "iL", mutated_byte_buffer
+            )
 
             # Convert names to a bytes array - keep in mind we've mutated the names array, so now our bytes out should represent
             # the bytes results of the get iface list ioctl command.
@@ -97,14 +101,20 @@ class Network:
             try:
                 import netifaces
             except ImportError:
-                CLI.colored_print('You must install netinfaces first! Please type `pip install netifaces --user`', CLI.COLOR_ERROR)
+                CLI.colored_print(
+                    'You must install netinfaces first! Please type \
+                            `pip install netifaces --user`',
+                    CLI.COLOR_ERROR,
+                )
                 sys.exit(1)
 
             for interface in netifaces.interfaces():
                 if not interface.startswith(excluded_interfaces) or all:
                     ifaddresses = netifaces.ifaddresses(interface)
-                    if ifaddresses.get(netifaces.AF_INET) and ifaddresses.get(netifaces.AF_INET)[0].get('addr'):
-                        ip_dict[interface] = ifaddresses.get(netifaces.AF_INET)[0].get('addr')
+                    if ifaddresses.get(netifaces.AF_INET) and \
+                            ifaddresses.get(netifaces.AF_INET)[0].get('addr'):
+                        ip_dict[interface] = ifaddresses.\
+                                get(netifaces.AF_INET)[0].get('addr')
 
         return ip_dict
 

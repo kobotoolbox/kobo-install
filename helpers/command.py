@@ -361,8 +361,8 @@ class Command:
                                    'docker-compose.backend.{}.yml'.format(
                                        backend_role),
                                    '-f',
-                                   'docker-compose.backend.{}.override.yml'.format(
-                                       backend_role),
+                                   'docker-compose.backend.{}.override.yml'.\
+                                           format(backend_role),
                                    '-p', config_object.get_prefix('backend'),
                                    'up', '-d']
                 CLI.run_command(backend_command, config.get('kobodocker_path'))
@@ -370,8 +370,8 @@ class Command:
         # Start the front-end containers
         if config_object.frontend:
 
-            # If this was previously a shared-database setup, migrate to separate
-            # databases for KPI and KoBoCAT
+            # If this was previously a shared-database setup, migrate to
+            # separate databases for KPI and KoBoCAT
             migrate_single_to_two_databases()
 
             frontend_command = ['docker-compose',
@@ -402,8 +402,11 @@ class Command:
                                   CLI.COLOR_INFO)
         elif not frontend_only:
             if not config_object.multi_servers or config_object.frontend:
-                CLI.colored_print('Waiting for environment to be ready. '
-                                  'It can take a few minutes.', CLI.COLOR_SUCCESS)
+                CLI.colored_print(
+                    'Waiting for environment to be ready. '
+                    'It can take a few minutes.',
+                    CLI.COLOR_SUCCESS,
+                )
                 cls.info()
             else:
                 CLI.colored_print(

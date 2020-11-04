@@ -223,7 +223,8 @@ class Template:
             'UWSGI_PASS_TIMEOUT': int(config.get('uwsgi_harakiri')) + 10,
             'POSTGRES_REPLICATION_PASSWORD': config.get(
                 'postgres_replication_password'),
-            'WSGI_SERVER': 'runserver_plus' if config_object.dev_mode else 'uWSGI',
+            'WSGI_SERVER': 'runserver_plus' if config_object.dev_mode else \
+                    'uWSGI',
             'USE_X_FORWARDED_HOST': '' if config_object.dev_mode else '#',
             'OVERRIDE_POSTGRES_SETTINGS': _get_value('postgres_settings'),
             'POSTGRES_APP_PROFILE': config.get('postgres_profile', ''),
@@ -244,7 +245,8 @@ class Template:
                                     config.get(
                                         'aws_backup_bucket_name') != '' else '#',
             'USE_MEDIA_BACKUP': '' if (not config_object.aws and
-                                       config.get('use_backup') == Config.TRUE) else '#',
+                                       config.get('use_backup') == Config.TRUE) \
+                                               else '#',
             'KOBOCAT_MEDIA_BACKUP_SCHEDULE': config.get(
                 'kobocat_media_backup_schedule'),
             'MONGO_BACKUP_SCHEDULE': config.get('mongo_backup_schedule'),
@@ -276,7 +278,8 @@ class Template:
             'MAINTENANCE_EMAIL': config.get('maintenance_email', ''),
             'USE_NPM_FROM_HOST': '' if (config_object.dev_mode and
                                         config.get(
-                                            'npm_container') == Config.FALSE) else '#',
+                                            'npm_container'
+                                            ) == Config.FALSE) else '#',
             'DOCKER_PREFIX': config_object.get_prefix('backend'),
             'USE_BACKEND_NETWORK': _get_value('expose_backend_ports',
                                               comparison_value=Config.FALSE),
