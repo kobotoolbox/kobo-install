@@ -468,7 +468,7 @@ class Command:
     @classmethod
     def stop_maintenance(cls):
         """
-        Stop containers
+        Stop maintenance mode
         """
         config_object = Config()
         config = config_object.get_config()

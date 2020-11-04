@@ -44,14 +44,18 @@ class Config(with_metaclass(Singleton)):
     def advanced_options(self):
         """
         Checks whether advanced options should be displayed
-        :return: bool 
+
+        Returns:
+            bool
         """
         return self.__config.get('advanced') == Config.TRUE
 
     def auto_detect_network(self):
         """
         Tries to detect new ip
-        :return: bool
+
+        Returns:
+            bool: `True` if network has changed
         """
         changed = False
         local_interfaces = Network.get_local_interfaces(all=True)
@@ -67,7 +71,9 @@ class Config(with_metaclass(Singleton)):
     def aws(self):
         """
         Checks whether questions are backend only
-        :return: bool
+
+        Returns:
+            bool
         """
         return self.__config.get('use_aws') == Config.TRUE
 
@@ -134,14 +140,19 @@ class Config(with_metaclass(Singleton)):
     def backend_questions(self):
         """
         Checks whether questions are backend only
-        :return: bool
+
+        Returns:
+            bool
         """
         return not self.multi_servers or not self.frontend
 
     def build(self):
         """
-        Build configuration based on user's answer
-        :return: dict
+        Build configuration based on user's answers
+
+        Returns:
+            dict: all values from user's responses needed to create
+            configuration files
         """
         if not self.__primary_ip:
             CLI.colored_print(
@@ -217,7 +228,9 @@ class Config(with_metaclass(Singleton)):
     def first_time(self):
         """
         Checks whether setup is running for the first time
-        :return: bool
+
+        Returns:
+            bool
         """
         if self.__first_time is None:
             self.__first_time = self.__config.get('date_created') is None
@@ -227,7 +240,10 @@ class Config(with_metaclass(Singleton)):
     def frontend(self):
         """
         Checks whether setup is running on a frontend server
-        :return: bool
+
+        Returns:
+            dict: all values from user's responses needed to create
+            configuration files
         """
         return not self.multi_servers or \
                self.__config.get('server_role') == 'frontend'
@@ -236,7 +252,9 @@ class Config(with_metaclass(Singleton)):
     def frontend_questions(self):
         """
         Checks whether questions are frontend only
-        :return: bool
+
+        Returns:
+            bool
         """
         return not self.multi_servers or self.frontend
 
@@ -244,7 +262,9 @@ class Config(with_metaclass(Singleton)):
     def generate_password(cls):
         """
         Generate 12 characters long random password
-        :return: str
+
+        Returns:
+            str
         """
         characters = string.ascii_letters \
                      + '!$%+-_^~@#{}[]()/\'\'`~,;:.<>' \
@@ -394,7 +414,9 @@ class Config(with_metaclass(Singleton)):
     def local_install(self):
         """
         Checks whether installation is for `Workstation`s
-        :return: bool
+
+        Returns:
+            bool
         """
         return self.__config.get('local_installation') == Config.TRUE
 
@@ -405,7 +427,9 @@ class Config(with_metaclass(Singleton)):
     def primary_backend(self):
         """
         Checks whether setup is running on a primary backend server
-        :return: bool
+
+        Returns:
+            bool
         """
         return self.multi_servers and \
                self.__config.get('server_role') == 'backend' and \
@@ -415,7 +439,9 @@ class Config(with_metaclass(Singleton)):
     def multi_servers(self):
         """
         Checks whether installation is for separate frontend and backend servers
-        :return: bool
+
+        Returns:
+            bool
         """
         return self.__config.get('multi') == Config.TRUE
 
@@ -423,14 +449,18 @@ class Config(with_metaclass(Singleton)):
     def proxy(self):
         """
         Checks whether installation is using a proxy or a load balancer
-        :return: bool
+
+        Returns:
+            bool
         """
         return self.__config.get('proxy') == Config.TRUE
 
     def read_config(self):
         """
         Reads config from file `Config.CONFIG_FILE` if exists
-        :return: dict
+
+        Returns:
+            dict
         """
         config = {}
         try:
@@ -452,7 +482,9 @@ class Config(with_metaclass(Singleton)):
     def read_unique_id(self):
         """
         Reads unique id from file `Config.UNIQUE_ID_FILE`
-        :return: str
+
+        Returns:
+            str
         """
         unique_id = None
 
@@ -470,7 +502,9 @@ class Config(with_metaclass(Singleton)):
     def secondary_backend(self):
         """
         Checks whether setup is running on a secondary backend server
-        :return: bool
+
+        Returns:
+            bool
         """
         return self.multi_servers and \
                self.__config.get('server_role') == 'backend' and \
@@ -664,7 +698,8 @@ class Config(with_metaclass(Singleton)):
         Sometimes during upgrades, some keys are changed/deleted/added.
         This method helps to get a compliant dict to expected config
 
-        :return: dict
+        Returns:
+            dict
         """
 
         upgraded_config = self.get_config_template()
@@ -2046,7 +2081,9 @@ class Config(with_metaclass(Singleton)):
         Resets several properties to their default.
         It can be useful, if user changes the type of installation on
         the same server
-        :return: bool
+
+        Returns:
+            bool
         """
         all = True if not kwargs else False
         dev_mode = kwargs.get('dev', False)
