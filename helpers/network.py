@@ -143,9 +143,13 @@ class Network:
     def status_check(hostname, endpoint, port=80, secure=False):
         try:
             if secure:
-                conn = httplib.HTTPSConnection('{}:{}'.format(hostname, port), timeout=10)
+                conn = httplib.HTTPSConnection(
+                    '{}:{}'.format(hostname, port),
+                    timeout=10)
             else:
-                conn = httplib.HTTPConnection('{}:{}'.format(hostname, port), timeout=10)
+                conn = httplib.HTTPConnection(
+                    '{}:{}'.format(hostname, port),
+                    timeout=10)
             conn.request('GET', endpoint)
             response = conn.getresponse()
             return response.status
@@ -166,9 +170,11 @@ class Network:
             response = urlopen(url)
             data = response.read()
             if isinstance(data, str):
-                return data  # Python 2
+                # Python 2
+                return data
             else:
-                return data.decode(response.headers.get_content_charset())  # Python 3
+                # Python 3
+                return data.decode(response.headers.get_content_charset())
         except Exception as e:
             pass
         return

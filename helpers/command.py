@@ -16,34 +16,40 @@ class Command:
 
     @staticmethod
     def help():
-        print(('Usage: python run.py [options]\n'
-               '\n'
-               '    Options:\n'
-               '          -i, --info\n'
-               '                Show KoBoToolbox Url and super user credentials\n'
-               '          -l, --logs\n'
-               '                Display docker logs\n'
-               '          -b, --build\n'
-               '                Build kpi and kobocat (only on dev/staging mode)\n'
-               '          -bkf, --build-kpi\n'
-               '                Build kpi (only on dev/staging mode)\n'
-               '          -bkc, --build-kobocat\n'
-               '                Build kobocat (only on dev/staging mode)\n'
-               '          -s, --setup\n'
-               '                Prompt questions to rebuild configuration. Restart KoBoToolbox\n'
-               '          -S, --stop\n'
-               '                Stop KoBoToolbox\n'
-               '          -u, --update, --upgrade [branch or tag]\n'
-               '                Update KoBoToolbox\n'
-               '          -cf, --compose-frontend [docker-compose arguments]\n'
-               '                Run a docker-compose command in the front-end environment\n'
-               '          -cb, --compose-backend [docker-compose arguments]\n'
-               '                Run a docker-compose command in the back-end environment\n'
-               '          -m, --maintenance\n'
-               '                Activate maintenance mode. All traffic is redirected to maintenance page\n'
-               '          -v, --version\n'
-               '                Display current version\n'
-               ))
+        output = [
+            'Usage: python run.py [options]',
+            '',
+            '    Options:',
+            '          -i, --info',
+            '                Show KoBoToolbox Url and super user credentials',
+            '          -l, --logs',
+            '                Display docker logs',
+            '          -b, --build',
+            '                Build kpi and kobocat (only on dev/staging mode)',
+            '          -bkf, --build-kpi',
+            '                Build kpi (only on dev/staging mode)',
+            '          -bkc, --build-kobocat',
+            '                Build kobocat (only on dev/staging mode)',
+            '          -s, --setup',
+            '                Prompt questions to (re)write configuration files',
+            '          -S, --stop',
+            '                Stop KoBoToolbox',
+            '          -u, --update, --upgrade [branch or tag]',
+            '                Update KoBoToolbox',
+            '          -cf, --compose-frontend [docker-compose arguments]',
+            '                Run a docker-compose command in the front-end '
+            'environment',
+            '          -cb, --compose-backend [docker-compose arguments]',
+            '                Run a docker-compose command in the back-end '
+            'environment',
+            '          -m, --maintenance',
+            '                Activate maintenance mode. All traffic is '
+            'redirected to maintenance page',
+            '          -v, --version',
+            '                Display current version',
+            ''
+        ]
+        print('\n'.join(output))
 
     @classmethod
     def build(cls, image=None):
@@ -122,37 +128,47 @@ class Command:
         config_object = Config()
         config = config_object.get_config()
 
+        nginx_port = config.get('exposed_nginx_docker_port')
+
         main_url = '{}://{}.{}{}'.format(
             'https' if config.get('https') == Config.TRUE else 'http',
             config.get('kpi_subdomain'),
             config.get('public_domain_name'),
-            ':{}'.format(config.get('exposed_nginx_docker_port')) if (
-                    config.get('exposed_nginx_docker_port') and
-                    str(config.get('exposed_nginx_docker_port')) != Config.DEFAULT_NGINX_PORT
+            ':{}'.format(nginx_port) if (
+                    nginx_port and
+                    str(nginx_port) != Config.DEFAULT_NGINX_PORT
             ) else ''
         )
 
         stop = False
         start = int(time.time())
         success = False
-        hostname = '{}.{}'.format(config.get('kpi_subdomain'), config.get('public_domain_name'))
-        nginx_port = int(Config.DEFAULT_NGINX_HTTPS_PORT) if config.get('https') == Config.TRUE \
-            else int(config.get('exposed_nginx_docker_port', Config.DEFAULT_NGINX_PORT))
+        hostname = '{}.{}'.format(config.get('kpi_subdomain'),
+                                  config.get('public_domain_name'))
+        nginx_port = int(Config.DEFAULT_NGINX_HTTPS_PORT) \
+            if config.get('https') == Config.TRUE \
+            else int(config.get('exposed_nginx_docker_port',
+                                Config.DEFAULT_NGINX_PORT))
         https = config.get('https') == Config.TRUE
         already_retried = False
         while not stop:
-            if Network.status_check(hostname, '/service_health/', nginx_port, https) == Network.STATUS_OK_200:
+            if Network.status_check(hostname,
+                                    '/service_health/',
+                                    nginx_port, https) == Network.STATUS_OK_200:
                 stop = True
                 success = True
             elif int(time.time()) - start >= timeout:
                 if timeout > 0:
                     CLI.colored_print(
-                        '\n`KoBoToolbox` has not started yet. This is can be normal with low CPU/RAM computers.\n',
+                        '\n`KoBoToolbox` has not started yet. '
+                        'This is can be normal with low CPU/RAM computers.\n',
                         CLI.COLOR_INFO)
-                    CLI.colored_print('Wait for another {} seconds?'.format(timeout), CLI.COLOR_SUCCESS)
+                    CLI.colored_print('Wait for another {} seconds?'.format(
+                        timeout), CLI.COLOR_SUCCESS)
                     CLI.colored_print('\t1) Yes')
                     CLI.colored_print('\t2) No')
-                    response = CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE)
+                    response = CLI.get_response([Config.TRUE, Config.FALSE],
+                                                Config.TRUE)
 
                     if response == Config.TRUE:
                         start = int(time.time())
@@ -160,14 +176,19 @@ class Command:
                     else:
                         if already_retried is False:
                             already_retried = True
-                            CLI.colored_print(('\nSometimes frontend containers '
-                                               'can not communicate with backend containers.\n'
-                                               'Restarting the frontend containers usually fixes it.\n'),
-                                              CLI.COLOR_INFO)
-                            CLI.colored_print('Do you want to try?'.format(timeout), CLI.COLOR_SUCCESS)
+                            CLI.colored_print(
+                                '\nSometimes frontend containers '
+                                'can not communicate with backend '
+                                'containers.\n'
+                                'Restarting the frontend containers usually '
+                                'fixes it.\n', CLI.COLOR_INFO)
+                            CLI.colored_print(
+                                'Do you want to try?'.format(timeout),
+                                CLI.COLOR_SUCCESS)
                             CLI.colored_print('\t1) Yes')
                             CLI.colored_print('\t2) No')
-                            response = CLI.get_response([Config.TRUE, Config.FALSE], Config.TRUE)
+                            response = CLI.get_response(
+                                [Config.TRUE, Config.FALSE], Config.TRUE)
                             if response == Config.TRUE:
                                 start = int(time.time())
                                 cls.restart_frontend()
@@ -187,22 +208,30 @@ class Command:
             username_chars_count = len(username) + 6
             password_chars_count = len(password) + 10
             url_chars_count = len(main_url) + 6
-            max_chars_count = max(username_chars_count, password_chars_count, url_chars_count)
+            max_chars_count = max(username_chars_count,
+                                  password_chars_count,
+                                  url_chars_count)
 
-            CLI.colored_print('╔═{}═╗'.format('═' * max_chars_count), CLI.COLOR_WARNING)
+            CLI.colored_print('╔═{}═╗'.format('═' * max_chars_count),
+                              CLI.COLOR_WARNING)
             CLI.colored_print('║ Ready {} ║'.format(
                 ' ' * (max_chars_count - len('Ready '))), CLI.COLOR_WARNING)
             CLI.colored_print('║ URL: {}/{} ║'.format(
-                main_url, ' ' * (max_chars_count - url_chars_count)), CLI.COLOR_WARNING)
+                main_url, ' ' * (max_chars_count - url_chars_count)),
+                CLI.COLOR_WARNING)
             CLI.colored_print('║ User: {}{} ║'.format(
-                username, ' ' * (max_chars_count - username_chars_count)), CLI.COLOR_WARNING)
+                username, ' ' * (max_chars_count - username_chars_count)),
+                CLI.COLOR_WARNING)
             CLI.colored_print('║ Password: {}{} ║'.format(
-                password, ' ' * (max_chars_count - password_chars_count)), CLI.COLOR_WARNING)
-            CLI.colored_print('╚═{}═╝'.format('═' * max_chars_count), CLI.COLOR_WARNING)
+                password, ' ' * (max_chars_count - password_chars_count)),
+                CLI.COLOR_WARNING)
+            CLI.colored_print('╚═{}═╝'.format('═' * max_chars_count),
+                              CLI.COLOR_WARNING)
         else:
-            CLI.colored_print('KoBoToolbox could not start! '
-                              'Please try `python3 run.py --logs` to see the logs.',
-                              CLI.COLOR_ERROR)
+            CLI.colored_print(
+                'KoBoToolbox could not start! '
+                'Please try `python3 run.py --logs` to see the logs.',
+                CLI.COLOR_ERROR)
 
         return success
 
@@ -215,11 +244,20 @@ class Command:
             backend_role = config.get('backend_server_role', 'primary')
 
             backend_command = ['docker-compose',
-                               '-f', 'docker-compose.backend.{}.yml'.format(backend_role),
-                               '-f', 'docker-compose.backend.{}.override.yml'.format(backend_role),
-                               '-p', config_object.get_prefix('backend'),
-                               'logs', '-f']
-            CLI.run_command(backend_command, config.get('kobodocker_path'), True)
+                               '-f',
+                               'docker-compose.backend.{}.yml'.format(
+                                   backend_role),
+                               '-f',
+                               'docker-compose.backend.{}.override.yml'.format(
+                                   backend_role),
+                               '-p',
+                               config_object.get_prefix('backend'),
+                               'logs',
+                               '-f'
+                               ]
+            CLI.run_command(backend_command,
+                            config.get('kobodocker_path'),
+                            True)
 
         if config_object.frontend:
             frontend_command = ['docker-compose',
@@ -227,7 +265,9 @@ class Command:
                                 '-f', 'docker-compose.frontend.override.yml',
                                 '-p', config_object.get_prefix('frontend'),
                                 'logs', '-f']
-            CLI.run_command(frontend_command, config.get('kobodocker_path'), True)
+            CLI.run_command(frontend_command,
+                            config.get('kobodocker_path'),
+                            True)
 
     @classmethod
     def configure_maintenance(cls):
@@ -405,7 +445,8 @@ class Command:
             if config_object.use_letsencrypt:
                 proxy_command = ['docker-compose',
                                  'down']
-                CLI.run_command(proxy_command, config_object.get_letsencrypt_repo_path())
+                CLI.run_command(proxy_command,
+                                config_object.get_letsencrypt_repo_path())
 
         if not frontend_only and config_object.backend:
             backend_role = config.get('backend_server_role', 'primary')

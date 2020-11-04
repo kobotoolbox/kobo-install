@@ -136,7 +136,8 @@ class Setup:
             end_position = tmp_host.find(end_sentence)
 
             if start_position > -1:
-                tmp_host = tmp_host[0: start_position] + tmp_host[end_position + len(end_sentence) + 1:]
+                tmp_host = tmp_host[0: start_position] \
+                           + tmp_host[end_position + len(end_sentence) + 1:]
 
             routes = '{ip_address}  ' \
                      '{kpi_subdomain}.{public_domain_name} ' \
@@ -174,8 +175,10 @@ class Setup:
                                   CLI.COLOR_SUCCESS)
                 CLI.colored_print('\t1) Yes')
                 CLI.colored_print('\t2) No')
-                config['review_host'] = CLI.get_response([Config.TRUE, Config.FALSE],
-                                                         config.get('review_host', Config.FALSE))
+                config['review_host'] = CLI.get_response(
+                    [Config.TRUE, Config.FALSE],
+                    config.get('review_host', Config.FALSE))
+
                 if config['review_host'] == Config.TRUE:
                     print(tmp_host)
                     CLI.colored_input('Press any keys when ready')
@@ -184,7 +187,9 @@ class Setup:
                 config_ = Config()
                 config_.write_config()
 
-            return_value = os.system('sudo mv /etc/hosts /etc/hosts.old && sudo mv /tmp/etchosts /etc/hosts')
+            cmd = 'sudo mv /etc/hosts /etc/hosts.old ' \
+                  '&& sudo mv /tmp/etchosts /etc/hosts'
+            return_value = os.system(cmd)
             if return_value != 0:
                 sys.exit(1)
 

@@ -68,7 +68,8 @@ if __name__ == '__main__':
             elif sys.argv[1] == '--auto-update':
                 Updater.run(sys.argv[2], cron=True, update_self=update_self)
             else:
-                CLI.colored_print("Bad syntax. Try 'run.py --help'", CLI.COLOR_ERROR)
+                CLI.colored_print("Bad syntax. Try 'run.py --help'",
+                                  CLI.COLOR_ERROR)
         elif len(sys.argv) == 2:
             if sys.argv[1] == '-h' or sys.argv[1] == '--help':
                 Command.help()
@@ -101,7 +102,8 @@ if __name__ == '__main__':
             elif sys.argv[1] == '-sm' or sys.argv[1] == '--stop-maintenance':
                 Command.stop_maintenance()
             else:
-                CLI.colored_print("Bad syntax. Try 'run.py --help'", CLI.COLOR_ERROR)
+                CLI.colored_print("Bad syntax. Try 'run.py --help'",
+                                  CLI.COLOR_ERROR)
         else:
             run()
 

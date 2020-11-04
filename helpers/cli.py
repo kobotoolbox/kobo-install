@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, unicode_literals
 
-import re
 import subprocess
 import sys
+import re
 
 PY2 = sys.version_info[0] == 2
 if PY2:
@@ -14,7 +14,6 @@ else:
 
 
 class CLI(object):
-
     NO_COLOR = '\033[0m'
     COLOR_ERROR = '\033[91m'
     COLOR_SUCCESS = '\033[92m'
@@ -26,17 +25,17 @@ class CLI(object):
     @classmethod
     def get_response(cls, validators=None, default='', to_lower=True,
                      error_msg="Sorry, I didn't understand that!"):
-    
+
         while True:
             try:
                 response = cls.colored_input('', cls.COLOR_WARNING, default)
 
                 if (response.lower() in map(lambda x: x.lower(), validators) or
-                    validators is None or
-                    (isinstance(validators, string_type) and
-                     validators.startswith('~') and
-                     re.match(validators[1:], response)
-                     )):
+                        validators is None or
+                        (isinstance(validators, string_type) and
+                         validators.startswith('~') and
+                         re.match(validators[1:], response)
+                         )):
                     break
                 else:
                     cls.colored_print(error_msg,
@@ -44,7 +43,7 @@ class CLI(object):
             except ValueError:
                 cls.colored_print("Sorry, I didn't understand that.",
                                   cls.COLOR_ERROR)
-    
+
         return response.lower() if to_lower else response
 
     @classmethod
@@ -70,7 +69,9 @@ class CLI(object):
     @classmethod
     def get_message_with_default(cls, message, default):
         message = '{} '.format(message) if message else ''
-        default = '{}[{}]{}: '.format(cls.COLOR_WARNING, default, cls.NO_COLOR) \
+        default = '{}[{}]{}: '.format(cls.COLOR_WARNING,
+                                      default,
+                                      cls.NO_COLOR) \
             if default else ''
 
         if message:

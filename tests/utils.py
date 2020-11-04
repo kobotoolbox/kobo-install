@@ -19,10 +19,14 @@ def read_config(overrides=None):
     config_dict['kobodocker_path'] = '/tmp'
     if overrides is not None:
         config_dict.update(overrides)
-    with patch(builtin_open, mock_open(read_data=json.dumps(config_dict))) as mock_file:
+
+    str_config = json.dumps(config_dict)
+    with patch(builtin_open, mock_open(read_data=str_config)) as mock_file:
         config_object = Config()
         config_object.read_config()
-        assert config_object.get_config().get('kobodocker_path') == config_dict.get('kobodocker_path')
+        config_ = config_object.get_config()
+        assert config_.get('kobodocker_path') \
+               == config_dict.get('kobodocker_path')
 
     return config_object
 
@@ -49,7 +53,8 @@ class MockCommand:
     @classmethod
     def run_command(cls, command, cwd=None, polling=False):
         if 'docker-compose' != command[0]:
-            raise Exception('Command: `{}` is not implemented!'.format(command[0]))
+            message = 'Command: `{}` is not implemented!'.format(command[0])
+            raise Exception(message)
 
         mock_docker = MockDocker()
         return mock_docker.compose(command, cwd)
@@ -57,7 +62,10 @@ class MockCommand:
 
 class MockDocker(with_metaclass(Singleton)):
 
-    PRIMARY_BACKEND_CONTAINERS = ['primary_postgres', 'mongo', 'redis_main', 'redis_cache']
+    PRIMARY_BACKEND_CONTAINERS = ['primary_postgres',
+                                  'mongo',
+                                  'redis_main',
+                                  'redis_cache']
     SECONDARY_BACKEND_CONTAINERS = ['secondary_postgres']
     FRONTEND_CONTAINERS = ['nginx', 'kobocat', 'kpi', 'enketo_express']
     MAINTENANCE_CONTAINERS = ['maintenance', 'kobocat', 'kpi', 'enketo_express']
@@ -74,7 +82,9 @@ class MockDocker(with_metaclass(Singleton)):
         letsencrypt = cwd == config_object.get_letsencrypt_repo_path()
 
         if command[-2] == 'config':
-            return '\n'.join([c for c in self.FRONTEND_CONTAINERS if c != 'nginx'])
+            return '\n'.join([c
+                              for c in self.FRONTEND_CONTAINERS
+                              if c != 'nginx'])
         if command[-2] == 'up':
             if letsencrypt:
                 self.__containers += self.LETSENCRYPT
