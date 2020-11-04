@@ -5,7 +5,8 @@ from helpers.config import Config
 setup(
     name='KoBoInstall',
     version=Config.KOBO_INSTALL_VERSION,
-    packages=find_packages(exclude=['tests']),  # Include all the python modules except `tests`,
+    # Include all the python modules except `tests`,
+    packages=find_packages(exclude=['tests']),
     url='https://github.com/kobotoolbox/kobo-install/',
     license='',
     author='KoBoToolbox',
