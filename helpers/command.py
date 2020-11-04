@@ -201,35 +201,33 @@ class Command:
         print('')
 
         if success:
-            username = config.get('super_user_username')
-            password = config.get('super_user_password')
+            username = config['super_user_username']
+            password = config['super_user_password']
             username_chars_count = len(username) + 6
             password_chars_count = len(password) + 10
             url_chars_count = len(main_url) + 6
             max_chars_count = max(username_chars_count,
                                   password_chars_count,
                                   url_chars_count)
+            message = (
+                'Ready\n'
+                'URL: {url}\n'
+                'User: {username}.\n'
+                'Password: {password}'
+            ).format(
+                url=main_url,
+                username=username,
+                password=password)
+            CLI.framed_print(message,
+                             color=CLI.COLOR_SUCCESS,
+                             columns=max_chars_count)
 
-            CLI.colored_print('╔═{}═╗'.format('═' * max_chars_count),
-                              CLI.COLOR_WARNING)
-            CLI.colored_print('║ Ready {} ║'.format(
-                ' ' * (max_chars_count - len('Ready '))), CLI.COLOR_WARNING)
-            CLI.colored_print('║ URL: {}/{} ║'.format(
-                main_url, ' ' * (max_chars_count - url_chars_count)),
-                CLI.COLOR_WARNING)
-            CLI.colored_print('║ User: {}{} ║'.format(
-                username, ' ' * (max_chars_count - username_chars_count)),
-                CLI.COLOR_WARNING)
-            CLI.colored_print('║ Password: {}{} ║'.format(
-                password, ' ' * (max_chars_count - password_chars_count)),
-                CLI.COLOR_WARNING)
-            CLI.colored_print('╚═{}═╝'.format('═' * max_chars_count),
-                              CLI.COLOR_WARNING)
         else:
-            CLI.colored_print(
-                'KoBoToolbox could not start! '
-                'Please try `python3 run.py --logs` to see the logs.',
-                CLI.COLOR_ERROR)
+            message = (
+                'KoBoToolbox could not start!\n'
+                'Please try `python3 run.py --logs` to see the logs.'
+            )
+            CLI.framed_print(message, color=CLI.COLOR_ERROR)
 
         return success
 

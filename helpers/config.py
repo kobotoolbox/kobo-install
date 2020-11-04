@@ -31,7 +31,7 @@ class Config(with_metaclass(Singleton)):
     DEFAULT_NGINX_PORT = '80'
     DEFAULT_NGINX_HTTPS_PORT = '443'
     KOBO_DOCKER_BRANCH = '2.020.45'
-    KOBO_INSTALL_VERSION = '3.5.0'
+    KOBO_INSTALL_VERSION = '4.0.0'
 
     def __init__(self):
         self.__config = self.read_config()
@@ -153,18 +153,11 @@ class Config(with_metaclass(Singleton)):
             configuration files
         """
         if not self.__primary_ip:
-            CLI.colored_print(
-                '╔══════════════════════════════════════════════════════╗',
-                CLI.COLOR_ERROR)
-            CLI.colored_print(
-                '║ No valid networks detected. Can not continue!        ║',
-                CLI.COLOR_ERROR)
-            CLI.colored_print(
-                '║ Please connect to a network and re-run the command.  ║',
-                CLI.COLOR_ERROR)
-            CLI.colored_print(
-                '╚══════════════════════════════════════════════════════╝',
-                CLI.COLOR_ERROR)
+            message = (
+                'No valid networks detected. Can not continue!\n'
+                'Please connect to a network and re-run the command.'
+            )
+            CLI.framed_print(message, color=CLI.COLOR_ERROR)
             sys.exit(1)
         else:
 
@@ -948,27 +941,16 @@ class Config(with_metaclass(Singleton)):
                     schedule_regex_pattern = (
                         r'^((((\d+(,\d+)*)|(\d+-\d+)|(\*(\/\d+)?)))'
                         r'(\s+(((\d+(,\d+)*)|(\d+\-\d+)|(\*(\/\d+)?)))){4})$')
-                    CLI.colored_print(
-                        '╔═════════════════════════════════════════════════════════════════╗',
-                        CLI.COLOR_WARNING)
-                    CLI.colored_print(
-                        '║ Schedules use linux cron syntax with UTC datetimes.             ║',
-                        CLI.COLOR_WARNING)
-                    CLI.colored_print(
-                        '║ For example, schedule at 12:00 AM E.S.T every Sunday would be:  ║',
-                        CLI.COLOR_WARNING)
-                    CLI.colored_print(
-                        '║ 0 5 * * 0                                                       ║',
-                        CLI.COLOR_WARNING)
-                    CLI.colored_print(
-                        '║                                                                 ║',
-                        CLI.COLOR_WARNING)
-                    CLI.colored_print(
-                        '║ Please visit https://crontab.guru/ to generate a cron schedule. ║',
-                        CLI.COLOR_WARNING)
-                    CLI.colored_print(
-                        '╚═════════════════════════════════════════════════════════════════╝',
-                        CLI.COLOR_WARNING)
+                    message = (
+                        'Schedules use linux cron syntax with UTC datetimes.\n'
+                        'For example, schedule at 12:00 AM E.S.T every Sunday '
+                        'would be:\n'
+                        '0 5 * * 0\n'
+                        '\n'
+                        'Please visit https://crontab.guru/ to generate a '
+                        'cron schedule.'
+                    )
+                    CLI.framed_print(message, color=CLI.COLOR_INFO)
 
                     if self.frontend_questions and not self.aws:
                         CLI.colored_print('KoBoCat media backup schedule?',
@@ -1073,21 +1055,13 @@ class Config(with_metaclass(Singleton)):
                 self.__config['dev_mode'] = False
 
             if self.dev_mode or self.staging_mode:
-                CLI.colored_print(
-                    '╔════════════════════════════════════════════════════════════╗',
-                    CLI.COLOR_WARNING)
-                CLI.colored_print(
-                    '║ Where are the files located locally? It can be  absolute   ║',
-                    CLI.COLOR_WARNING)
-                CLI.colored_print(
-                    '║ or relative to the directory of `kobo-docker`.             ║',
-                    CLI.COLOR_WARNING)
-                CLI.colored_print(
-                    '║ Leave empty if you do not need to overload the repository. ║',
-                    CLI.COLOR_WARNING)
-                CLI.colored_print(
-                    '╚════════════════════════════════════════════════════════════╝',
-                    CLI.COLOR_WARNING)
+                message = (
+                    'Where are the files located locally? It can be absolute '
+                    'or relative to the directory of `kobo-docker`.\n\n'
+                    'Leave empty if you do not need to overload the repository.'
+                )
+                CLI.framed_print(message, color=CLI.COLOR_INFO)
+
                 self.__config['kc_path'] = CLI.colored_input(
                     'KoBoCat files location', CLI.COLOR_SUCCESS,
                     self.__config.get('kc_path'))
@@ -1171,21 +1145,12 @@ class Config(with_metaclass(Singleton)):
             default=self.__config.get('https', True))
 
         if self.is_secure:
-            CLI.colored_print(
-                '╔════════════════════════════════════════════════════════════════════╗',
-                CLI.COLOR_WARNING)
-            CLI.colored_print(
-                '║ Please note that certificates must be installed on a reverse-proxy ║',
-                CLI.COLOR_WARNING)
-            CLI.colored_print(
-                '║ or a load balancer.                                                ║',
-                CLI.COLOR_WARNING)
-            CLI.colored_print(
-                '║ KoBoInstall can install one, if needed.                            ║',
-                CLI.COLOR_WARNING)
-            CLI.colored_print(
-                '╚════════════════════════════════════════════════════════════════════╝',
-                CLI.COLOR_WARNING)
+            message = (
+                'Please note that certificates must be installed on a '
+                'reverse-proxy or a load balancer.'
+                'KoBoInstall can install one, if needed.'
+            )
+            CLI.framed_print(message, color=CLI.COLOR_INFO)
 
     def __questions_installation_type(self):
         """
@@ -1204,15 +1169,10 @@ class Config(with_metaclass(Singleton)):
 
     def __questions_maintenance(self):
         if self.first_time:
-            CLI.colored_print(
-                '╔═══════════════════════════════════════════════════╗',
-                CLI.COLOR_WARNING)
-            CLI.colored_print(
-                '║ You must run setup first: `python run.py --setup` ║',
-                CLI.COLOR_WARNING)
-            CLI.colored_print(
-                '╚═══════════════════════════════════════════════════╝',
-                CLI.COLOR_WARNING)
+            message = (
+                'You must run setup first: `python run.py --setup` '
+            )
+            CLI.framed_print(message, color=CLI.COLOR_INFO)
             sys.exit(1)
 
         def _round_nearest_quarter(dt):
@@ -1316,15 +1276,11 @@ class Config(with_metaclass(Singleton)):
                         mongo_root_username != self.__config.get(
                             'mongo_root_username')):
 
-                    CLI.colored_print(
-                        '╔══════════════════════════════════════════════════════╗',
-                        CLI.COLOR_WARNING)
-                    CLI.colored_print(
-                        "║ MongoDB root's and/or user's usernames have changed! ║",
-                        CLI.COLOR_WARNING)
-                    CLI.colored_print(
-                        '╚══════════════════════════════════════════════════════╝',
-                        CLI.COLOR_WARNING)
+                    message = (
+                        'WARNING!\n\n'
+                        "MongoDB root's and/or user's usernames have changed!"
+                    )
+                    CLI.framed_print(message)
                     CLI.colored_print('Do you want to remove old users?',
                                       CLI.COLOR_SUCCESS)
                     CLI.colored_print('\t1) Yes')
@@ -1393,24 +1349,14 @@ class Config(with_metaclass(Singleton)):
         if (kc_postgres_db != self.__config['kc_postgres_db'] or
                 (kpi_postgres_db != self.__config['kpi_postgres_db'] and
                  self.__config.get('two_databases') == True)):
-            CLI.colored_print(
-                '╔══════════════════════════════════════════════════════╗',
-                CLI.COLOR_WARNING)
-            CLI.colored_print(
-                '║ PostgreSQL database names have changed!              ║',
-                CLI.COLOR_WARNING)
-            CLI.colored_print(
-                '║ KoBoInstall does not support database name changes   ║',
-                CLI.COLOR_WARNING)
-            CLI.colored_print(
-                '║ after database initialization.                       ║',
-                CLI.COLOR_WARNING)
-            CLI.colored_print(
-                '║ Data will not appear in KPI and/or KoBoCat.          ║',
-                CLI.COLOR_WARNING)
-            CLI.colored_print(
-                '╚══════════════════════════════════════════════════════╝',
-                CLI.COLOR_WARNING)
+            message = (
+                'WARNING!\n\n'
+                'PostgreSQL database names have changed!\n'
+                'KoBoInstall does not support database name changes after '
+                'database initialization.\n'
+                'Data will not appear in KPI and/or KoBoCAT.'
+            )
+            CLI.framed_print(message)
 
             CLI.colored_print('Do you want to continue?', CLI.COLOR_SUCCESS)
             CLI.colored_print('\t1) Yes')
@@ -1470,21 +1416,13 @@ class Config(with_metaclass(Singleton)):
 
                 if delete_user == True:
                     content = '{username}\ttrue'.format(username=postgres_user)
-                    CLI.colored_print(
-                        '╔══════════════════════════════════════════════════════╗',
-                        CLI.COLOR_WARNING)
-                    CLI.colored_print(
-                        '║ WARNING! User cannot be deleted if it has been used  ║',
-                        CLI.COLOR_WARNING)
-                    CLI.colored_print(
-                        '║ to initialize PostgreSQL server.                     ║',
-                        CLI.COLOR_WARNING)
-                    CLI.colored_print(
-                        '║ You will need to do it manually!                     ║',
-                        CLI.COLOR_WARNING)
-                    CLI.colored_print(
-                        '╚══════════════════════════════════════════════════════╝',
-                        CLI.COLOR_WARNING)
+                    message = (
+                        'WARNING!\n\n'
+                        'User cannot be deleted if it has been used to '
+                        'initialize PostgreSQL server.\n'
+                        'You will need to do it manually!'
+                    )
+                    CLI.framed_print(message)
 
             self.__write_upsert_db_users_trigger_file(content, 'postgres')
 
@@ -1643,21 +1581,13 @@ class Config(with_metaclass(Singleton)):
             reset_ports()
             return
 
-        CLI.colored_print(
-            '╔══════════════════════════════════════════════════╗',
-            CLI.COLOR_WARNING)
-        CLI.colored_print(
-            '║ WARNING! When exposing backend container ports,  ║',
-            CLI.COLOR_WARNING)
-        CLI.colored_print(
-            '║ it is STRONGLY recommended to use a firewall to  ║',
-            CLI.COLOR_WARNING)
-        CLI.colored_print(
-            '║ grant access to frontend containers only.        ║',
-            CLI.COLOR_WARNING)
-        CLI.colored_print(
-            '╚══════════════════════════════════════════════════╝',
-            CLI.COLOR_WARNING)
+        message = (
+            'WARNING!\n\n'
+            'When exposing backend container ports, it is STRONGLY '
+            'recommended to use a firewall to grant access to frontend '
+            'containers only.'
+        )
+        CLI.framed_print(message)
 
         CLI.colored_print('Do you want to customize service ports?',
                           CLI.COLOR_SUCCESS)
@@ -1787,18 +1717,12 @@ class Config(with_metaclass(Singleton)):
                 error_msg='Too short. 8 characters minimum.')
 
             if not self.__config['redis_password']:
-                CLI.colored_print(
-                    '╔══════════════════════════════════════════════════╗',
-                    CLI.COLOR_WARNING)
-                CLI.colored_print(
-                    '║ WARNING! it is STRONGLY recommended to set a     ║',
-                    CLI.COLOR_WARNING)
-                CLI.colored_print(
-                    '║ password for Redis as well.                      ║',
-                    CLI.COLOR_WARNING)
-                CLI.colored_print(
-                    '╚══════════════════════════════════════════════════╝',
-                    CLI.COLOR_WARNING)
+                message = (
+                    'WARNING!\n\n'
+                    'It is STRONGLY recommended to set a password for Redis '
+                    'as well.'
+                )
+                CLI.framed_print(message)
 
                 CLI.colored_print('Do you want to continue?', CLI.COLOR_SUCCESS)
                 CLI.colored_print('\t1) Yes')
@@ -1826,21 +1750,13 @@ class Config(with_metaclass(Singleton)):
             if self.use_letsencrypt:
                 self.__config['nginx_proxy_port'] = Config.DEFAULT_PROXY_PORT
 
-                CLI.colored_print(
-                    '╔═══════════════════════════════════════════════════╗',
-                    CLI.COLOR_WARNING)
-                CLI.colored_print(
-                    '║ Domain names must be publicly accessible.         ║',
-                    CLI.COLOR_WARNING)
-                CLI.colored_print(
-                    "║ Otherwise Let's Encrypt will not be able to valid ║",
-                    CLI.COLOR_WARNING)
-                CLI.colored_print(
-                    '║ your certificates.                                ║',
-                    CLI.COLOR_WARNING)
-                CLI.colored_print(
-                    '╚═══════════════════════════════════════════════════╝',
-                    CLI.COLOR_WARNING)
+                message = (
+                    'WARNING!\n\n'
+                    'Domain names must be publicly accessible.\n'
+                    "Otherwise Let's Encrypt will not be able to valid your "
+                    'certificates.'
+                )
+                CLI.framed_print(message)
 
                 while True:
                     letsencrypt_email = CLI.colored_input(
@@ -2027,20 +1943,20 @@ class Config(with_metaclass(Singleton)):
         if username == self.__config.get('super_user_username') and \
                 password != self.__config.get('super_user_password') and \
                 not self.first_time:
-            _message_lines = [
-                '╔════════════════════════════════════════════════════════════════╗',
-                '║ You have configured a new password for the super user.         ║',
-                '║ This change will *not* take effect if KoBoToolbox has ever     ║',
-                '║ been started before. Please use the web interface to change    ║',
-                '║ passwords for existing users.                                  ║',
-                '║ If you have forgotten your password:                           ║',
-                '║ 1. Enter the KPI container with `./run.py -cf exec kpi bash`;  ║',
-                '║ 2. Create a new super user with `./manage.py createsuperuser`; ║',
-                '║ 3. Type `exit` to leave the KPI container;                     ║',
-                '╚════════════════════════════════════════════════════════════════╝'
-            ]
-            CLI.colored_print('\n'.join(_message_lines), CLI.COLOR_WARNING)
-
+            message = (
+                'WARNING!\n\n'
+                'You have configured a new password for the super user.\n'
+                'This change will *not* take effect if KoBoToolbox has ever '
+                'been started before. Please use the web interface to change '
+                'passwords for existing users.\n'
+                'If you have forgotten your password:\n'
+                '1. Enter the KPI container with `./run.py -cf exec kpi '
+                'bash`;\n'
+                '2. Create a new super user with `./manage.py '
+                'createsuperuser`;\n'
+                '3. Type `exit` to leave the KPI container;'
+            )
+            CLI.framed_print(message)
         self.__config['super_user_username'] = username
         self.__config['super_user_password'] = password
 
@@ -2178,36 +2094,22 @@ class Config(with_metaclass(Singleton)):
                     self.__config['kobodocker_path'],
                     'docker-compose.backend.template.yml')
                 if not os.path.exists(docker_composer_file_path):
-                    CLI.colored_print('╔═════════════════════════════════════════════════════╗',
-                                      CLI.COLOR_WARNING)
-                    CLI.colored_print('║ WARNING !!!                                         ║',
-                                      CLI.COLOR_WARNING)
-                    CLI.colored_print('║                                                     ║',
-                                      CLI.COLOR_WARNING)
-                    CLI.colored_print('║ You are installing over existing data.              ║',
-                                      CLI.COLOR_WARNING)
-                    CLI.colored_print('║                                                     ║',
-                                      CLI.COLOR_WARNING)
-                    CLI.colored_print('║ It is recommended to backup your data and import it ║',
-                                      CLI.COLOR_WARNING)
-                    CLI.colored_print('║ to a fresh installed (by KoBoInstall) database.     ║',
-                                      CLI.COLOR_WARNING)
-                    CLI.colored_print('║                                                     ║',
-                                      CLI.COLOR_WARNING)
-                    CLI.colored_print('║ KoBoInstall uses these images:                      ║',
-                                      CLI.COLOR_WARNING)
-                    CLI.colored_print('║    - MongoDB: mongo:3.4                             ║',
-                                      CLI.COLOR_WARNING)
-                    CLI.colored_print('║    - PostgreSQL: mdillon/postgis:9.5                ║',
-                                      CLI.COLOR_WARNING)
-                    CLI.colored_print('║                                                     ║',
-                                      CLI.COLOR_WARNING)
-                    CLI.colored_print('║ Be sure to upgrade to these versions before         ║',
-                                      CLI.COLOR_WARNING)
-                    CLI.colored_print('║ going further!                                      ║',
-                                      CLI.COLOR_WARNING)
-                    CLI.colored_print('╚═════════════════════════════════════════════════════╝',
-                                      CLI.COLOR_WARNING)
+                    message = (
+                        'WARNING!\n\n'
+                        'You are installing over existing data.\n'
+                        '\n'
+                        'It is recommended to backup your data and import it '
+                        'to a fresh installed (by KoBoInstall) database.\n'
+                        '\n'
+                        'KoBoInstall uses these images:\n'
+                        '    - MongoDB: mongo:3.4\n'
+                        '    - PostgreSQL: mdillon/postgis:9.5\n'
+                        '\n'
+                        'Be sure to upgrade to these versions before going '
+                        'further!'
+                    )
+                    CLI.framed_print(message)
+
                     CLI.colored_print('Are you sure you want to continue?',
                                       CLI.COLOR_SUCCESS)
                     CLI.colored_print('\t1) Yes')
@@ -2229,39 +2131,18 @@ class Config(with_metaclass(Singleton)):
                             ))
 
     def __welcome(self):
-        CLI.colored_print(
-            '╔═══════════════════════════════════════════════════════════════╗',
-            CLI.COLOR_WARNING)
-        CLI.colored_print(
-            '║ Welcome to KoBoInstall!                                       ║',
-            CLI.COLOR_WARNING)
-        CLI.colored_print(
-            '║                                                               ║',
-            CLI.COLOR_WARNING)
-        CLI.colored_print(
-            '║ You are going to be asked some questions that will            ║',
-            CLI.COLOR_WARNING)
-        CLI.colored_print(
-            '║ determine how to build the configuration of `KoBoToolBox`.    ║',
-            CLI.COLOR_WARNING)
-        CLI.colored_print(
-            '║                                                               ║',
-            CLI.COLOR_WARNING)
-        CLI.colored_print(
-            '║ Some questions already have default values (within brackets). ║',
-            CLI.COLOR_WARNING)
-        CLI.colored_print(
-            '║ Just press `enter` to accept the default value or enter `-`   ║',
-            CLI.COLOR_WARNING)
-        CLI.colored_print(
-            '║ to remove previously entered value.                           ║',
-            CLI.COLOR_WARNING)
-        CLI.colored_print(
-            '║ Otherwise choose between choices or type your answer.         ║',
-            CLI.COLOR_WARNING)
-        CLI.colored_print(
-            '╚═══════════════════════════════════════════════════════════════╝',
-            CLI.COLOR_WARNING)
+        message = (
+            'Welcome to KoBoInstall!\n'
+            '\n'
+            'You are going to be asked some questions that will determine how '
+            'to build the configuration of `KoBoToolBox`.\n'
+            '\n'
+            'Some questions already have default values (within brackets).\n'
+            'Just press `enter` to accept the default value or enter `-` to '
+            'remove previously entered value.\n'
+            'Otherwise choose between choices or type your answer. '
+        )
+        CLI.framed_print(message, color=CLI.COLOR_INFO)
 
     def __write_upsert_db_users_trigger_file(self, content, destination):
         try:

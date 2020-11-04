@@ -4,6 +4,7 @@ from __future__ import print_function, unicode_literals
 import subprocess
 import sys
 import re
+import textwrap
 
 PY2 = sys.version_info[0] == 2
 if PY2:
@@ -49,8 +50,6 @@ class CLI(object):
             try:
                 response = cls.colored_input('', cls.COLOR_WARNING, default)
 
-                print('VALIDATORS', validators)
-
                 if (response.lower() in map(lambda x: x.lower(), validators) or
                         validators is None or
                         (isinstance(validators, string_type) and
@@ -71,10 +70,6 @@ class CLI(object):
         return response.lower() if to_lower else response
 
     @classmethod
-    def colored_print(cls, message, color=NO_COLOR):
-        print(cls.colorize(message, color))
-
-    @classmethod
     def colored_input(cls, message, color=NO_COLOR, default=None):
         text = cls.get_message_with_default(message, default)
         input_ = input(cls.colorize(text, color))
@@ -87,8 +82,43 @@ class CLI(object):
         return input_ if input_ is not None and input_ != '' else default
 
     @classmethod
+    def colored_print(cls, message, color=NO_COLOR):
+        print(cls.colorize(message, color))
+
+    @classmethod
     def colorize(cls, message, color=NO_COLOR):
         return '{}{}{}'.format(color, message, cls.NO_COLOR)
+
+    @classmethod
+    def framed_print(cls, message, color=COLOR_WARNING, columns=70):
+        border = '═' * (columns - 2)
+        framed_message = [
+            '╔{}╗'.format(border),
+            '║ {} ║'.format(' ' * (columns - 4)),
+        ]
+
+        if not isinstance(message, list):
+            paragraphs = message.split('\n')
+        else:
+            paragraphs = ''.join(message).split('\n')
+
+        for paragraph in paragraphs:
+            if paragraph == '':
+                framed_message.append(
+                    '║ {} ║'.format(' ' * (columns - 4))
+                )
+                continue
+
+            for line in textwrap.wrap(paragraph, columns - 4):
+                message_length = len(line)
+                spacer = ' ' * (columns - 4 - message_length)
+                framed_message.append(
+                    '║ {}{} ║'.format(line, spacer)
+                )
+
+        framed_message.append('║ {} ║'.format(' ' * (columns - 4)))
+        framed_message.append('╚{}╝'.format(border))
+        cls.colored_print('\n'.join(framed_message), color=color)
 
     @classmethod
     def get_message_with_default(cls, message, default):
