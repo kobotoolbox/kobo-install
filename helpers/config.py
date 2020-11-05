@@ -1435,14 +1435,9 @@ class Config(with_metaclass(Singleton)):
                     self.__dict['postgres_settings_content'] = re.sub(
                         r'(log|lc_).+(\n|$)', '', response)
                 else:
-                    if self.__dict['postgres_settings_content'] == '':
-                        CLI.colored_print('Use default settings.',
-                                          CLI.COLOR_INFO)
-                        # If no response from API, keep defaults
-                        self.__dict['postgres_settings'] = False
-                    else:
-                        CLI.colored_print('\nKeep current settings.',
-                                          CLI.COLOR_INFO)
+                    CLI.colored_print('\nAn error has occurred. Current '
+                                      'PostgreSQL settings will be used',
+                                      CLI.COLOR_INFO)
 
                 # Stop container
                 docker_command = ['docker', 'stop', '-t', '0',
