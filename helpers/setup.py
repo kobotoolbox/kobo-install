@@ -61,14 +61,11 @@ class Setup:
             Template.render(config, force=True)
             sys.exit(0)
 
-        CLI.colored_print('╔══════════════════════════════════════════════════════╗',
-                          CLI.COLOR_WARNING)
-        CLI.colored_print('║ After an update, it is strongly recommended to run   ║',
-                          CLI.COLOR_WARNING)
-        CLI.colored_print('║ `./run.py --setup` to regenerate environment files.  ║',
-                          CLI.COLOR_WARNING)
-        CLI.colored_print('╚══════════════════════════════════════════════════════╝',
-                          CLI.COLOR_WARNING)
+        message = (
+            'After an update, it is strongly recommended to run\n'
+            '`./run.py --setup` to regenerate environment files.'
+        )
+        CLI.framed_print(message, color=CLI.COLOR_INFO)
 
         CLI.colored_print('Do you want to proceed?', CLI.COLOR_SUCCESS)
         CLI.colored_print('\t1) Yes')
@@ -170,13 +167,14 @@ class Setup:
                 f.write(tmp_host)
 
             if dict_['review_host'] is True:
-                CLI.colored_print('╔═══════════════════════════════════════════════════════════════════╗',
-                                  CLI.COLOR_WARNING)
-                CLI.colored_print('║ Administrative privileges are required to update your /etc/hosts. ║',
-                                  CLI.COLOR_WARNING)
-                CLI.colored_print('╚═══════════════════════════════════════════════════════════════════╝',
-                                  CLI.COLOR_WARNING)
-                CLI.colored_print('Do you want to review your /etc/hosts file before overwriting it?',
+                message = (
+                    'Administrative privileges are required to update your '
+                    '`/etc/hosts`.'
+                )
+                CLI.framed_print(message, color=CLI.COLOR_INFO)
+
+                CLI.colored_print('Do you want to review your /etc/hosts file '
+                                  'before overwriting it?',
                                   CLI.COLOR_SUCCESS)
                 CLI.colored_print('\t1) Yes')
                 CLI.colored_print('\t2) No')
@@ -208,18 +206,8 @@ class Setup:
         dict_ = config.dict_()
 
         def display_error_message(message):
-            max_chars_count = 51
-            message_length = len(message)
-            spacer = ' ' * (max_chars_count - message_length)
-
-            CLI.colored_print('╔═════════════════════════════════════════════════════╗',
-                              CLI.COLOR_ERROR)
-            CLI.colored_print('║ {}{} ║'.format(message, spacer),
-                              CLI.COLOR_ERROR)
-            CLI.colored_print('║ Please run `./run.py --setup` first .               ║',
-                              CLI.COLOR_ERROR)
-            CLI.colored_print('╚═════════════════════════════════════════════════════╝',
-                              CLI.COLOR_ERROR)
+            message += '\nPlease run `./run.py --setup` first.'
+            CLI.framed_print(message, color=CLI.COLOR_ERROR)
             sys.exit(1)
 
         try:

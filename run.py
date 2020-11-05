@@ -16,12 +16,13 @@ from helpers.updater import Updater
 def run(force_setup=False):
 
     if sys.version_info[0] == 2:
-        CLI.colored_print('╔═══════════════════════════════════════════════════════════════╗', CLI.COLOR_ERROR)
-        CLI.colored_print('║ DEPRECATION: Python 2.7 has reached the end of its life on    ║', CLI.COLOR_ERROR)
-        CLI.colored_print('║ January 1st, 2020. Please upgrade your Python as Python 2.7   ║', CLI.COLOR_ERROR)
-        CLI.colored_print('║ is not maintained anymore.                                    ║', CLI.COLOR_ERROR)
-        CLI.colored_print('║ A future version of KoBoInstall will drop support for it.     ║', CLI.COLOR_ERROR)
-        CLI.colored_print('╚═══════════════════════════════════════════════════════════════╝', CLI.COLOR_ERROR)
+        message = (
+            'DEPRECATION: Python 2.7 has reached the end of its life on '
+            'January 1st, 2020. Please upgrade your Python as Python 2.7 is '
+            'not maintained anymore.\n\n'
+            'A future version of KoBoInstall will drop support for it.'
+        )
+        CLI.framed_print(message)
 
     if not platform.system() in ['Linux', 'Darwin']:
         CLI.colored_print('Not compatible with this OS', CLI.COLOR_ERROR)

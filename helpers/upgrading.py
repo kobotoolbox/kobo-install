@@ -65,29 +65,29 @@ def migrate_single_to_two_databases():
             'for KPI and KoBoCAT',
             CLI.COLOR_INFO
         )
-        _message_lines = [
-            '╔══════════════════════════════════════════════════════════════╗',
-            '║ Upgrading to separate databases is required to run the       ║',
-            '║ latest release of KoBoToolbox, but it may be a slow process  ║',
-            '║ if you have a lot of data. Expect at least one minute of     ║',
-            '║ downtime for every 1,500 KPI assets. Assets are surveys and  ║',
-            '║ library items: questions, blocks, and templates.             ║',
-            '║ Survey *submissions* are not involved.                       ║',
-            '║                                                              ║',
-            '║ To postpone this process, downgrade to the last              ║',
-            '║ single-database release by stopping this script and          ║',
-            '║ executing the following commands:                            ║',
-            '║                                                              ║',
-            '║      python3 run.py --stop                                   ║',
-            '║      git fetch                                               ║',
-            '║      git checkout shared-database-obsolete                   ║',
-            '║      python3 run.py --update                                 ║',
-            '║      python3 run.py --setup                                  ║',
-            '║                                                              ║',
-            '╚══════════════════════════════════════════════════════════════╝',
-            'For help, visit https://community.kobotoolbox.org/t/upgrading-to-separate-databases-for-kpi-and-kobocat/7202.',
-        ]
-        CLI.colored_print('\n'.join(_message_lines), CLI.COLOR_WARNING)
+        message = (
+            'Upgrading to separate databases is required to run the latest '
+            'release of KoBoToolbox, but it may be a slow process if you have '
+            'a lot of data. Expect at least one minute of downtime for every '
+            '1,500 KPI assets. Assets are surveys and library items: '
+            'questions, blocks, and templates.\n'
+            '\n'
+            'To postpone this process, downgrade to the last single-database '
+            'release by stopping this script and executing the following '
+            'commands:\n'
+            '\n'
+            '       python3 run.py --stop\n'
+            '       git fetch\n'
+            '       git checkout shared-database-obsolete\n'
+            '       python3 run.py --update\n'
+            '       python3 run.py --setup\n'
+        )
+        CLI.framed_print(message)
+        message = (
+            'For help, visit https://community.kobotoolbox.org/t/upgrading-to-'
+            'separate-databases-for-kpi-and-kobocat/7202.',
+        )
+        CLI.colored_print(message, CLI.COLOR_WARNING)
         CLI.colored_print('Do you want to proceed?', CLI.COLOR_SUCCESS)
         CLI.colored_print('\t1) Yes')
         CLI.colored_print('\t2) No')

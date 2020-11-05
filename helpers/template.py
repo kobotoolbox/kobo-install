@@ -40,18 +40,12 @@ class Template:
         if force is not True and \
                 unique_id is not None and \
                 str(dict_.get('unique_id', '')) != str(unique_id):
-            CLI.colored_print(
-                '╔═════════════════════════════════════════════════════════════════════╗',
-                CLI.COLOR_WARNING)
-            CLI.colored_print(
-                '║ WARNING!                                                            ║',
-                CLI.COLOR_WARNING)
-            CLI.colored_print(
-                '║ Existing environment files are detected. Files will be overwritten. ║',
-                CLI.COLOR_WARNING)
-            CLI.colored_print(
-                '╚═════════════════════════════════════════════════════════════════════╝',
-                CLI.COLOR_WARNING)
+            message = (
+                'WARNING!\n\n'
+                'Existing environment files are detected. Files will be '
+                'overwritten.'
+            )
+            CLI.framed_print(message)
 
             CLI.colored_print('Do you want to continue?', CLI.COLOR_SUCCESS)
             CLI.colored_print('\t1) Yes')
