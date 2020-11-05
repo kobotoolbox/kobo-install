@@ -16,13 +16,13 @@ else:
 
 class CLI(object):
 
-    NO_COLOR = '\033[0m'
-    COLOR_ERROR = '\033[91m'
-    COLOR_SUCCESS = '\033[92m'
-    COLOR_INFO = '\033[94m'
-    COLOR_WARNING = '\033[95m'
-    COLOR_QUESTIONS = '\033[92m'
-    COLOR_DEFAULT = '\033[95m'
+    NO_COLOR = '\033[0;0m'
+    COLOR_ERROR = '\033[0;31m'  # dark red
+    COLOR_SUCCESS = '\033[0;32m'  # dark green
+    COLOR_INFO = '\033[1;34m'  # blue
+    COLOR_WARNING = '\033[1;31m'  # red
+    COLOR_QUESTION = '\033[1;33m'  # dark yellow
+    COLOR_DEFAULT = '\033[1;37m'  # white
 
     EMPTY_CHARACTER = '-'
 
@@ -101,7 +101,7 @@ class CLI(object):
 
         while True:
             try:
-                response = cls.colored_input('', cls.COLOR_WARNING, default)
+                response = cls.colored_input('', cls.COLOR_QUESTION, default)
 
                 if (response.lower() in map(lambda x: x.lower(), validators) or
                         validators is None or
@@ -125,7 +125,7 @@ class CLI(object):
     @classmethod
     def get_message_with_default(cls, message, default):
         message = '{} '.format(message) if message else ''
-        default = '{}[{}]{}: '.format(cls.COLOR_WARNING,
+        default = '{}[{}]{}: '.format(cls.COLOR_DEFAULT,
                                       default,
                                       cls.NO_COLOR) \
             if default else ''
@@ -166,7 +166,7 @@ class CLI(object):
     @classmethod
     def yes_no_question(cls, question, default=True,
                         labels=['Yes', 'No']):
-        cls.colored_print(question, color=cls.COLOR_QUESTIONS)
+        cls.colored_print(question, color=cls.COLOR_QUESTION)
         for index, label in enumerate(labels):
             cls.colored_print('\t{index}) {label}'.format(
                 index=index + 1,

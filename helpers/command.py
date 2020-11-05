@@ -311,9 +311,9 @@ class Command:
 
         cls.stop(output=False, frontend_only=frontend_only)
         if frontend_only:
-            CLI.colored_print('Launching frontend containers', CLI.COLOR_SUCCESS)
+            CLI.colored_print('Launching frontend containers', CLI.COLOR_INFO)
         else:
-            CLI.colored_print('Launching environment', CLI.COLOR_SUCCESS)
+            CLI.colored_print('Launching environment', CLI.COLOR_INFO)
 
         # Test if ports are available
         ports = []
@@ -392,7 +392,7 @@ class Command:
         elif not frontend_only:
             if not config.multi_servers or config.frontend:
                 CLI.colored_print('Waiting for environment to be ready. '
-                                  'It can take a few minutes.', CLI.COLOR_SUCCESS)
+                                  'It can take a few minutes.', CLI.COLOR_INFO)
                 cls.info()
             else:
                 CLI.colored_print(

@@ -613,9 +613,9 @@ class Config(with_metaclass(Singleton)):
         """
         Create repository directory if it doesn't exist.
         """
-        CLI.colored_print('Where do you want to install?', CLI.COLOR_SUCCESS)
+        CLI.colored_print('Where do you want to install?', CLI.COLOR_QUESTION)
         while True:
-            kobodocker_path = CLI.colored_input('', CLI.COLOR_SUCCESS,
+            kobodocker_path = CLI.colored_input('', CLI.COLOR_QUESTION,
                                                 self.__dict.get(
                                                     'kobodocker_path'))
 
@@ -691,7 +691,7 @@ class Config(with_metaclass(Singleton)):
         if self.advanced_options:
             CLI.colored_print(
                 'Please choose which network interface you want to use?',
-                CLI.COLOR_SUCCESS)
+                CLI.COLOR_QUESTION)
             interfaces = Network.get_local_interfaces()
             all_interfaces = Network.get_local_interfaces(all=True)
             docker_interface = 'docker0'
@@ -751,13 +751,13 @@ class Config(with_metaclass(Singleton)):
         )
         if self.__dict['use_aws'] is True:
             self.__dict['aws_access_key'] = CLI.colored_input(
-                'AWS Access Key', CLI.COLOR_SUCCESS,
+                'AWS Access Key', CLI.COLOR_QUESTION,
                 self.__dict.get('aws_access_key', ''))
             self.__dict['aws_secret_key'] = CLI.colored_input(
-                'AWS Secret Key', CLI.COLOR_SUCCESS,
+                'AWS Secret Key', CLI.COLOR_QUESTION,
                 self.__dict.get('aws_secret_key', ''))
             self.__dict['aws_bucket_name'] = CLI.colored_input(
-                'AWS Bucket name', CLI.COLOR_SUCCESS,
+                'AWS Bucket name', CLI.COLOR_QUESTION,
                 self.__dict.get('aws_bucket_name', ''))
         else:
             self.__dict['aws_access_key'] = ''
@@ -767,7 +767,7 @@ class Config(with_metaclass(Singleton)):
     def __questions_aws_backup_settings(self):
 
         self.__dict['aws_backup_bucket_name'] = CLI.colored_input(
-            'AWS Backups bucket name', CLI.COLOR_SUCCESS,
+            'AWS Backups bucket name', CLI.COLOR_QUESTION,
             self.__dict.get('aws_backup_bucket_name', ''))
 
         if self.__dict['aws_backup_bucket_name'] != '':
@@ -776,22 +776,22 @@ class Config(with_metaclass(Singleton)):
                                       'backup_from_primary'] is True
 
             CLI.colored_print('How many yearly backups to keep?',
-                              CLI.COLOR_SUCCESS)
+                              CLI.COLOR_QUESTION)
             self.__dict['aws_backup_yearly_retention'] = CLI.get_response(
                 r'~^\d+$', self.__dict.get('aws_backup_yearly_retention'))
 
             CLI.colored_print('How many monthly backups to keep?',
-                              CLI.COLOR_SUCCESS)
+                              CLI.COLOR_QUESTION)
             self.__dict['aws_backup_monthly_retention'] = CLI.get_response(
                 r'~^\d+$', self.__dict.get('aws_backup_monthly_retention'))
 
             CLI.colored_print('How many weekly backups to keep?',
-                              CLI.COLOR_SUCCESS)
+                              CLI.COLOR_QUESTION)
             self.__dict['aws_backup_weekly_retention'] = CLI.get_response(
                 r'~^\d+$', self.__dict.get('aws_backup_weekly_retention'))
 
             CLI.colored_print('How many daily backups to keep?',
-                              CLI.COLOR_SUCCESS)
+                              CLI.COLOR_QUESTION)
             self.__dict['aws_backup_daily_retention'] = CLI.get_response(
                 r'~^\d+$', self.__dict.get('aws_backup_daily_retention'))
 
@@ -799,7 +799,7 @@ class Config(with_metaclass(Singleton)):
                     (self.primary_backend and backup_from_primary) or
                     (self.secondary_backend and not backup_from_primary)):
                 CLI.colored_print('PostgresSQL backup minimum size (in MB)?',
-                                  CLI.COLOR_SUCCESS)
+                                  CLI.COLOR_QUESTION)
                 CLI.colored_print(
                     'Files below this size will be ignored when '
                     'rotating backups.',
@@ -811,7 +811,7 @@ class Config(with_metaclass(Singleton)):
 
             if self.primary_backend or not self.multi_servers:
                 CLI.colored_print('MongoDB backup minimum size (in MB)?',
-                                  CLI.COLOR_SUCCESS)
+                                  CLI.COLOR_QUESTION)
                 CLI.colored_print(
                     'Files below this size will be ignored when '
                     'rotating backups.',
@@ -822,7 +822,7 @@ class Config(with_metaclass(Singleton)):
                     self.__dict.get('aws_mongo_backup_minimum_size'))
 
                 CLI.colored_print('Redis backup minimum size (in MB)?',
-                                  CLI.COLOR_SUCCESS)
+                                  CLI.COLOR_QUESTION)
                 CLI.colored_print(
                     'Files below this size will be ignored when '
                     'rotating backups.',
@@ -833,7 +833,7 @@ class Config(with_metaclass(Singleton)):
                     self.__dict.get('aws_redis_backup_minimum_size'))
 
             CLI.colored_print('Chunk size of multipart uploads (in MB)?',
-                              CLI.COLOR_SUCCESS)
+                              CLI.COLOR_QUESTION)
             self.__dict['aws_backup_upload_chunk_size'] = CLI.get_response(
                 r'~^\d+$', self.__dict.get('aws_backup_upload_chunk_size'))
 
@@ -894,7 +894,7 @@ class Config(with_metaclass(Singleton)):
 
                     if self.frontend_questions and not self.aws:
                         CLI.colored_print('KoBoCat media backup schedule?',
-                                          CLI.COLOR_SUCCESS)
+                                          CLI.COLOR_QUESTION)
                         self.__dict[
                             'kobocat_media_backup_schedule'] = CLI.get_response(
                             '~{}'.format(schedule_regex_pattern),
@@ -925,7 +925,7 @@ class Config(with_metaclass(Singleton)):
                                 (self.secondary_backend and
                                  not backup_from_primary)):
                             CLI.colored_print('PostgreSQL backup schedule?',
-                                              CLI.COLOR_SUCCESS)
+                                              CLI.COLOR_QUESTION)
                             self.__dict[
                                 'postgres_backup_schedule'] = CLI.get_response(
                                 '~{}'.format(schedule_regex_pattern),
@@ -935,7 +935,7 @@ class Config(with_metaclass(Singleton)):
 
                         if self.primary_backend or not self.multi_servers:
                             CLI.colored_print('MongoDB backup schedule?',
-                                              CLI.COLOR_SUCCESS)
+                                              CLI.COLOR_QUESTION)
                             self.__dict[
                                 'mongo_backup_schedule'] = CLI.get_response(
                                 '~{}'.format(schedule_regex_pattern),
@@ -944,7 +944,7 @@ class Config(with_metaclass(Singleton)):
                                     '0 1 * * 0'))
 
                             CLI.colored_print('Redis backup schedule?',
-                                              CLI.COLOR_SUCCESS)
+                                              CLI.COLOR_QUESTION)
                             self.__dict[
                                 'redis_backup_schedule'] = CLI.get_response(
                                 '~{}'.format(schedule_regex_pattern),
@@ -972,7 +972,7 @@ class Config(with_metaclass(Singleton)):
 
             if self.local_install:
                 # NGinX different port
-                CLI.colored_print('Web server port?', CLI.COLOR_SUCCESS)
+                CLI.colored_print('Web server port?', CLI.COLOR_QUESTION)
                 self.__dict['exposed_nginx_docker_port'] = CLI.get_response(
                     r'~^\d+$', self.__dict['exposed_nginx_docker_port'])
                 self.__dict['dev_mode'] = CLI.yes_no_question(
@@ -996,12 +996,12 @@ class Config(with_metaclass(Singleton)):
                 CLI.framed_print(message, color=CLI.COLOR_INFO)
 
                 self.__dict['kc_path'] = CLI.colored_input(
-                    'KoBoCat files location', CLI.COLOR_SUCCESS,
+                    'KoBoCat files location', CLI.COLOR_QUESTION,
                     self.__dict.get('kc_path'))
 
                 self.__clone_repo(self.__dict['kc_path'], 'kobocat')
                 self.__dict['kpi_path'] = CLI.colored_input(
-                    'KPI files location', CLI.COLOR_SUCCESS,
+                    'KPI files location', CLI.COLOR_QUESTION,
                     self.__dict.get('kpi_path'))
                 self.__clone_repo(self.__dict['kpi_path'], 'kpi')
 
@@ -1049,7 +1049,7 @@ class Config(with_metaclass(Singleton)):
         """
         self.__dict['docker_prefix'] = CLI.colored_input(
             'Docker Compose prefix? (leave empty for default)',
-            CLI.COLOR_SUCCESS,
+            CLI.COLOR_QUESTION,
             self.__dict.get('docker_prefix', ''))
 
     def __questions_google(self):
@@ -1058,13 +1058,13 @@ class Config(with_metaclass(Singleton)):
         """
         # Google Analytics
         self.__dict['google_ua'] = CLI.colored_input(
-            'Google Analytics Identifier', CLI.COLOR_SUCCESS,
+            'Google Analytics Identifier', CLI.COLOR_QUESTION,
             self.__dict.get('google_ua', ''))
 
         # Google API Key
         self.__dict['google_api_key'] = CLI.colored_input(
             'Google API Key',
-            CLI.COLOR_SUCCESS,
+            CLI.COLOR_QUESTION,
             self.__dict.get('google_api_key', ''))
 
     def __questions_https(self):
@@ -1114,7 +1114,7 @@ class Config(with_metaclass(Singleton)):
                             minutes if minutes < 60 else 0)
 
         CLI.colored_print('How long do you plan to this maintenance will last?',
-                          CLI.COLOR_SUCCESS)
+                          CLI.COLOR_QUESTION)
         self.__dict['maintenance_eta'] = CLI.get_response(
             r'~^[\w\ ]+$',
             self.__dict.get('maintenance_eta', '2 hours'))
@@ -1122,7 +1122,7 @@ class Config(with_metaclass(Singleton)):
         date_start = _round_nearest_quarter(datetime.utcnow())
         iso_format = '%Y%m%dT%H%M'
         CLI.colored_print('Start Date/Time (ISO format) GMT?',
-                          CLI.COLOR_SUCCESS)
+                          CLI.COLOR_QUESTION)
         self.__dict['maintenance_date_iso'] = CLI.get_response(
             r'~^\d{8}T\d{4}$', date_start.strftime(iso_format))
         self.__dict['maintenance_date_iso'] = self.__dict[
@@ -1135,7 +1135,7 @@ class Config(with_metaclass(Singleton)):
 
         self.__dict['maintenance_email'] = CLI.colored_input(
             'Contact during maintenance?',
-            CLI.COLOR_SUCCESS,
+            CLI.COLOR_QUESTION,
             self.__dict.get('maintenance_email',
                               self.__dict.get('default_from_email')))
         self.write_config()
@@ -1153,13 +1153,13 @@ class Config(with_metaclass(Singleton)):
             mongo_root_password = self.__dict['mongo_root_password']
 
             CLI.colored_print("MongoDB root's username?",
-                              CLI.COLOR_SUCCESS)
+                              CLI.COLOR_QUESTION)
             self.__dict['mongo_root_username'] = CLI.get_response(
                 r'~^\w+$',
                 self.__dict.get('mongo_root_username'),
                 to_lower=False)
 
-            CLI.colored_print("MongoDB root's password?", CLI.COLOR_SUCCESS)
+            CLI.colored_print("MongoDB root's password?", CLI.COLOR_QUESTION)
             self.__dict['mongo_root_password'] = CLI.get_response(
                 r'~^.{8,}$',
                 self.__dict.get('mongo_root_password'),
@@ -1167,13 +1167,13 @@ class Config(with_metaclass(Singleton)):
                 error_msg='Too short. 8 characters minimum.')
 
             CLI.colored_print("MongoDB user's username?",
-                              CLI.COLOR_SUCCESS)
+                              CLI.COLOR_QUESTION)
             self.__dict['mongo_user_username'] = CLI.get_response(
                 r'~^\w+$',
                 self.__dict.get('mongo_user_username'),
                 to_lower=False)
 
-            CLI.colored_print("MongoDB user's password?", CLI.COLOR_SUCCESS)
+            CLI.colored_print("MongoDB user's password?", CLI.COLOR_QUESTION)
             self.__dict['mongo_user_password'] = CLI.get_response(
                 r'~^.{8,}$',
                 self.__dict.get('mongo_user_password'),
@@ -1249,7 +1249,7 @@ class Config(with_metaclass(Singleton)):
         Settings can be tweaked thanks to pgconfig.org API
         """
         CLI.colored_print('KoBoCat PostgreSQL database name?',
-                          CLI.COLOR_SUCCESS)
+                          CLI.COLOR_QUESTION)
         kc_postgres_db = CLI.get_response(
             r'~^\w+$',
             self.__dict.get('kc_postgres_db'),
@@ -1257,7 +1257,7 @@ class Config(with_metaclass(Singleton)):
         )
 
         CLI.colored_print('KPI PostgreSQL database name?',
-                          CLI.COLOR_SUCCESS)
+                          CLI.COLOR_QUESTION)
         kpi_postgres_db = CLI.get_response(
             r'~^\w+$',
             self.__dict.get('kpi_postgres_db'),
@@ -1298,13 +1298,13 @@ class Config(with_metaclass(Singleton)):
         postgres_password = self.__dict['postgres_password']
 
         CLI.colored_print("PostgreSQL user's username?",
-                          CLI.COLOR_SUCCESS)
+                          CLI.COLOR_QUESTION)
         self.__dict['postgres_user'] = CLI.get_response(
             r'~^\w+$',
             self.__dict.get('postgres_user'),
             to_lower=False)
 
-        CLI.colored_print("PostgreSQL user's password?", CLI.COLOR_SUCCESS)
+        CLI.colored_print("PostgreSQL user's password?", CLI.COLOR_QUESTION)
         self.__dict['postgres_password'] = CLI.get_response(
             r'~^.{8,}$',
             self.__dict.get('postgres_password'),
@@ -1374,12 +1374,12 @@ class Config(with_metaclass(Singleton)):
                                   'sebastianwebber/pgconfig-api']
                 CLI.run_command(docker_command)
 
-                CLI.colored_print('Total Memory in GB?', CLI.COLOR_SUCCESS)
+                CLI.colored_print('Total Memory in GB?', CLI.COLOR_QUESTION)
                 self.__dict['postgres_ram'] = CLI.get_response(
                     r'~^\d+$',
                     self.__dict.get('postgres_ram'))
 
-                CLI.colored_print('Storage type?', CLI.COLOR_SUCCESS)
+                CLI.colored_print('Storage type?', CLI.COLOR_QUESTION)
                 CLI.colored_print('\thdd) Hard Disk Drive')
                 CLI.colored_print('\tssd) Solid State Drive')
                 CLI.colored_print('\tsan) Storage Area Network')
@@ -1387,7 +1387,7 @@ class Config(with_metaclass(Singleton)):
                     ['hdd', 'ssd', 'san'],
                     self.__dict.get('postgres_hard_drive_type').lower())
 
-                CLI.colored_print('Number of connections?', CLI.COLOR_SUCCESS)
+                CLI.colored_print('Number of connections?', CLI.COLOR_QUESTION)
                 self.__dict['postgres_max_connections'] = CLI.get_response(
                     r'~^\d+$',
                     self.__dict.get('postgres_max_connections'))
@@ -1398,7 +1398,7 @@ class Config(with_metaclass(Singleton)):
                             not in multi_servers_profiles:
                         self.__dict['postgres_profile'] = 'web'
 
-                    CLI.colored_print('Application profile?', CLI.COLOR_SUCCESS)
+                    CLI.colored_print('Application profile?', CLI.COLOR_QUESTION)
                     CLI.colored_print('\tweb) General Web application')
                     CLI.colored_print(
                         '\toltp) ERP or long transaction applications')
@@ -1513,19 +1513,19 @@ class Config(with_metaclass(Singleton)):
             reset_ports()
             return
 
-        CLI.colored_print('PostgreSQL?', CLI.COLOR_SUCCESS)
+        CLI.colored_print('PostgreSQL?', CLI.COLOR_QUESTION)
         self.__dict['postgresql_port'] = CLI.get_response(
             r'~^\d+$', self.__dict.get('postgresql_port', '5432'))
 
-        CLI.colored_print('MongoDB?', CLI.COLOR_SUCCESS)
+        CLI.colored_print('MongoDB?', CLI.COLOR_QUESTION)
         self.__dict['mongo_port'] = CLI.get_response(
             r'~^\d+$', self.__dict.get('mongo_port', '27017'))
 
-        CLI.colored_print('Redis (main)?', CLI.COLOR_SUCCESS)
+        CLI.colored_print('Redis (main)?', CLI.COLOR_QUESTION)
         self.__dict['redis_main_port'] = CLI.get_response(
             r'~^\d+$', self.__dict.get('redis_main_port', '6379'))
 
-        CLI.colored_print('Redis (cache)?', CLI.COLOR_SUCCESS)
+        CLI.colored_print('Redis (cache)?', CLI.COLOR_QUESTION)
         self.__dict['redis_cache_port'] = CLI.get_response(
             r'~^\d+$', self.__dict.get('redis_cache_port', '6380'))
 
@@ -1542,14 +1542,14 @@ class Config(with_metaclass(Singleton)):
         )
         if self.__dict['use_private_dns'] is False:
             CLI.colored_print('IP address (IPv4) of primary backend server?',
-                              CLI.COLOR_SUCCESS)
+                              CLI.COLOR_QUESTION)
             self.__dict['primary_backend_ip'] = CLI.get_response(
                 r'~\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}',
                 self.__dict.get('primary_backend_ip', self.__primary_ip))
         else:
             self.__dict['private_domain_name'] = CLI.colored_input(
                 'Private domain name',
-                CLI.COLOR_SUCCESS,
+                CLI.COLOR_QUESTION,
                 self.__dict.get(
                     'private_domain_name', ''))
 
@@ -1559,22 +1559,23 @@ class Config(with_metaclass(Singleton)):
         """
 
         self.__dict['public_domain_name'] = CLI.colored_input(
-            'Public domain name', CLI.COLOR_SUCCESS,
+            'Public domain name', CLI.COLOR_QUESTION,
             self.__dict.get('public_domain_name', ''))
-        self.__dict['kpi_subdomain'] = CLI.colored_input('KPI sub domain',
-                                                           CLI.COLOR_SUCCESS,
-                                                           self.__dict.get(
-                                                               'kpi_subdomain',
-                                                               ''))
-        self.__dict['kc_subdomain'] = CLI.colored_input('KoBoCat sub domain',
-                                                          CLI.COLOR_SUCCESS,
-                                                          self.__dict.get(
-                                                              'kc_subdomain',
-                                                              ''))
+        self.__dict['kpi_subdomain'] = CLI.colored_input(
+            'KPI sub domain',
+            CLI.COLOR_QUESTION,
+            self.__dict['kpi_subdomain']
+        )
+        self.__dict['kc_subdomain'] = CLI.colored_input(
+            'KoBoCat sub domain',
+            CLI.COLOR_QUESTION,
+            self.__dict['kc_subdomain']
+        )
         self.__dict['ee_subdomain'] = CLI.colored_input(
             'Enketo Express sub domain name',
             CLI.COLOR_SUCCESS,
-            self.__dict.get('ee_subdomain', ''))
+            self.__dict['ee_subdomain']
+        )
 
         parts = self.__dict.get('public_domain_name', '').split('.')
         self.__dict['internal_domain_name'] = '{}.internal'.format(
@@ -1594,13 +1595,13 @@ class Config(with_metaclass(Singleton)):
         if self.__dict['raven_settings'] is True:
             self.__dict['kpi_raven'] = CLI.colored_input(
                 'KPI Raven token',
-                CLI.COLOR_SUCCESS,
+                CLI.COLOR_QUESTION,
                 self.__dict['kpi_raven'])
             self.__dict['kobocat_raven'] = CLI.colored_input(
-                'KoBoCat Raven token', CLI.COLOR_SUCCESS,
+                'KoBoCat Raven token', CLI.COLOR_QUESTION,
                 self.__dict['kobocat_raven'])
             self.__dict['kpi_raven_js'] = CLI.colored_input(
-                'KPI Raven JS token', CLI.COLOR_SUCCESS,
+                'KPI Raven JS token', CLI.COLOR_QUESTION,
                 self.__dict.get('kpi_raven_js', ''))
         else:
             self.__dict['kpi_raven'] = ''
@@ -1614,7 +1615,7 @@ class Config(with_metaclass(Singleton)):
         - single server installation
         """
         if self.primary_backend or not self.multi_servers:
-            CLI.colored_print('Redis password?', CLI.COLOR_SUCCESS)
+            CLI.colored_print('Redis password?', CLI.COLOR_QUESTION)
             self.__dict['redis_password'] = CLI.get_response(
                 r'~^.{8,}|$',
                 self.__dict.get('redis_password'),
@@ -1665,7 +1666,7 @@ class Config(with_metaclass(Singleton)):
                 while True:
                     letsencrypt_email = CLI.colored_input(
                         "Email address for Let's Encrypt",
-                        CLI.COLOR_SUCCESS,
+                        CLI.COLOR_QUESTION,
                         self.__dict.get('letsencrypt_email'))
                     question = 'Please confirm [{}]'.format(letsencrypt_email)
                     response = CLI.yes_no_question(question)
@@ -1709,7 +1710,7 @@ class Config(with_metaclass(Singleton)):
                         'nginx_proxy_port'] = Config.DEFAULT_PROXY_PORT
 
                 CLI.colored_print('Internal port used by reverse proxy?',
-                                  CLI.COLOR_SUCCESS)
+                                  CLI.COLOR_QUESTION)
                 while True:
                     self.__dict['nginx_proxy_port'] = CLI.get_response(
                         r'~^\d+$',
@@ -1736,7 +1737,7 @@ class Config(with_metaclass(Singleton)):
 
     def __questions_roles(self):
         CLI.colored_print('Which role do you want to assign to this server?',
-                          CLI.COLOR_SUCCESS)
+                          CLI.COLOR_QUESTION)
         CLI.colored_print('\t1) frontend')
         CLI.colored_print('\t2) backend')
         self.__dict['server_role'] = CLI.get_response(['backend', 'frontend'],
@@ -1747,7 +1748,7 @@ class Config(with_metaclass(Singleton)):
         if self.__dict.get('server_role') == 'backend':
             CLI.colored_print(
                 'Which role do you want to assign to this backend server?',
-                CLI.COLOR_SUCCESS)
+                CLI.COLOR_QUESTION)
             CLI.colored_print('\t1) primary')
             CLI.colored_print('\t2) secondary')
             self.__dict['backend_server_role'] = CLI.get_response(
@@ -1763,21 +1764,21 @@ class Config(with_metaclass(Singleton)):
             default=self.__dict['custom_secret_keys']
         )
         if self.__dict['custom_secret_keys'] is True:
-            CLI.colored_print("Django's secret key?", CLI.COLOR_SUCCESS)
+            CLI.colored_print("Django's secret key?", CLI.COLOR_QUESTION)
             self.__dict['django_secret_key'] = CLI.get_response(
                 r'~^.{50,}$',
                 self.__dict.get('django_secret_key'),
                 to_lower=False,
                 error_msg='Too short. 50 characters minimum.')
 
-            CLI.colored_print("Enketo's api key?", CLI.COLOR_SUCCESS)
+            CLI.colored_print("Enketo's api key?", CLI.COLOR_QUESTION)
             self.__dict['enketo_api_token'] = CLI.get_response(
                 r'~^.{50,}$',
                 self.__dict.get('enketo_api_token'),
                 to_lower=False,
                 error_msg='Too short. 50 characters minimum.')
 
-            CLI.colored_print("Enketo's encryption key?", CLI.COLOR_SUCCESS)
+            CLI.colored_print("Enketo's encryption key?", CLI.COLOR_QUESTION)
             self.__dict['enketo_encryption_key'] = CLI.get_response(
                 r'~^.{50,}$',
                 self.__dict.get('enketo_encryption_key'),
@@ -1785,7 +1786,7 @@ class Config(with_metaclass(Singleton)):
                 error_msg='Too short. 50 characters minimum.')
 
             CLI.colored_print("Enketo's less secure encryption key?",
-                              CLI.COLOR_SUCCESS)
+                              CLI.COLOR_QUESTION)
             self.__dict[
                 'enketo_less_secure_encryption_key'] = CLI.get_response(
                 r'~^.{10,}$',
@@ -1795,18 +1796,18 @@ class Config(with_metaclass(Singleton)):
 
     def __questions_smtp(self):
         self.__dict['smtp_host'] = CLI.colored_input('SMTP server',
-                                                     CLI.COLOR_SUCCESS,
+                                                     CLI.COLOR_QUESTION,
                                                      self.__dict['smtp_host'])
         self.__dict['smtp_port'] = CLI.colored_input('SMTP port',
-                                                     CLI.COLOR_SUCCESS,
+                                                     CLI.COLOR_QUESTION,
                                                      self.__dict['smtp_port'])
         self.__dict['smtp_user'] = CLI.colored_input('SMTP user',
-                                                     CLI.COLOR_SUCCESS,
+                                                     CLI.COLOR_QUESTION,
                                                      self.__dict['smtp_user'])
         if self.__dict.get('smtp_user'):
             self.__dict['smtp_password'] = CLI.colored_input(
                 'SMTP password',
-                CLI.COLOR_SUCCESS,
+                CLI.COLOR_QUESTION,
                 self.__dict['smtp_password']
             )
             self.__dict['smtp_use_tls'] = CLI.yes_no_question(
@@ -1815,7 +1816,7 @@ class Config(with_metaclass(Singleton)):
             )
 
         self.__dict['default_from_email'] = CLI.colored_input(
-            'From email address', CLI.COLOR_SUCCESS,
+            'From email address', CLI.COLOR_QUESTION,
             self.__dict.get('default_from_email',
                             'support@{}'.format(self.__dict[
                                                     'public_domain_name'])))
@@ -1823,9 +1824,9 @@ class Config(with_metaclass(Singleton)):
     def __questions_super_user_credentials(self):
         # Super user. Only ask for credentials the first time.
         # Super user is created if db doesn't exists.
-        username = CLI.colored_input("Super user's username", CLI.COLOR_SUCCESS,
+        username = CLI.colored_input("Super user's username", CLI.COLOR_QUESTION,
                                      self.__dict.get('super_user_username'))
-        password = CLI.colored_input("Super user's password", CLI.COLOR_SUCCESS,
+        password = CLI.colored_input("Super user's password", CLI.COLOR_QUESTION,
                                      self.__dict.get('super_user_password'))
 
         if username == self.__dict.get('super_user_username') and \
@@ -1858,36 +1859,36 @@ class Config(with_metaclass(Singleton)):
 
             if self.__dict.get('uwsgi_settings') is True:
                 CLI.colored_print('Number of uWSGi workers to start?',
-                                  CLI.COLOR_SUCCESS)
+                                  CLI.COLOR_QUESTION)
                 self.__dict['uwsgi_workers_start'] = CLI.get_response(
                     r'~^\d+$',
                     self.__dict.get('uwsgi_workers_start'))
 
-                CLI.colored_print('Maximum uWSGi workers?', CLI.COLOR_SUCCESS)
+                CLI.colored_print('Maximum uWSGi workers?', CLI.COLOR_QUESTION)
                 self.__dict['uwsgi_workers_max'] = CLI.get_response(
                     r'~^\d+$',
                     self.__dict.get('uwsgi_workers_max'))
 
                 CLI.colored_print('Maximum number of requests per worker?',
-                                  CLI.COLOR_SUCCESS)
+                                  CLI.COLOR_QUESTION)
                 self.__dict['uwsgi_max_requests'] = CLI.get_response(
                     r'~^\d+$',
                     self.__dict.get('uwsgi_max_requests'))
 
                 CLI.colored_print('Maximum memory per workers in MB?',
-                                  CLI.COLOR_SUCCESS)
+                                  CLI.COLOR_QUESTION)
                 self.__dict['uwsgi_soft_limit'] = CLI.get_response(
                     r'~^\d+$',
                     self.__dict.get('uwsgi_soft_limit'))
 
                 CLI.colored_print('Maximum time (in seconds) before killing an '
-                                  'unresponsive worker?', CLI.COLOR_SUCCESS)
+                                  'unresponsive worker?', CLI.COLOR_QUESTION)
                 self.__dict['uwsgi_harakiri'] = CLI.get_response(
                     r'~^\d+$',
                     self.__dict.get('uwsgi_harakiri'))
 
                 CLI.colored_print('Maximum time (in seconds) a worker can take '
-                                  'to reload/shutdown?', CLI.COLOR_SUCCESS)
+                                  'to reload/shutdown?', CLI.COLOR_QUESTION)
                 self.__dict['uwsgi_worker_reload_mercy'] = CLI.get_response(
                     r'~^\d+$',
                     self.__dict.get('uwsgi_worker_reload_mercy'))
