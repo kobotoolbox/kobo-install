@@ -21,6 +21,8 @@ class CLI(object):
     COLOR_SUCCESS = '\033[92m'
     COLOR_INFO = '\033[94m'
     COLOR_WARNING = '\033[95m'
+    COLOR_QUESTIONS = '\033[92m'
+    COLOR_DEFAULT = '\033[95m'
 
     EMPTY_CHARACTER = '-'
 
@@ -29,45 +31,6 @@ class CLI(object):
         '2': False,
     }
     DEFAULT_RESPONSES = dict((v, k) for k, v in DEFAULT_CHOICES.items())
-
-    @classmethod
-    def get_response(cls, validators=None, default='', to_lower=True,
-                     error_msg="Sorry, I didn't understand that!"):
-
-        use_default = False
-        # If not validators are provided, let's use default validation
-        # "Yes/No", where "Yes" equals 1, and "No" equals 2
-        # Example:
-        #   Are you sure?
-        #       1) Yes
-        #       2) No
-        if validators is None:
-            use_default = True
-            default = cls.DEFAULT_RESPONSES[default]
-            validators = cls.DEFAULT_CHOICES.keys()
-
-        while True:
-            try:
-                response = cls.colored_input('', cls.COLOR_WARNING, default)
-
-                if (response.lower() in map(lambda x: x.lower(), validators) or
-                        validators is None or
-                        (isinstance(validators, string_type) and
-                         validators.startswith('~') and
-                         re.match(validators[1:], response)
-                         )):
-                    break
-                else:
-                    cls.colored_print(error_msg,
-                                      cls.COLOR_ERROR)
-            except ValueError:
-                cls.colored_print("Sorry, I didn't understand that.",
-                                  cls.COLOR_ERROR)
-
-        if use_default:
-            return cls.DEFAULT_CHOICES[response]
-
-        return response.lower() if to_lower else response
 
     @classmethod
     def colored_input(cls, message, color=NO_COLOR, default=None):
@@ -121,6 +84,45 @@ class CLI(object):
         cls.colored_print('\n'.join(framed_message), color=color)
 
     @classmethod
+    def get_response(cls, validators=None, default='', to_lower=True,
+                     error_msg="Sorry, I didn't understand that!"):
+
+        use_default = False
+        # If not validators are provided, let's use default validation
+        # "Yes/No", where "Yes" equals 1, and "No" equals 2
+        # Example:
+        #   Are you sure?
+        #       1) Yes
+        #       2) No
+        if validators is None:
+            use_default = True
+            default = cls.DEFAULT_RESPONSES[default]
+            validators = cls.DEFAULT_CHOICES.keys()
+
+        while True:
+            try:
+                response = cls.colored_input('', cls.COLOR_WARNING, default)
+
+                if (response.lower() in map(lambda x: x.lower(), validators) or
+                        validators is None or
+                        (isinstance(validators, string_type) and
+                         validators.startswith('~') and
+                         re.match(validators[1:], response)
+                        )):
+                    break
+                else:
+                    cls.colored_print(error_msg,
+                                      cls.COLOR_ERROR)
+            except ValueError:
+                cls.colored_print("Sorry, I didn't understand that.",
+                                  cls.COLOR_ERROR)
+
+        if use_default:
+            return cls.DEFAULT_CHOICES[response]
+
+        return response.lower() if to_lower else response
+
+    @classmethod
     def get_message_with_default(cls, message, default):
         message = '{} '.format(message) if message else ''
         default = '{}[{}]{}: '.format(cls.COLOR_WARNING,
@@ -160,3 +162,14 @@ class CLI(object):
                 cls.colored_print('An error has occurred', CLI.COLOR_ERROR)
                 sys.exit(1)
             return stdout
+
+    @classmethod
+    def yes_no_question(cls, question, default=True,
+                        labels=['Yes', 'No']):
+        cls.colored_print(question, color=cls.COLOR_QUESTIONS)
+        for index, label in enumerate(labels):
+            cls.colored_print('\t{index}) {label}'.format(
+                index=index + 1,
+                label=label
+            ))
+        return cls.get_response(default=default)
