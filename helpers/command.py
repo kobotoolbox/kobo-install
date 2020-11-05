@@ -9,7 +9,7 @@ from helpers.cli import CLI
 from helpers.config import Config
 from helpers.network import Network
 from helpers.template import Template
-from helpers.upgrading import migrate_single_to_two_databases
+from helpers.upgrading import Upgrading
 
 
 class Command:
@@ -368,9 +368,9 @@ class Command:
         # Start the front-end containers
         if config.frontend:
 
-            # If this was previously a shared-database setup, migrate to separate
-            # databases for KPI and KoBoCAT
-            migrate_single_to_two_databases()
+            # If this was previously a shared-database setup, migrate to
+            # separate databases for KPI and KoBoCAT
+            Upgrading.migrate_single_to_two_databases(config)
 
             frontend_command = ['docker-compose',
                                 '-f', 'docker-compose.frontend.yml',

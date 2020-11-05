@@ -16,6 +16,7 @@ from random import choice
 from helpers.cli import CLI
 from helpers.network import Network
 from helpers.singleton import Singleton, with_metaclass
+from helpers.upgrading import Upgrading
 
 
 # Use this class as a singleton to get the same configuration
@@ -134,6 +135,29 @@ class Config(with_metaclass(Singleton)):
         return '{}-{}'.format(self.__dict.get('docker_prefix'),
                               prefix_)
 
+    def get_upgraded_dict(self):
+        """
+        Sometimes during upgrades, some keys are changed/deleted/added.
+        This method helps to get a compliant dict to expected config
+
+        Returns:
+            dict
+        """
+
+        upgraded_dict = self.get_template()
+        upgraded_dict.update(self.__dict)
+
+        # Upgrade to use two databases
+        upgraded_dict = Upgrading.two_databases(upgraded_dict, self.__dict)
+
+        # Upgrade to use new terminology primary/secondary
+        upgraded_dict = Upgrading.new_terminology(upgraded_dict)
+
+        # Upgrade to use booleans in `self.__dict`
+        upgraded_dict = Upgrading.use_booleans(upgraded_dict)
+
+        return upgraded_dict
+
     @property
     def backend_questions(self):
         """
@@ -161,7 +185,7 @@ class Config(with_metaclass(Singleton)):
             sys.exit(1)
         else:
 
-            self.__dict = self.__get_upgraded_dict()
+            self.__dict = self.get_upgraded_dict()
             self.__welcome()
 
             self.__create_directory()
@@ -273,7 +297,6 @@ class Config(with_metaclass(Singleton)):
 
         primary_ip = Network.get_primary_ip()
 
-        # Keep properties sorted alphabetically
         return {
             'advanced': False,
             'aws_access_key': '',
@@ -333,7 +356,12 @@ class Config(with_metaclass(Singleton)):
             'local_installation': False,
             'local_interface': 'eth0',
             'local_interface_ip': primary_ip,
+            'letsencrypt_email': 'support@kobo.local',
+            'maintenance_date_iso': '',
+            'maintenance_date_str': '',
+            'maintenance_email': '',
             'maintenance_enabled': False,
+            'maintenance_eta': '2 hours',
             'mongo_backup_schedule': '0 1 * * 0',
             'mongo_port': '27017',
             'mongo_root_password': Config.generate_password(),
@@ -381,6 +409,7 @@ class Config(with_metaclass(Singleton)):
             'redis_password': Config.generate_password(),
             'review_host': True,
             'smtp_host': '',
+            'smtp_password': '',
             'smtp_port': '25',
             'smtp_user': '',
             'smtp_use_tls': False,
@@ -401,6 +430,7 @@ class Config(with_metaclass(Singleton)):
             'uwsgi_workers_max': '2',
             'uwsgi_workers_start': '1',
         }
+        # Keep properties sorted alphabetically
 
     def get_service_names(self):
         service_list_command = ['docker-compose',
@@ -414,7 +444,7 @@ class Config(with_metaclass(Singleton)):
 
     @property
     def is_secure(self):
-        return self.__dict.get('https') is True
+        return self.__dict['https'] is True
 
     def init_letsencrypt(self):
         if self.use_letsencrypt:
@@ -705,76 +735,6 @@ class Config(with_metaclass(Singleton)):
             if self.frontend:
                 self.__dict['primary_backend_ip'] = self.__dict.get(
                     'local_interface_ip')
-
-    def __get_upgraded_dict(self):
-        """
-        Sometimes during upgrades, some keys are changed/deleted/added.
-        This method helps to get a compliant dict to expected config
-
-        Returns:
-            dict
-        """
-
-        upgraded_dict = self.get_template()
-        upgraded_dict.update(self.__dict)
-
-        # If the configuration came from a previous version that had a
-        # single Postgres database, we need to make sure the new
-        # `kc_postgres_db` is set to the name of that single database,
-        # *not* the default from `get_template()`
-        if (
-                self.__dict.get('postgres_db')
-                and not self.__dict.get('kc_postgres_db')
-        ):
-            upgraded_dict['kc_postgres_db'] = self.__dict['postgres_db']
-
-        # Force update user's config to use new terminology.
-        backend_role = upgraded_dict.get('backend_server_role')
-        if backend_role in ['master', 'slave']:
-            upgraded_dict['backend_server_role'] = 'primary' \
-                if backend_role == 'master' else 'secondary'
-
-        # Move old `Config.TRUE` and `Config.FALSE` to real boolean
-        # ToDo Display message to user when config is upgraded
-        boolean_properties = [
-            'advanced',
-            'aws_backup_bucket_deletion_rule_enabled',
-            'backup_from_primary',
-            'block_common_http_ports',
-            'custom_secret_keys',
-            'customized_ports',
-            'debug',
-            'dev_mode',
-            'expose_backend_ports',
-            'https',
-            'local_installation',
-            'multi',
-            'npm_container',
-            'postgres_settings',
-            'proxy',
-            'raven_settings',
-            'review_host',
-            'smtp_use_tls',
-            'staging_mode',
-            'two_databases',
-            'use_aws',
-            'use_backup',
-            'use_letsencrypt',
-            'use_private_dns',
-            'use_wal_e',
-            'uwsgi_settings',
-        ]
-        for property_ in boolean_properties:
-            try:
-                if isinstance(upgraded_dict[property_], bool):
-                    continue
-            except KeyError:
-                pass
-            else:
-                upgraded_dict[property_] = True \
-                    if upgraded_dict[property_] == '1' else False
-
-        return upgraded_dict
 
     def __questions_advanced_options(self):
         """
@@ -1905,17 +1865,14 @@ class Config(with_metaclass(Singleton)):
 
     def __questions_smtp(self):
         self.__dict['smtp_host'] = CLI.colored_input('SMTP server',
-                                                       CLI.COLOR_SUCCESS,
-                                                       self.__dict.get(
-                                                           'smtp_host'))
+                                                     CLI.COLOR_SUCCESS,
+                                                     self.__dict['smtp_host'])
         self.__dict['smtp_port'] = CLI.colored_input('SMTP port',
-                                                       CLI.COLOR_SUCCESS,
-                                                       self.__dict.get(
-                                                           'smtp_port', '25'))
+                                                     CLI.COLOR_SUCCESS,
+                                                     self.__dict['smtp_port'])
         self.__dict['smtp_user'] = CLI.colored_input('SMTP user',
-                                                       CLI.COLOR_SUCCESS,
-                                                       self.__dict.get(
-                                                           'smtp_user', ''))
+                                                     CLI.COLOR_SUCCESS,
+                                                     self.__dict['smtp_user'])
         if self.__dict.get('smtp_user'):
             self.__dict['smtp_password'] = CLI.colored_input(
                 'SMTP password',
@@ -2131,7 +2088,8 @@ class Config(with_metaclass(Singleton)):
                                              '.vols', 'db', 'kobo_first_run')
                             ))
 
-    def __welcome(self):
+    @staticmethod
+    def __welcome():
         message = (
             'Welcome to KoBoInstall!\n'
             '\n'
