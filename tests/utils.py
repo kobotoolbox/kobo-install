@@ -117,3 +117,10 @@ class MockDocker(with_metaclass(Singleton)):
                 pass
 
         return True
+
+
+class MockUpgrading:
+
+    @staticmethod
+    def migrate_single_to_two_databases(config):
+        pass

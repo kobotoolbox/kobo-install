@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, absolute_import
 
-import pytest
 import os
+import pytest
+import random
 import shutil
 import tempfile
 import time
@@ -594,7 +595,7 @@ def test_update_postgres_db_name_from_single_database():
     del config._Config__dict['kc_postgres_db']
     assert 'postgres_db' in dict_
     assert 'kc_postgres_db' not in dict_
-    dict_ = config._Config__get_upgraded_dict()
+    dict_ = config.get_upgraded_dict()
     assert dict_['kc_postgres_db'] == old_db_name
 
 
@@ -604,5 +605,51 @@ def test_new_terminology():
     """
     config = read_config()
     config._Config__dict['backend_server_role'] = 'master'
-    dict_ = config._Config__get_upgraded_dict()
+    dict_ = config.get_upgraded_dict()
     assert dict_['backend_server_role'] == 'primary'
+
+
+def test_use_boolean():
+    """
+    Ensure config uses booleans instead of '1' or '2'
+    """
+    config = read_config()
+    boolean_properties = [
+        'advanced',
+        'aws_backup_bucket_deletion_rule_enabled',
+        'backup_from_primary',
+        'block_common_http_ports',
+        'custom_secret_keys',
+        'customized_ports',
+        'debug',
+        'dev_mode',
+        'expose_backend_ports',
+        'https',
+        'local_installation',
+        'multi',
+        'npm_container',
+        'postgres_settings',
+        'proxy',
+        'raven_settings',
+        'review_host',
+        'smtp_use_tls',
+        'staging_mode',
+        'two_databases',
+        'use_aws',
+        'use_backup',
+        'use_letsencrypt',
+        'use_private_dns',
+        'use_wal_e',
+        'uwsgi_settings',
+    ]
+    expected_dict = {}
+    for property_ in boolean_properties:
+        old_value = str(random.randint(1, 2))
+        expected_dict[property_] = True if old_value == '1' else False
+        config._Config__dict[property_] = old_value
+
+    dict_ = config.get_upgraded_dict()
+
+    for property_ in boolean_properties:
+        assert dict_[property_] == expected_dict[property_]
+

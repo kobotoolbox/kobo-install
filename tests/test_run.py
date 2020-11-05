@@ -13,19 +13,20 @@ from .utils import (
     read_config,
     MockCommand,
     MockDocker,
+    MockUpgrading,
 )
 
 
 @patch('helpers.network.Network.is_port_open',
        MagicMock(return_value=False))
-@patch('helpers.command.migrate_single_to_two_databases',
-       MagicMock(return_value=None))
+@patch('helpers.command.Upgrading.migrate_single_to_two_databases',
+       new=MockUpgrading.migrate_single_to_two_databases)
 @patch('helpers.command.Command.info',
        MagicMock(return_value=True))
 @patch('helpers.cli.CLI.run_command',
        new=MockCommand.run_command)
 def test_toggle_trivial():
-    config_object = read_config()
+    config = read_config()
     Command.start()
     mock_docker = MockDocker()
     expected_containers = MockDocker.FRONTEND_CONTAINERS + \
@@ -40,8 +41,8 @@ def test_toggle_trivial():
 
 @patch('helpers.network.Network.is_port_open',
        MagicMock(return_value=False))
-@patch('helpers.command.migrate_single_to_two_databases',
-       MagicMock(return_value=None))
+@patch('helpers.command.Upgrading.migrate_single_to_two_databases',
+       new=MockUpgrading.migrate_single_to_two_databases)
 @patch('helpers.command.Command.info',
        MagicMock(return_value=True))
 @patch('helpers.cli.CLI.run_command',
@@ -62,8 +63,8 @@ def test_toggle_no_letsencrypt():
 
 @patch('helpers.network.Network.is_port_open',
        MagicMock(return_value=False))
-@patch('helpers.command.migrate_single_to_two_databases',
-       MagicMock(return_value=None))
+@patch('helpers.command.Upgrading.migrate_single_to_two_databases',
+       new=MockUpgrading.migrate_single_to_two_databases)
 @patch('helpers.command.Command.info',
        MagicMock(return_value=True))
 @patch('helpers.cli.CLI.run_command',
@@ -83,8 +84,8 @@ def test_toggle_frontend():
 
 @patch('helpers.network.Network.is_port_open',
        MagicMock(return_value=False))
-@patch('helpers.command.migrate_single_to_two_databases',
-       MagicMock(return_value=None))
+@patch('helpers.command.Upgrading.migrate_single_to_two_databases',
+       new=MockUpgrading.migrate_single_to_two_databases)
 @patch('helpers.command.Command.info',
        MagicMock(return_value=True))
 @patch('helpers.cli.CLI.run_command',
@@ -107,8 +108,8 @@ def test_toggle_primary_backend():
 
 @patch('helpers.network.Network.is_port_open',
        MagicMock(return_value=False))
-@patch('helpers.command.migrate_single_to_two_databases',
-       MagicMock(return_value=None))
+@patch('helpers.command.Upgrading.migrate_single_to_two_databases',
+       new=MockUpgrading.migrate_single_to_two_databases)
 @patch('helpers.command.Command.info',
        MagicMock(return_value=True))
 @patch('helpers.cli.CLI.run_command',
@@ -131,8 +132,8 @@ def test_toggle_secondary_backend():
 
 @patch('helpers.network.Network.is_port_open',
        MagicMock(return_value=False))
-@patch('helpers.command.migrate_single_to_two_databases',
-       MagicMock(return_value=None))
+@patch('helpers.command.Upgrading.migrate_single_to_two_databases',
+       new=MockUpgrading.migrate_single_to_two_databases)
 @patch('helpers.command.Command.info',
        MagicMock(return_value=True))
 @patch('helpers.cli.CLI.run_command',

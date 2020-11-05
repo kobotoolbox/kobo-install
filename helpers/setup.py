@@ -19,7 +19,7 @@ class Setup:
             Args:
                 config (helpers.config.Config)
         """
-        dict_ = config.get_dict_()
+        dict_ = config.get_dict()
         do_update = config.first_time
 
         if not os.path.isdir(os.path.join(dict_['kobodocker_path'], '.git')):
@@ -203,7 +203,7 @@ class Setup:
         """
 
         config = Config()
-        dict_ = config.dict_()
+        dict_ = config.get_dict()
 
         def display_error_message(message):
             message += '\nPlease run `./run.py --setup` first.'
