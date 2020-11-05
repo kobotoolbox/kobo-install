@@ -34,7 +34,7 @@ class Config(with_metaclass(Singleton)):
     KOBO_INSTALL_VERSION = '4.0.0'
 
     def __init__(self):
-        self.__config = self.read_config()
+        self.__dict = self.read_config()
         self.__first_time = None
         self.__primary_ip = Network.get_primary_ip()
 
@@ -46,7 +46,7 @@ class Config(with_metaclass(Singleton)):
         Returns:
             bool
         """
-        return self.__config['advanced'] is True
+        return self.__dict['advanced'] is True
 
     def auto_detect_network(self):
         """
@@ -58,7 +58,7 @@ class Config(with_metaclass(Singleton)):
         changed = False
         local_interfaces = Network.get_local_interfaces(all=True)
 
-        if self.__config.get(
+        if self.__dict.get(
                 'local_interface_ip') not in local_interfaces.values():
             self.__detect_network()
             self.write_config()
@@ -73,7 +73,7 @@ class Config(with_metaclass(Singleton)):
         Returns:
             bool
         """
-        return self.__config.get('use_aws') is True
+        return self.__dict.get('use_aws') is True
 
     @property
     def backend(self):
@@ -82,22 +82,22 @@ class Config(with_metaclass(Singleton)):
 
     @property
     def block_common_http_ports(self):
-        return self.use_letsencrypt or self.__config.get(
+        return self.use_letsencrypt or self.__dict.get(
             'block_common_http_ports') is True
 
     @property
     def expose_backend_ports(self):
-        return self.__config.get('expose_backend_ports') is True
+        return self.__dict.get('expose_backend_ports') is True
 
     def get_env_files_path(self):
         current_path = os.path.realpath(os.path.normpath(os.path.join(
-            self.__config.get('kobodocker_path'),
+            self.__dict.get('kobodocker_path'),
             '..',
             Config.ENV_FILES_DIR
         )))
 
         old_path = os.path.realpath(os.path.normpath(os.path.join(
-            self.__config.get('kobodocker_path'),
+            self.__dict.get('kobodocker_path'),
             '..',
             'kobo-deployments'
         )))
@@ -110,7 +110,7 @@ class Config(with_metaclass(Singleton)):
 
     def get_letsencrypt_repo_path(self):
         return os.path.realpath(os.path.normpath(os.path.join(
-            self.__config.get('kobodocker_path'),
+            self.__dict.get('kobodocker_path'),
             '..',
             Config.LETSENCRYPT_DOCKER_DIR
         )))
@@ -128,10 +128,10 @@ class Config(with_metaclass(Singleton)):
             CLI.colored_print('Invalid composer file', CLI.COLOR_ERROR)
             sys.exit(-1)
 
-        if not self.__config.get('docker_prefix'):
+        if not self.__dict.get('docker_prefix'):
             return prefix_
 
-        return '{}-{}'.format(self.__config.get('docker_prefix'),
+        return '{}-{}'.format(self.__dict.get('docker_prefix'),
                               prefix_)
 
     @property
@@ -161,7 +161,7 @@ class Config(with_metaclass(Singleton)):
             sys.exit(1)
         else:
 
-            self.__config = self.__get_upgraded_config()
+            self.__dict = self.__get_upgraded_dict()
             self.__welcome()
 
             self.__create_directory()
@@ -209,11 +209,11 @@ class Config(with_metaclass(Singleton)):
 
             self.write_config()
 
-            return self.__config
+            return self.__dict
 
     @property
     def dev_mode(self):
-        return self.__config.get('dev_mode') is True
+        return self.__dict['dev_mode'] is True
 
     @property
     def first_time(self):
@@ -224,7 +224,7 @@ class Config(with_metaclass(Singleton)):
             bool
         """
         if self.__first_time is None:
-            self.__first_time = self.__config.get('date_created') is None
+            self.__first_time = self.__dict.get( 'date_created') is None
         return self.__first_time
 
     @property
@@ -237,7 +237,7 @@ class Config(with_metaclass(Singleton)):
             configuration files
         """
         return not self.multi_servers or \
-               self.__config.get('server_role') == 'frontend'
+            self.__dict['server_role'] == 'frontend'
 
     @property
     def frontend_questions(self):
@@ -265,11 +265,11 @@ class Config(with_metaclass(Singleton)):
         return ''.join(choice(characters)
                        for _ in range(required_chars_count))
 
-    def get_config(self):
-        return self.__config
+    def get_dict(self):
+        return self.__dict
 
     @classmethod
-    def get_config_template(cls):
+    def get_template(cls):
 
         primary_ip = Network.get_primary_ip()
 
@@ -333,6 +333,7 @@ class Config(with_metaclass(Singleton)):
             'local_installation': False,
             'local_interface': 'eth0',
             'local_interface_ip': primary_ip,
+            'maintenance_enabled': False,
             'mongo_backup_schedule': '0 1 * * 0',
             'mongo_port': '27017',
             'mongo_root_password': Config.generate_password(),
@@ -408,12 +409,12 @@ class Config(with_metaclass(Singleton)):
                                 'config', '--services']
 
         services = CLI.run_command(service_list_command,
-                                   self.__config['kobodocker_path'])
+                                   self.__dict['kobodocker_path'])
         return services.strip().split('\n')
 
     @property
     def is_secure(self):
-        return self.__config.get('https') is True
+        return self.__dict.get('https') is True
 
     def init_letsencrypt(self):
         if self.use_letsencrypt:
@@ -432,7 +433,7 @@ class Config(with_metaclass(Singleton)):
         Returns:
             bool
         """
-        return self.__config.get('local_installation') is True
+        return self.__dict.get('local_installation') is True
 
     def maintenance(self):
         self.__questions_maintenance()
@@ -446,8 +447,8 @@ class Config(with_metaclass(Singleton)):
             bool
         """
         return self.multi_servers and \
-               self.__config.get('server_role') == 'backend' and \
-               self.__config.get('backend_server_role') == 'primary'
+               self.__dict.get('server_role') == 'backend' and \
+               self.__dict.get('backend_server_role') == 'primary'
 
     @property
     def multi_servers(self):
@@ -457,7 +458,7 @@ class Config(with_metaclass(Singleton)):
         Returns:
             bool
         """
-        return self.__config.get('multi') is True
+        return self.__dict.get('multi') is True
 
     @property
     def proxy(self):
@@ -467,7 +468,7 @@ class Config(with_metaclass(Singleton)):
         Returns:
             bool
         """
-        return self.__config.get('proxy') is True
+        return self.__dict.get('proxy') is True
 
     def read_config(self):
         """
@@ -486,10 +487,10 @@ class Config(with_metaclass(Singleton)):
         except IOError:
             pass
 
-        self.__config = config
+        self.__dict = config
         unique_id = self.read_unique_id()
         if not unique_id:
-            self.__config['unique_id'] = int(time.time())
+            self.__dict['unique_id'] = int(time.time())
 
         return config
 
@@ -503,7 +504,7 @@ class Config(with_metaclass(Singleton)):
         unique_id = None
 
         try:
-            unique_id_file = os.path.join(self.__config.get('kobodocker_path'),
+            unique_id_file = os.path.join(self.__dict.get('kobodocker_path'),
                                           Config.UNIQUE_ID_FILE)
             with open(unique_id_file, 'r') as f:
                 unique_id = f.read().strip()
@@ -521,24 +522,24 @@ class Config(with_metaclass(Singleton)):
             bool
         """
         return self.multi_servers and \
-               self.__config.get('server_role') == 'backend' and \
-               self.__config.get('backend_server_role') == 'secondary'
+               self.__dict.get('server_role') == 'backend' and \
+               self.__dict.get('backend_server_role') == 'secondary'
 
     def set_config(self, value):
-        self.__config = value
+        self.__dict = value
 
     @property
     def staging_mode(self):
-        return self.__config.get('staging_mode') is True
+        return self.__dict.get('staging_mode') is True
 
     @property
     def use_letsencrypt(self):
         return self.local_install is False and \
-               self.__config['use_letsencrypt'] is True
+               self.__dict['use_letsencrypt'] is True
 
     @property
     def use_private_dns(self):
-        return self.__config['use_private_dns'] is True
+        return self.__dict['use_private_dns'] is True
 
     def write_config(self):
         """
@@ -546,16 +547,16 @@ class Config(with_metaclass(Singleton)):
         """
         # Adds `date_created`. This field will be use to determine
         # first usage of the setup option.
-        if self.__config.get('date_created') is None:
-            self.__config['date_created'] = int(time.time())
-        self.__config['date_modified'] = int(time.time())
+        if self.__dict.get('date_created') is None:
+            self.__dict['date_created'] = int(time.time())
+        self.__dict['date_modified'] = int(time.time())
 
         try:
             base_dir = os.path.dirname(
                 os.path.dirname(os.path.realpath(__file__)))
             config_file = os.path.join(base_dir, Config.CONFIG_FILE)
             with open(config_file, 'w') as f:
-                f.write(json.dumps(self.__config, indent=2, sort_keys=True))
+                f.write(json.dumps(self.__dict, indent=2, sort_keys=True))
 
             os.chmod(config_file, stat.S_IWRITE | stat.S_IREAD)
 
@@ -566,10 +567,10 @@ class Config(with_metaclass(Singleton)):
 
     def write_unique_id(self):
         try:
-            unique_id_file = os.path.join(self.__config.get('kobodocker_path'),
+            unique_id_file = os.path.join(self.__dict.get('kobodocker_path'),
                                           Config.UNIQUE_ID_FILE)
             with open(unique_id_file, 'w') as f:
-                f.write(str(self.__config.get('unique_id')))
+                f.write(str(self.__dict.get('unique_id')))
 
             os.chmod(unique_id_file, stat.S_IWRITE | stat.S_IREAD)
         except (IOError, OSError):
@@ -585,7 +586,7 @@ class Config(with_metaclass(Singleton)):
         CLI.colored_print('Where do you want to install?', CLI.COLOR_SUCCESS)
         while True:
             kobodocker_path = CLI.colored_input('', CLI.COLOR_SUCCESS,
-                                                self.__config.get(
+                                                self.__dict.get(
                                                     'kobodocker_path'))
 
             if kobodocker_path.startswith('.'):
@@ -616,7 +617,7 @@ class Config(with_metaclass(Singleton)):
                             'and path is correct',
                             CLI.COLOR_ERROR)
 
-        self.__config['kobodocker_path'] = kobodocker_path
+        self.__dict['kobodocker_path'] = kobodocker_path
         self.write_unique_id()
         self.__validate_installation()
 
@@ -624,7 +625,7 @@ class Config(with_metaclass(Singleton)):
         if repo_path:
             if repo_path.startswith('.'):
                 full_repo_path = os.path.normpath(os.path.join(
-                    self.__config['kobodocker_path'],
+                    self.__dict['kobodocker_path'],
                     repo_path
                 ))
             else:
@@ -655,10 +656,10 @@ class Config(with_metaclass(Singleton)):
 
     def __detect_network(self):
 
-        self.__config['local_interface_ip'] = Network.get_primary_ip()
+        self.__dict['local_interface_ip'] = Network.get_primary_ip()
 
         if self.frontend:
-            self.__config['primary_backend_ip'] = self.__config[
+            self.__dict['primary_backend_ip'] = self.__dict[
                 'local_interface_ip']
 
         if self.advanced_options:
@@ -670,7 +671,7 @@ class Config(with_metaclass(Singleton)):
             docker_interface = 'docker0'
             interfaces.update({'other': 'Other'})
 
-            if self.__config.get('local_interface') == docker_interface and \
+            if self.__dict.get('local_interface') == docker_interface and \
                     docker_interface in all_interfaces:
                 interfaces.update(
                     {docker_interface: all_interfaces.get(docker_interface)})
@@ -682,7 +683,7 @@ class Config(with_metaclass(Singleton)):
             choices.append('other')
             response = CLI.get_response(
                 choices,
-                default=self.__config.get('local_interface',
+                default=self.__dict.get('local_interface',
                                           Network.get_primary_interface()))
 
             if response == 'other':
@@ -691,21 +692,21 @@ class Config(with_metaclass(Singleton)):
                     CLI.colored_print('\t{}) {}'.format(interface, ip_address))
 
                 choices = [str(interface) for interface in interfaces.keys()]
-                self.__config['local_interface'] = CLI.get_response(
+                self.__dict['local_interface'] = CLI.get_response(
                     choices,
-                    self.__config.get('local_interface',
+                    self.__dict.get('local_interface',
                                       Network.get_primary_interface()))
             else:
-                self.__config['local_interface'] = response
+                self.__dict['local_interface'] = response
 
-            self.__config['local_interface_ip'] = interfaces[
-                self.__config.get('local_interface')]
+            self.__dict['local_interface_ip'] = interfaces[
+                self.__dict.get('local_interface')]
 
             if self.frontend:
-                self.__config['primary_backend_ip'] = self.__config.get(
+                self.__dict['primary_backend_ip'] = self.__dict.get(
                     'local_interface_ip')
 
-    def __get_upgraded_config(self):
+    def __get_upgraded_dict(self):
         """
         Sometimes during upgrades, some keys are changed/deleted/added.
         This method helps to get a compliant dict to expected config
@@ -714,27 +715,27 @@ class Config(with_metaclass(Singleton)):
             dict
         """
 
-        upgraded_config = self.get_config_template()
-        upgraded_config.update(self.__config)
+        upgraded_dict = self.get_template()
+        upgraded_dict.update(self.__dict)
 
         # If the configuration came from a previous version that had a
         # single Postgres database, we need to make sure the new
         # `kc_postgres_db` is set to the name of that single database,
-        # *not* the default from `get_config_template()`
+        # *not* the default from `get_template()`
         if (
-                self.__config.get('postgres_db')
-                and not self.__config.get('kc_postgres_db')
+                self.__dict.get('postgres_db')
+                and not self.__dict.get('kc_postgres_db')
         ):
-            upgraded_config['kc_postgres_db'] = self.__config['postgres_db']
+            upgraded_dict['kc_postgres_db'] = self.__dict['postgres_db']
 
         # Force update user's config to use new terminology.
-        backend_role = upgraded_config.get('backend_server_role')
+        backend_role = upgraded_dict.get('backend_server_role')
         if backend_role in ['master', 'slave']:
-            upgraded_config['backend_server_role'] = 'primary' \
+            upgraded_dict['backend_server_role'] = 'primary' \
                 if backend_role == 'master' else 'secondary'
 
         # Move old `Config.TRUE` and `Config.FALSE` to real boolean
-        # ToDo message
+        # ToDo Display message to user when config is upgraded
         boolean_properties = [
             'advanced',
             'aws_backup_bucket_deletion_rule_enabled',
@@ -765,15 +766,15 @@ class Config(with_metaclass(Singleton)):
         ]
         for property_ in boolean_properties:
             try:
-                if isinstance(upgraded_config[property_], bool):
+                if isinstance(upgraded_dict[property_], bool):
                     continue
             except KeyError:
                 pass
             else:
-                upgraded_config[property_] = True \
-                    if upgraded_config[property_] == '1' else False
+                upgraded_dict[property_] = True \
+                    if upgraded_dict[property_] == '1' else False
 
-        return upgraded_config
+        return upgraded_dict
 
     def __questions_advanced_options(self):
         """
@@ -784,8 +785,8 @@ class Config(with_metaclass(Singleton)):
         CLI.colored_print('\t1) Yes')
         CLI.colored_print('\t2) No')
 
-        self.__config['advanced'] = CLI.get_response(
-            default=self.__config['advanced'])
+        self.__dict['advanced'] = CLI.get_response(
+            default=self.__dict['advanced'])
 
     def __questions_aws(self):
         """
@@ -796,53 +797,53 @@ class Config(with_metaclass(Singleton)):
                           CLI.COLOR_SUCCESS)
         CLI.colored_print('\t1) Yes')
         CLI.colored_print('\t2) No')
-        self.__config['use_aws'] = CLI.get_response(
-            default=self.__config['use_aws'])
-        if self.__config['use_aws'] is True:
-            self.__config['aws_access_key'] = CLI.colored_input(
+        self.__dict['use_aws'] = CLI.get_response(
+            default=self.__dict['use_aws'])
+        if self.__dict['use_aws'] is True:
+            self.__dict['aws_access_key'] = CLI.colored_input(
                 'AWS Access Key', CLI.COLOR_SUCCESS,
-                self.__config.get('aws_access_key', ''))
-            self.__config['aws_secret_key'] = CLI.colored_input(
+                self.__dict.get('aws_access_key', ''))
+            self.__dict['aws_secret_key'] = CLI.colored_input(
                 'AWS Secret Key', CLI.COLOR_SUCCESS,
-                self.__config.get('aws_secret_key', ''))
-            self.__config['aws_bucket_name'] = CLI.colored_input(
+                self.__dict.get('aws_secret_key', ''))
+            self.__dict['aws_bucket_name'] = CLI.colored_input(
                 'AWS Bucket name', CLI.COLOR_SUCCESS,
-                self.__config.get('aws_bucket_name', ''))
+                self.__dict.get('aws_bucket_name', ''))
         else:
-            self.__config['aws_access_key'] = ''
-            self.__config['aws_secret_key'] = ''
-            self.__config['aws_bucket_name'] = ''
+            self.__dict['aws_access_key'] = ''
+            self.__dict['aws_secret_key'] = ''
+            self.__dict['aws_bucket_name'] = ''
 
     def __questions_aws_backup_settings(self):
 
-        self.__config['aws_backup_bucket_name'] = CLI.colored_input(
+        self.__dict['aws_backup_bucket_name'] = CLI.colored_input(
             'AWS Backups bucket name', CLI.COLOR_SUCCESS,
-            self.__config.get('aws_backup_bucket_name', ''))
+            self.__dict.get('aws_backup_bucket_name', ''))
 
-        if self.__config['aws_backup_bucket_name'] != '':
+        if self.__dict['aws_backup_bucket_name'] != '':
 
-            backup_from_primary = self.__config[
+            backup_from_primary = self.__dict[
                                       'backup_from_primary'] is True
 
             CLI.colored_print('How many yearly backups to keep?',
                               CLI.COLOR_SUCCESS)
-            self.__config['aws_backup_yearly_retention'] = CLI.get_response(
-                r'~^\d+$', self.__config.get('aws_backup_yearly_retention'))
+            self.__dict['aws_backup_yearly_retention'] = CLI.get_response(
+                r'~^\d+$', self.__dict.get('aws_backup_yearly_retention'))
 
             CLI.colored_print('How many monthly backups to keep?',
                               CLI.COLOR_SUCCESS)
-            self.__config['aws_backup_monthly_retention'] = CLI.get_response(
-                r'~^\d+$', self.__config.get('aws_backup_monthly_retention'))
+            self.__dict['aws_backup_monthly_retention'] = CLI.get_response(
+                r'~^\d+$', self.__dict.get('aws_backup_monthly_retention'))
 
             CLI.colored_print('How many weekly backups to keep?',
                               CLI.COLOR_SUCCESS)
-            self.__config['aws_backup_weekly_retention'] = CLI.get_response(
-                r'~^\d+$', self.__config.get('aws_backup_weekly_retention'))
+            self.__dict['aws_backup_weekly_retention'] = CLI.get_response(
+                r'~^\d+$', self.__dict.get('aws_backup_weekly_retention'))
 
             CLI.colored_print('How many daily backups to keep?',
                               CLI.COLOR_SUCCESS)
-            self.__config['aws_backup_daily_retention'] = CLI.get_response(
-                r'~^\d+$', self.__config.get('aws_backup_daily_retention'))
+            self.__dict['aws_backup_daily_retention'] = CLI.get_response(
+                r'~^\d+$', self.__dict.get('aws_backup_daily_retention'))
 
             if (not self.multi_servers or
                     (self.primary_backend and backup_from_primary) or
@@ -853,10 +854,10 @@ class Config(with_metaclass(Singleton)):
                     'Files below this size will be ignored when '
                     'rotating backups.',
                     CLI.COLOR_INFO)
-                self.__config[
+                self.__dict[
                     'aws_postgres_backup_minimum_size'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__config.get('aws_postgres_backup_minimum_size'))
+                    self.__dict.get('aws_postgres_backup_minimum_size'))
 
             if self.primary_backend or not self.multi_servers:
                 CLI.colored_print('MongoDB backup minimum size (in MB)?',
@@ -865,10 +866,10 @@ class Config(with_metaclass(Singleton)):
                     'Files below this size will be ignored when '
                     'rotating backups.',
                     CLI.COLOR_INFO)
-                self.__config[
+                self.__dict[
                     'aws_mongo_backup_minimum_size'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__config.get('aws_mongo_backup_minimum_size'))
+                    self.__dict.get('aws_mongo_backup_minimum_size'))
 
                 CLI.colored_print('Redis backup minimum size (in MB)?',
                                   CLI.COLOR_SUCCESS)
@@ -876,23 +877,23 @@ class Config(with_metaclass(Singleton)):
                     'Files below this size will be ignored when '
                     'rotating backups.',
                     CLI.COLOR_INFO)
-                self.__config[
+                self.__dict[
                     'aws_redis_backup_minimum_size'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__config.get('aws_redis_backup_minimum_size'))
+                    self.__dict.get('aws_redis_backup_minimum_size'))
 
             CLI.colored_print('Chunk size of multipart uploads (in MB)?',
                               CLI.COLOR_SUCCESS)
-            self.__config['aws_backup_upload_chunk_size'] = CLI.get_response(
-                r'~^\d+$', self.__config.get('aws_backup_upload_chunk_size'))
+            self.__dict['aws_backup_upload_chunk_size'] = CLI.get_response(
+                r'~^\d+$', self.__dict.get('aws_backup_upload_chunk_size'))
 
             CLI.colored_print('Use AWS LifeCycle deletion rule?',
                               CLI.COLOR_SUCCESS)
             CLI.colored_print('\t1) Yes')
             CLI.colored_print('\t2) No')
-            self.__config[
+            self.__dict[
                 'aws_backup_bucket_deletion_rule_enabled'] = CLI.get_response(
-                default=self.__config.get('aws_backup_bucket_deletion_rule_enabled',
+                default=self.__dict.get('aws_backup_bucket_deletion_rule_enabled',
                                           False))
 
     def __questions_backup(self):
@@ -905,10 +906,10 @@ class Config(with_metaclass(Singleton)):
                               CLI.COLOR_SUCCESS)
             CLI.colored_print('\t1) Yes')
             CLI.colored_print('\t2) No')
-            self.__config['use_backup'] = CLI.get_response(
-                default=self.__config['use_backup'])
+            self.__dict['use_backup'] = CLI.get_response(
+                default=self.__dict['use_backup'])
 
-            if self.__config.get('use_backup') is True:
+            if self.__dict.get('use_backup') is True:
                 if self.advanced_options:
                     if self.backend_questions and not self.frontend_questions:
                         self.__questions_aws()
@@ -925,18 +926,18 @@ class Config(with_metaclass(Singleton)):
                             )
                             CLI.colored_print('\t1) Yes')
                             CLI.colored_print('\t2) No')
-                            self.__config['use_wal_e'] = CLI.get_response(
-                                default=self.__config['use_wal_e'])
+                            self.__dict['use_wal_e'] = CLI.get_response(
+                                default=self.__dict['use_wal_e'])
 
-                            if self.__config['use_wal_e'] is True:
-                                self.__config[
+                            if self.__dict['use_wal_e'] is True:
+                                self.__dict[
                                     'backup_from_primary'] = True
                         else:
                             # WAL-E cannot run on secondary
-                            self.__config['use_wal_e'] = False
+                            self.__dict['use_wal_e'] = False
                     else:
                         # WAL-E is only supported with AWS
-                        self.__config['use_wal_e'] = False
+                        self.__dict['use_wal_e'] = False
 
                     schedule_regex_pattern = (
                         r'^((((\d+(,\d+)*)|(\d+-\d+)|(\*(\/\d+)?)))'
@@ -955,16 +956,16 @@ class Config(with_metaclass(Singleton)):
                     if self.frontend_questions and not self.aws:
                         CLI.colored_print('KoBoCat media backup schedule?',
                                           CLI.COLOR_SUCCESS)
-                        self.__config[
+                        self.__dict[
                             'kobocat_media_backup_schedule'] = CLI.get_response(
                             '~{}'.format(schedule_regex_pattern),
-                            self.__config.get(
+                            self.__dict.get(
                                 'kobocat_media_backup_schedule',
                                 '0 0 * * 0'))
 
                     if self.backend_questions:
-                        if self.__config['use_wal_e'] is True:
-                            self.__config['backup_from_primary'] = True
+                        if self.__dict['use_wal_e'] is True:
+                            self.__dict['backup_from_primary'] = True
                         else:
                             if self.primary_backend:
                                 CLI.colored_print(
@@ -974,14 +975,14 @@ class Config(with_metaclass(Singleton)):
                                 )
                                 CLI.colored_print('\t1) Yes')
                                 CLI.colored_print('\t2) No')
-                                self.__config['backup_from_primary'] \
-                                    = CLI.get_response(default=self.__config['backup_from_primary'])
+                                self.__dict['backup_from_primary'] \
+                                    = CLI.get_response(default=self.__dict['backup_from_primary'])
                             else:
-                                self.__config[
+                                self.__dict[
                                     'backup_from_primary'] = False
 
                         backup_from_primary = \
-                            self.__config['backup_from_primary'] is True
+                            self.__dict['backup_from_primary'] is True
 
                         if (not self.multi_servers or
                                 (self.primary_backend and backup_from_primary)
@@ -990,29 +991,29 @@ class Config(with_metaclass(Singleton)):
                                  not backup_from_primary)):
                             CLI.colored_print('PostgreSQL backup schedule?',
                                               CLI.COLOR_SUCCESS)
-                            self.__config[
+                            self.__dict[
                                 'postgres_backup_schedule'] = CLI.get_response(
                                 '~{}'.format(schedule_regex_pattern),
-                                self.__config.get(
+                                self.__dict.get(
                                     'postgres_backup_schedule',
                                     '0 2 * * 0'))
 
                         if self.primary_backend or not self.multi_servers:
                             CLI.colored_print('MongoDB backup schedule?',
                                               CLI.COLOR_SUCCESS)
-                            self.__config[
+                            self.__dict[
                                 'mongo_backup_schedule'] = CLI.get_response(
                                 '~{}'.format(schedule_regex_pattern),
-                                self.__config.get(
+                                self.__dict.get(
                                     'mongo_backup_schedule',
                                     '0 1 * * 0'))
 
                             CLI.colored_print('Redis backup schedule?',
                                               CLI.COLOR_SUCCESS)
-                            self.__config[
+                            self.__dict[
                                 'redis_backup_schedule'] = CLI.get_response(
                                 '~{}'.format(schedule_regex_pattern),
-                                self.__config.get(
+                                self.__dict.get(
                                     'redis_backup_schedule',
                                     '0 3 * * 0'))
 
@@ -1020,7 +1021,7 @@ class Config(with_metaclass(Singleton)):
                             self.__questions_aws_backup_settings()
 
         else:
-            self.__config['use_backup'] = False
+            self.__dict['use_backup'] = False
 
     def __questions_dev_mode(self):
         """
@@ -1037,22 +1038,22 @@ class Config(with_metaclass(Singleton)):
             if self.local_install:
                 # NGinX different port
                 CLI.colored_print('Web server port?', CLI.COLOR_SUCCESS)
-                self.__config['exposed_nginx_docker_port'] = CLI.get_response(
-                    r'~^\d+$', self.__config['exposed_nginx_docker_port'])
+                self.__dict['exposed_nginx_docker_port'] = CLI.get_response(
+                    r'~^\d+$', self.__dict['exposed_nginx_docker_port'])
                 CLI.colored_print('Developer mode?', CLI.COLOR_SUCCESS)
                 CLI.colored_print('\t1) Yes')
                 CLI.colored_print('\t2) No')
-                self.__config['dev_mode'] = CLI.get_response(
-                    default=self.__config['dev_mode'])
-                self.__config['staging_mode'] = False
+                self.__dict['dev_mode'] = CLI.get_response(
+                    default=self.__dict['dev_mode'])
+                self.__dict['staging_mode'] = False
             else:
 
                 CLI.colored_print('Staging mode?', CLI.COLOR_SUCCESS)
                 CLI.colored_print('\t1) Yes')
                 CLI.colored_print('\t2) No')
-                self.__config['staging_mode'] = CLI.get_response(
-                    default=self.__config.get('staging_mode', False))
-                self.__config['dev_mode'] = False
+                self.__dict['staging_mode'] = CLI.get_response(
+                    default=self.__dict.get('staging_mode', False))
+                self.__dict['dev_mode'] = False
 
             if self.dev_mode or self.staging_mode:
                 message = (
@@ -1062,30 +1063,30 @@ class Config(with_metaclass(Singleton)):
                 )
                 CLI.framed_print(message, color=CLI.COLOR_INFO)
 
-                self.__config['kc_path'] = CLI.colored_input(
+                self.__dict['kc_path'] = CLI.colored_input(
                     'KoBoCat files location', CLI.COLOR_SUCCESS,
-                    self.__config.get('kc_path'))
+                    self.__dict.get('kc_path'))
 
-                self.__clone_repo(self.__config['kc_path'], 'kobocat')
-                self.__config['kpi_path'] = CLI.colored_input(
+                self.__clone_repo(self.__dict['kc_path'], 'kobocat')
+                self.__dict['kpi_path'] = CLI.colored_input(
                     'KPI files location', CLI.COLOR_SUCCESS,
-                    self.__config.get('kpi_path'))
-                self.__clone_repo(self.__config['kpi_path'], 'kpi')
+                    self.__dict.get('kpi_path'))
+                self.__clone_repo(self.__dict['kpi_path'], 'kpi')
 
                 # Create an unique id to build fresh image
                 # when starting containers
-                if (self.__config.get('kc_dev_build_id', '') == '' or
-                        self.__config.get('kc_path') != self.__config.get(
+                if (self.__dict.get('kc_dev_build_id', '') == '' or
+                        self.__dict.get('kc_path') != self.__dict.get(
                             'kc_path')):
-                    self.__config[
+                    self.__dict[
                         'kc_dev_build_id'] = '{prefix}{timestamp}'.format(
                         prefix=self.get_prefix('frontend'),
                         timestamp=str(int(time.time()))
                     )
-                if (self.__config.get('kpi_dev_build_id', '') == '' or
-                        self.__config.get('kpi_path') != self.__config.get(
+                if (self.__dict.get('kpi_dev_build_id', '') == '' or
+                        self.__dict.get('kpi_path') != self.__dict.get(
                             'kpi_path')):
-                    self.__config[
+                    self.__dict[
                         'kpi_dev_build_id'] = '{prefix}{timestamp}'.format(
                         prefix=self.get_prefix('frontend'),
                         timestamp=str(int(time.time()))
@@ -1095,16 +1096,16 @@ class Config(with_metaclass(Singleton)):
                     CLI.colored_print('Enable DEBUG?', CLI.COLOR_SUCCESS)
                     CLI.colored_print('\t1) True')
                     CLI.colored_print('\t2) False')
-                    self.__config['debug'] = CLI.get_response(
-                        default=self.__config.get('debug', True))
+                    self.__dict['debug'] = CLI.get_response(
+                        default=self.__dict.get('debug', True))
 
                     # Frontend development
                     CLI.colored_print('How do you want to run `npm`?',
                                       CLI.COLOR_SUCCESS)
                     CLI.colored_print('\t1) From within the container')
                     CLI.colored_print('\t2) Locally')
-                    self.__config['npm_container'] = CLI.get_response(
-                        default=self.__config.get('npm_container', True))
+                    self.__dict['npm_container'] = CLI.get_response(
+                        default=self.__dict.get('npm_container', True))
             else:
                 # Force reset paths
                 self.__reset(dev=True, reset_nginx_port=self.staging_mode)
@@ -1114,25 +1115,25 @@ class Config(with_metaclass(Singleton)):
         Asks for Docker compose prefix. It allows to start
         containers with a custom prefix
         """
-        self.__config['docker_prefix'] = CLI.colored_input(
+        self.__dict['docker_prefix'] = CLI.colored_input(
             'Docker Compose prefix? (leave empty for default)',
             CLI.COLOR_SUCCESS,
-            self.__config.get('docker_prefix', ''))
+            self.__dict.get('docker_prefix', ''))
 
     def __questions_google(self):
         """
         Asks for Google's keys
         """
         # Google Analytics
-        self.__config['google_ua'] = CLI.colored_input(
+        self.__dict['google_ua'] = CLI.colored_input(
             'Google Analytics Identifier', CLI.COLOR_SUCCESS,
-            self.__config.get('google_ua', ''))
+            self.__dict.get('google_ua', ''))
 
         # Google API Key
-        self.__config['google_api_key'] = CLI.colored_input(
+        self.__dict['google_api_key'] = CLI.colored_input(
             'Google API Key',
             CLI.COLOR_SUCCESS,
-            self.__config.get('google_api_key', ''))
+            self.__dict.get('google_api_key', ''))
 
     def __questions_https(self):
         """
@@ -1141,8 +1142,8 @@ class Config(with_metaclass(Singleton)):
         CLI.colored_print('Do you want to use HTTPS?', CLI.COLOR_SUCCESS)
         CLI.colored_print('\t1) Yes')
         CLI.colored_print('\t2) No')
-        self.__config['https'] = CLI.get_response(
-            default=self.__config.get('https', True))
+        self.__dict['https'] = CLI.get_response(
+            default=self.__dict.get('https', True))
 
         if self.is_secure:
             message = (
@@ -1161,8 +1162,8 @@ class Config(with_metaclass(Singleton)):
                           CLI.COLOR_SUCCESS)
         CLI.colored_print('\t1) On your workstation')
         CLI.colored_print('\t2) On a server')
-        self.__config['local_installation'] = CLI.get_response(
-            default=self.__config.get('local_installation', False))
+        self.__dict['local_installation'] = CLI.get_response(
+            default=self.__dict.get('local_installation', False))
         if self.local_install:
             # Reset previous choices, in case server role is not the same.
             self.__reset(local_install=True, private_dns=True)
@@ -1183,29 +1184,29 @@ class Config(with_metaclass(Singleton)):
 
         CLI.colored_print('How long do you plan to this maintenance will last?',
                           CLI.COLOR_SUCCESS)
-        self.__config['maintenance_eta'] = CLI.get_response(
+        self.__dict['maintenance_eta'] = CLI.get_response(
             r'~^[\w\ ]+$',
-            self.__config.get('maintenance_eta', '2 hours'))
+            self.__dict.get('maintenance_eta', '2 hours'))
 
         date_start = _round_nearest_quarter(datetime.utcnow())
         iso_format = '%Y%m%dT%H%M'
         CLI.colored_print('Start Date/Time (ISO format) GMT?',
                           CLI.COLOR_SUCCESS)
-        self.__config['maintenance_date_iso'] = CLI.get_response(
+        self.__dict['maintenance_date_iso'] = CLI.get_response(
             r'~^\d{8}T\d{4}$', date_start.strftime(iso_format))
-        self.__config['maintenance_date_iso'] = self.__config[
+        self.__dict['maintenance_date_iso'] = self.__dict[
             'maintenance_date_iso'].upper()
 
-        date_iso = self.__config['maintenance_date_iso']
-        self.__config['maintenance_date_str'] = datetime.strptime(date_iso,
+        date_iso = self.__dict['maintenance_date_iso']
+        self.__dict['maintenance_date_str'] = datetime.strptime(date_iso,
                                                                   iso_format). \
             strftime('%A,&nbsp;%B&nbsp;%d&nbsp;at&nbsp;%H:%M&nbsp;GMT')
 
-        self.__config['maintenance_email'] = CLI.colored_input(
+        self.__dict['maintenance_email'] = CLI.colored_input(
             'Contact during maintenance?',
             CLI.COLOR_SUCCESS,
-            self.__config.get('maintenance_email',
-                              self.__config.get('default_from_email')))
+            self.__dict.get('maintenance_email',
+                              self.__dict.get('default_from_email')))
         self.write_config()
 
     def __questions_mongo(self):
@@ -1215,47 +1216,47 @@ class Config(with_metaclass(Singleton)):
         - single server installation
         """
         if self.primary_backend or not self.multi_servers:
-            mongo_user_username = self.__config['mongo_user_username']
-            mongo_user_password = self.__config['mongo_user_password']
-            mongo_root_username = self.__config['mongo_root_username']
-            mongo_root_password = self.__config['mongo_root_password']
+            mongo_user_username = self.__dict['mongo_user_username']
+            mongo_user_password = self.__dict['mongo_user_password']
+            mongo_root_username = self.__dict['mongo_root_username']
+            mongo_root_password = self.__dict['mongo_root_password']
 
             CLI.colored_print("MongoDB root's username?",
                               CLI.COLOR_SUCCESS)
-            self.__config['mongo_root_username'] = CLI.get_response(
+            self.__dict['mongo_root_username'] = CLI.get_response(
                 r'~^\w+$',
-                self.__config.get('mongo_root_username'),
+                self.__dict.get('mongo_root_username'),
                 to_lower=False)
 
             CLI.colored_print("MongoDB root's password?", CLI.COLOR_SUCCESS)
-            self.__config['mongo_root_password'] = CLI.get_response(
+            self.__dict['mongo_root_password'] = CLI.get_response(
                 r'~^.{8,}$',
-                self.__config.get('mongo_root_password'),
+                self.__dict.get('mongo_root_password'),
                 to_lower=False,
                 error_msg='Too short. 8 characters minimum.')
 
             CLI.colored_print("MongoDB user's username?",
                               CLI.COLOR_SUCCESS)
-            self.__config['mongo_user_username'] = CLI.get_response(
+            self.__dict['mongo_user_username'] = CLI.get_response(
                 r'~^\w+$',
-                self.__config.get('mongo_user_username'),
+                self.__dict.get('mongo_user_username'),
                 to_lower=False)
 
             CLI.colored_print("MongoDB user's password?", CLI.COLOR_SUCCESS)
-            self.__config['mongo_user_password'] = CLI.get_response(
+            self.__dict['mongo_user_password'] = CLI.get_response(
                 r'~^.{8,}$',
-                self.__config.get('mongo_user_password'),
+                self.__dict.get('mongo_user_password'),
                 to_lower=False,
                 error_msg='Too short. 8 characters minimum.')
 
-            if (self.__config.get('mongo_secured') != True or
-                mongo_user_username != self.__config.get(
+            if (self.__dict.get('mongo_secured') != True or
+                mongo_user_username != self.__dict.get(
                         'mongo_user_username') or
-                mongo_user_password != self.__config.get(
+                mongo_user_password != self.__dict.get(
                         'mongo_user_password') or
-                mongo_root_username != self.__config.get(
+                mongo_root_username != self.__dict.get(
                         'mongo_root_username') or
-                mongo_root_password != self.__config.get(
+                mongo_root_password != self.__dict.get(
                         'mongo_root_password')) and \
                     not self.first_time:
 
@@ -1271,9 +1272,9 @@ class Config(with_metaclass(Singleton)):
                 # Its format should be: `<user><TAB><database>`
                 content = ''
 
-                if (mongo_user_username != self.__config.get(
+                if (mongo_user_username != self.__dict.get(
                         'mongo_user_username') or
-                        mongo_root_username != self.__config.get(
+                        mongo_root_username != self.__dict.get(
                             'mongo_root_username')):
 
                     message = (
@@ -1302,7 +1303,7 @@ class Config(with_metaclass(Singleton)):
 
                 self.__write_upsert_db_users_trigger_file(content, 'mongo')
 
-            self.__config['mongo_secured'] = True
+            self.__dict['mongo_secured'] = True
 
     def __questions_multi_servers(self):
         """
@@ -1314,8 +1315,8 @@ class Config(with_metaclass(Singleton)):
             CLI.COLOR_SUCCESS)
         CLI.colored_print('\t1) Yes')
         CLI.colored_print('\t2) No')
-        self.__config['multi'] = CLI.get_response(
-            default=self.__config.get('multi', False))
+        self.__dict['multi'] = CLI.get_response(
+            default=self.__dict.get('multi', False))
 
     def __questions_postgres(self):
         """
@@ -1327,7 +1328,7 @@ class Config(with_metaclass(Singleton)):
                           CLI.COLOR_SUCCESS)
         kc_postgres_db = CLI.get_response(
             r'~^\w+$',
-            self.__config.get('kc_postgres_db'),
+            self.__dict.get('kc_postgres_db'),
             to_lower=False
         )
 
@@ -1335,7 +1336,7 @@ class Config(with_metaclass(Singleton)):
                           CLI.COLOR_SUCCESS)
         kpi_postgres_db = CLI.get_response(
             r'~^\w+$',
-            self.__config.get('kpi_postgres_db'),
+            self.__dict.get('kpi_postgres_db'),
             to_lower=False)
 
         while kpi_postgres_db == kc_postgres_db:
@@ -1343,12 +1344,12 @@ class Config(with_metaclass(Singleton)):
                 'KPI must use its own PostgreSQL database, not share one with '
                 'KoBoCAT. Please enter another database',
                 CLI.COLOR_ERROR,
-                Config.get_config_template()['kpi_postgres_db'],
+                Config.get_template()['kpi_postgres_db'],
             )
 
-        if (kc_postgres_db != self.__config['kc_postgres_db'] or
-                (kpi_postgres_db != self.__config['kpi_postgres_db'] and
-                 self.__config.get('two_databases') is True)):
+        if (kc_postgres_db != self.__dict['kc_postgres_db'] or
+                (kpi_postgres_db != self.__dict['kpi_postgres_db'] and
+                 self.__dict.get('two_databases') is True)):
             message = (
                 'WARNING!\n\n'
                 'PostgreSQL database names have changed!\n'
@@ -1365,29 +1366,29 @@ class Config(with_metaclass(Singleton)):
             if CLI.get_response(default=False) is False:
                 sys.exit()
 
-        self.__config['kc_postgres_db'] = kc_postgres_db
-        self.__config['kpi_postgres_db'] = kpi_postgres_db
-        self.__config['two_databases'] = True
+        self.__dict['kc_postgres_db'] = kc_postgres_db
+        self.__dict['kpi_postgres_db'] = kpi_postgres_db
+        self.__dict['two_databases'] = True
 
-        postgres_user = self.__config['postgres_user']
-        postgres_password = self.__config['postgres_password']
+        postgres_user = self.__dict['postgres_user']
+        postgres_password = self.__dict['postgres_password']
 
         CLI.colored_print("PostgreSQL user's username?",
                           CLI.COLOR_SUCCESS)
-        self.__config['postgres_user'] = CLI.get_response(
+        self.__dict['postgres_user'] = CLI.get_response(
             r'~^\w+$',
-            self.__config.get('postgres_user'),
+            self.__dict.get('postgres_user'),
             to_lower=False)
 
         CLI.colored_print("PostgreSQL user's password?", CLI.COLOR_SUCCESS)
-        self.__config['postgres_password'] = CLI.get_response(
+        self.__dict['postgres_password'] = CLI.get_response(
             r'~^.{8,}$',
-            self.__config.get('postgres_password'),
+            self.__dict.get('postgres_password'),
             to_lower=False,
             error_msg='Too short. 8 characters minimum.')
 
-        if (postgres_user != self.__config.get('postgres_user') or
-            postgres_password != self.__config.get('postgres_password')) and \
+        if (postgres_user != self.__dict.get('postgres_user') or
+            postgres_password != self.__dict.get('postgres_password')) and \
                 not self.first_time:
 
             # Because chances are high we cannot communicate with DB
@@ -1404,7 +1405,7 @@ class Config(with_metaclass(Singleton)):
             # Its format should be: `<user><TAB><boolean>`
             content = '{username}\tfalse'.format(username=postgres_user)
 
-            if postgres_user != self.__config.get('postgres_user'):
+            if postgres_user != self.__dict.get('postgres_user'):
 
                 CLI.colored_print("PostgreSQL user's username has changed!",
                                   CLI.COLOR_WARNING)
@@ -1432,10 +1433,10 @@ class Config(with_metaclass(Singleton)):
                               CLI.COLOR_SUCCESS)
             CLI.colored_print('\t1) Yes')
             CLI.colored_print('\t2) No')
-            self.__config['postgres_settings'] = CLI.get_response(
-                default=self.__config.get('postgres_settings', False))
+            self.__dict['postgres_settings'] = CLI.get_response(
+                default=self.__dict.get('postgres_settings', False))
 
-            if self.__config['postgres_settings'] is True:
+            if self.__dict['postgres_settings'] is True:
 
                 # pgconfig.org API is often unresponsive and make kobo-install
                 # hang forever.
@@ -1457,28 +1458,28 @@ class Config(with_metaclass(Singleton)):
                 CLI.run_command(docker_command)
 
                 CLI.colored_print('Total Memory in GB?', CLI.COLOR_SUCCESS)
-                self.__config['postgres_ram'] = CLI.get_response(
+                self.__dict['postgres_ram'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__config.get('postgres_ram'))
+                    self.__dict.get('postgres_ram'))
 
                 CLI.colored_print('Storage type?', CLI.COLOR_SUCCESS)
                 CLI.colored_print('\thdd) Hard Disk Drive')
                 CLI.colored_print('\tssd) Solid State Drive')
                 CLI.colored_print('\tsan) Storage Area Network')
-                self.__config['postgres_hard_drive_type'] = CLI.get_response(
+                self.__dict['postgres_hard_drive_type'] = CLI.get_response(
                     ['hdd', 'ssd', 'san'],
-                    self.__config.get('postgres_hard_drive_type').lower())
+                    self.__dict.get('postgres_hard_drive_type').lower())
 
                 CLI.colored_print('Number of connections?', CLI.COLOR_SUCCESS)
-                self.__config['postgres_max_connections'] = CLI.get_response(
+                self.__dict['postgres_max_connections'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__config.get('postgres_max_connections'))
+                    self.__dict.get('postgres_max_connections'))
 
                 if self.multi_servers:
                     multi_servers_profiles = ['web', 'oltp', 'dw']
-                    if self.__config['postgres_profile'].lower() \
+                    if self.__dict['postgres_profile'].lower() \
                             not in multi_servers_profiles:
-                        self.__config['postgres_profile'] = 'web'
+                        self.__dict['postgres_profile'] = 'web'
 
                     CLI.colored_print('Application profile?', CLI.COLOR_SUCCESS)
                     CLI.colored_print('\tweb) General Web application')
@@ -1486,17 +1487,17 @@ class Config(with_metaclass(Singleton)):
                         '\toltp) ERP or long transaction applications')
                     CLI.colored_print('\tdw) DataWare house')
 
-                    self.__config['postgres_profile'] = CLI.get_response(
+                    self.__dict['postgres_profile'] = CLI.get_response(
                         ['web', 'oltp', 'dw'],
-                        self.__config.get('postgres_profile').lower())
+                        self.__dict.get('postgres_profile').lower())
 
-                    self.__config['postgres_profile'] = self.__config[
+                    self.__dict['postgres_profile'] = self.__dict[
                         'postgres_profile'].upper()
 
                 elif self.dev_mode:
-                    self.__config['postgres_profile'] = 'Desktop'
+                    self.__dict['postgres_profile'] = 'Desktop'
                 else:
-                    self.__config['postgres_profile'] = 'Mixed'
+                    self.__dict['postgres_profile'] = 'Mixed'
 
                 endpoint = 'http://127.0.0.1:{open_port}/v1/tuning/get-config' \
                            '?environment_name={profile}&format=conf' \
@@ -1507,21 +1508,21 @@ class Config(with_metaclass(Singleton)):
                            '&drive_type={drive_type}'
                 endpoint = endpoint.format(
                     open_port=open_port,
-                    profile=self.__config['postgres_profile'],
-                    ram=self.__config['postgres_ram'],
-                    max_connections=self.__config['postgres_max_connections'],
-                    drive_type=self.__config['postgres_hard_drive_type'].upper()
+                    profile=self.__dict['postgres_profile'],
+                    ram=self.__dict['postgres_ram'],
+                    max_connections=self.__dict['postgres_max_connections'],
+                    drive_type=self.__dict['postgres_hard_drive_type'].upper()
                 )
                 response = Network.curl(endpoint)
                 if response:
-                    self.__config['postgres_settings_content'] = re.sub(
+                    self.__dict['postgres_settings_content'] = re.sub(
                         r'(log|lc_).+(\n|$)', '', response)
                 else:
-                    if self.__config['postgres_settings_content'] == '':
+                    if self.__dict['postgres_settings_content'] == '':
                         CLI.colored_print('Use default settings.',
                                           CLI.COLOR_INFO)
                         # If no response from API, keep defaults
-                        self.__config['postgres_settings'] = False
+                        self.__dict['postgres_settings'] = False
                     else:
                         CLI.colored_print('\nKeep current settings.',
                                           CLI.COLOR_INFO)
@@ -1551,7 +1552,7 @@ class Config(with_metaclass(Singleton)):
                     "listen_addresses = '*'",
                     'max_connections = 100',
                 ])
-                self.__config['postgres_settings_content'] = \
+                self.__dict['postgres_settings_content'] = \
                     default_postgres_settings_content
 
     def __questions_ports(self):
@@ -1560,10 +1561,10 @@ class Config(with_metaclass(Singleton)):
         """
 
         def reset_ports():
-            self.__config['postgresql_port'] = '5432'
-            self.__config['mongo_port'] = '27017'
-            self.__config['redis_main_port'] = '6379'
-            self.__config['redis_cache_port'] = '6380'
+            self.__dict['postgresql_port'] = '5432'
+            self.__dict['mongo_port'] = '27017'
+            self.__dict['redis_main_port'] = '6379'
+            self.__dict['redis_cache_port'] = '6380'
 
         if not self.multi_servers:
             CLI.colored_print('Do you want to expose backend container ports '
@@ -1571,11 +1572,11 @@ class Config(with_metaclass(Singleton)):
                               CLI.COLOR_SUCCESS)
             CLI.colored_print('\t1) Yes')
             CLI.colored_print('\t2) No')
-            self.__config['expose_backend_ports'] = CLI.get_response(
-                default=self.__config.get('expose_backend_ports',
+            self.__dict['expose_backend_ports'] = CLI.get_response(
+                default=self.__dict.get('expose_backend_ports',
                                           False))
         else:
-            self.__config['expose_backend_ports'] = True
+            self.__dict['expose_backend_ports'] = True
 
         if not self.expose_backend_ports:
             reset_ports()
@@ -1593,29 +1594,29 @@ class Config(with_metaclass(Singleton)):
                           CLI.COLOR_SUCCESS)
         CLI.colored_print('\t1) Yes')
         CLI.colored_print('\t2) No')
-        self.__config['customized_ports'] = CLI.get_response(
-            default=self.__config.get('customized_ports',
+        self.__dict['customized_ports'] = CLI.get_response(
+            default=self.__dict.get('customized_ports',
                                       False))
 
-        if self.__config['customized_ports'] is False:
+        if self.__dict['customized_ports'] is False:
             reset_ports()
             return
 
         CLI.colored_print('PostgreSQL?', CLI.COLOR_SUCCESS)
-        self.__config['postgresql_port'] = CLI.get_response(
-            r'~^\d+$', self.__config.get('postgresql_port', '5432'))
+        self.__dict['postgresql_port'] = CLI.get_response(
+            r'~^\d+$', self.__dict.get('postgresql_port', '5432'))
 
         CLI.colored_print('MongoDB?', CLI.COLOR_SUCCESS)
-        self.__config['mongo_port'] = CLI.get_response(
-            r'~^\d+$', self.__config.get('mongo_port', '27017'))
+        self.__dict['mongo_port'] = CLI.get_response(
+            r'~^\d+$', self.__dict.get('mongo_port', '27017'))
 
         CLI.colored_print('Redis (main)?', CLI.COLOR_SUCCESS)
-        self.__config['redis_main_port'] = CLI.get_response(
-            r'~^\d+$', self.__config.get('redis_main_port', '6379'))
+        self.__dict['redis_main_port'] = CLI.get_response(
+            r'~^\d+$', self.__dict.get('redis_main_port', '6379'))
 
         CLI.colored_print('Redis (cache)?', CLI.COLOR_SUCCESS)
-        self.__config['redis_cache_port'] = CLI.get_response(
-            r'~^\d+$', self.__config.get('redis_cache_port', '6380'))
+        self.__dict['redis_cache_port'] = CLI.get_response(
+            r'~^\d+$', self.__dict.get('redis_cache_port', '6380'))
 
     def __questions_private_routes(self):
         """
@@ -1629,21 +1630,21 @@ class Config(with_metaclass(Singleton)):
         CLI.colored_print('\t1) Yes')
         CLI.colored_print('\t2) No')
 
-        self.__config['use_private_dns'] = CLI.get_response(
-            default=self.__config.get('use_private_dns',
+        self.__dict['use_private_dns'] = CLI.get_response(
+            default=self.__dict.get('use_private_dns',
                                       False))
 
-        if self.__config['use_private_dns'] is False:
+        if self.__dict['use_private_dns'] is False:
             CLI.colored_print('IP address (IPv4) of primary backend server?',
                               CLI.COLOR_SUCCESS)
-            self.__config['primary_backend_ip'] = CLI.get_response(
+            self.__dict['primary_backend_ip'] = CLI.get_response(
                 r'~\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}',
-                self.__config.get('primary_backend_ip', self.__primary_ip))
+                self.__dict.get('primary_backend_ip', self.__primary_ip))
         else:
-            self.__config['private_domain_name'] = CLI.colored_input(
+            self.__dict['private_domain_name'] = CLI.colored_input(
                 'Private domain name',
                 CLI.COLOR_SUCCESS,
-                self.__config.get(
+                self.__dict.get(
                     'private_domain_name', ''))
 
     def __questions_public_routes(self):
@@ -1651,31 +1652,31 @@ class Config(with_metaclass(Singleton)):
         Asks for public domain names
         """
 
-        self.__config['public_domain_name'] = CLI.colored_input(
+        self.__dict['public_domain_name'] = CLI.colored_input(
             'Public domain name', CLI.COLOR_SUCCESS,
-            self.__config.get('public_domain_name', ''))
-        self.__config['kpi_subdomain'] = CLI.colored_input('KPI sub domain',
+            self.__dict.get('public_domain_name', ''))
+        self.__dict['kpi_subdomain'] = CLI.colored_input('KPI sub domain',
                                                            CLI.COLOR_SUCCESS,
-                                                           self.__config.get(
+                                                           self.__dict.get(
                                                                'kpi_subdomain',
                                                                ''))
-        self.__config['kc_subdomain'] = CLI.colored_input('KoBoCat sub domain',
+        self.__dict['kc_subdomain'] = CLI.colored_input('KoBoCat sub domain',
                                                           CLI.COLOR_SUCCESS,
-                                                          self.__config.get(
+                                                          self.__dict.get(
                                                               'kc_subdomain',
                                                               ''))
-        self.__config['ee_subdomain'] = CLI.colored_input(
+        self.__dict['ee_subdomain'] = CLI.colored_input(
             'Enketo Express sub domain name',
             CLI.COLOR_SUCCESS,
-            self.__config.get('ee_subdomain', ''))
+            self.__dict.get('ee_subdomain', ''))
 
-        parts = self.__config.get('public_domain_name', '').split('.')
-        self.__config['internal_domain_name'] = '{}.internal'.format(
+        parts = self.__dict.get('public_domain_name', '').split('.')
+        self.__dict['internal_domain_name'] = '{}.internal'.format(
             '.'.join(parts[:-1])
         )
         if not self.multi_servers or \
                 (self.multi_servers and not self.use_private_dns):
-            self.__config['private_domain_name'] = '{}.private'.format(
+            self.__dict['private_domain_name'] = '{}.private'.format(
                 '.'.join(parts[:-1])
             )
 
@@ -1683,24 +1684,24 @@ class Config(with_metaclass(Singleton)):
         CLI.colored_print('Do you want to use Sentry?', CLI.COLOR_SUCCESS)
         CLI.colored_print('\t1) Yes')
         CLI.colored_print('\t2) No')
-        self.__config['raven_settings'] = CLI.get_response(
-            default=self.__config.get('raven_settings', False))
+        self.__dict['raven_settings'] = CLI.get_response(
+            default=self.__dict.get('raven_settings', False))
 
-        if self.__config.get('raven_settings') is True:
-            self.__config['kpi_raven'] = CLI.colored_input('KPI Raven token',
+        if self.__dict.get('raven_settings') is True:
+            self.__dict['kpi_raven'] = CLI.colored_input('KPI Raven token',
                                                            CLI.COLOR_SUCCESS,
-                                                           self.__config.get(
+                                                           self.__dict.get(
                                                                'kpi_raven', ''))
-            self.__config['kobocat_raven'] = CLI.colored_input(
+            self.__dict['kobocat_raven'] = CLI.colored_input(
                 'KoBoCat Raven token', CLI.COLOR_SUCCESS,
-                self.__config.get('kobocat_raven', ''))
-            self.__config['kpi_raven_js'] = CLI.colored_input(
+                self.__dict.get('kobocat_raven', ''))
+            self.__dict['kpi_raven_js'] = CLI.colored_input(
                 'KPI Raven JS token', CLI.COLOR_SUCCESS,
-                self.__config.get('kpi_raven_js', ''))
+                self.__dict.get('kpi_raven_js', ''))
         else:
-            self.__config['kpi_raven'] = ''
-            self.__config['kobocat_raven'] = ''
-            self.__config['kpi_raven_js'] = ''
+            self.__dict['kpi_raven'] = ''
+            self.__dict['kobocat_raven'] = ''
+            self.__dict['kpi_raven_js'] = ''
 
     def __questions_redis(self):
         """
@@ -1710,13 +1711,13 @@ class Config(with_metaclass(Singleton)):
         """
         if self.primary_backend or not self.multi_servers:
             CLI.colored_print('Redis password?', CLI.COLOR_SUCCESS)
-            self.__config['redis_password'] = CLI.get_response(
+            self.__dict['redis_password'] = CLI.get_response(
                 r'~^.{8,}|$',
-                self.__config.get('redis_password'),
+                self.__dict.get('redis_password'),
                 to_lower=False,
                 error_msg='Too short. 8 characters minimum.')
 
-            if not self.__config['redis_password']:
+            if not self.__dict['redis_password']:
                 message = (
                     'WARNING!\n\n'
                     'It is STRONGLY recommended to set a password for Redis '
@@ -1741,14 +1742,14 @@ class Config(with_metaclass(Singleton)):
             CLI.colored_print('\t1) Yes')
             CLI.colored_print(
                 '\t2) No - Use my own reverse-proxy/load-balancer')
-            self.__config['use_letsencrypt'] = CLI.get_response(
-                default=self.__config.get('use_letsencrypt', True))
-            self.__config['proxy'] = True
-            self.__config[
+            self.__dict['use_letsencrypt'] = CLI.get_response(
+                default=self.__dict.get('use_letsencrypt', True))
+            self.__dict['proxy'] = True
+            self.__dict[
                 'exposed_nginx_docker_port'] = Config.DEFAULT_NGINX_PORT
 
             if self.use_letsencrypt:
-                self.__config['nginx_proxy_port'] = Config.DEFAULT_PROXY_PORT
+                self.__dict['nginx_proxy_port'] = Config.DEFAULT_PROXY_PORT
 
                 message = (
                     'WARNING!\n\n'
@@ -1761,7 +1762,7 @@ class Config(with_metaclass(Singleton)):
                 while True:
                     letsencrypt_email = CLI.colored_input(
                         "Email address for Let's Encrypt", CLI.COLOR_SUCCESS,
-                        self.__config.get('letsencrypt_email'))
+                        self.__dict.get('letsencrypt_email'))
 
                     CLI.colored_print(
                         'Please confirm [{}]'.format(letsencrypt_email),
@@ -1770,7 +1771,7 @@ class Config(with_metaclass(Singleton)):
                     CLI.colored_print('\t2) No')
 
                     if CLI.get_response(default=True) is True:
-                        self.__config['letsencrypt_email'] = letsencrypt_email
+                        self.__dict['letsencrypt_email'] = letsencrypt_email
                         break
 
                 self.__clone_repo(self.get_letsencrypt_repo_path(),
@@ -1782,16 +1783,16 @@ class Config(with_metaclass(Singleton)):
                     CLI.COLOR_SUCCESS)
                 CLI.colored_print('\t1) Yes')
                 CLI.colored_print('\t2) No')
-                self.__config['proxy'] = CLI.get_response(
-                    default=self.__config.get('proxy', False))
-                self.__config['use_letsencrypt'] = False
+                self.__dict['proxy'] = CLI.get_response(
+                    default=self.__dict.get('proxy', False))
+                self.__dict['use_letsencrypt'] = False
             else:
-                self.__config['proxy'] = False
+                self.__dict['proxy'] = False
 
         if self.proxy:
             # When proxy is enabled, public port is 80 or 443.
             # @TODO Give the user the possibility to customize it too.
-            self.__config[
+            self.__dict[
                 'exposed_nginx_docker_port'] = Config.DEFAULT_NGINX_PORT
             if self.advanced_options:
                 if not self.use_letsencrypt:
@@ -1801,66 +1802,66 @@ class Config(with_metaclass(Singleton)):
                         CLI.COLOR_SUCCESS)
                     CLI.colored_print('\t1) Yes')
                     CLI.colored_print('\t2) No')
-                    self.__config['block_common_http_ports'] = CLI.get_response(
-                        default=self.__config.get('block_common_http_ports',
+                    self.__dict['block_common_http_ports'] = CLI.get_response(
+                        default=self.__dict.get('block_common_http_ports',
                                                   False))
                 else:
-                    self.__config['block_common_http_ports'] = True
+                    self.__dict['block_common_http_ports'] = True
 
                 if not self.__is_port_allowed(
-                        self.__config['nginx_proxy_port']):
+                        self.__dict['nginx_proxy_port']):
                     # Force nginx proxy port if port is not allowed
-                    self.__config[
+                    self.__dict[
                         'nginx_proxy_port'] = Config.DEFAULT_PROXY_PORT
 
                 CLI.colored_print('Internal port used by reverse proxy?',
                                   CLI.COLOR_SUCCESS)
                 while True:
-                    self.__config['nginx_proxy_port'] = CLI.get_response(
+                    self.__dict['nginx_proxy_port'] = CLI.get_response(
                         r'~^\d+$',
-                        self.__config.get('nginx_proxy_port'))
+                        self.__dict.get('nginx_proxy_port'))
                     if self.__is_port_allowed(
-                            self.__config['nginx_proxy_port']):
+                            self.__dict['nginx_proxy_port']):
                         break
                     else:
                         CLI.colored_print('Ports 80 and 443 are reserved!',
                                           CLI.COLOR_ERROR)
             else:
-                self.__config['block_common_http_ports'] = True
+                self.__dict['block_common_http_ports'] = True
                 if not self.use_letsencrypt:
                     CLI.colored_print(
                         'Internal port used by reverse proxy is {}.'.format(
                             Config.DEFAULT_PROXY_PORT
                         ), CLI.COLOR_WARNING)
-                self.__config['nginx_proxy_port'] = Config.DEFAULT_PROXY_PORT
+                self.__dict['nginx_proxy_port'] = Config.DEFAULT_PROXY_PORT
 
         else:
-            self.__config['use_letsencrypt'] = False
-            self.__config['nginx_proxy_port'] = Config.DEFAULT_NGINX_PORT
-            self.__config['block_common_http_ports'] = False
+            self.__dict['use_letsencrypt'] = False
+            self.__dict['nginx_proxy_port'] = Config.DEFAULT_NGINX_PORT
+            self.__dict['block_common_http_ports'] = False
 
     def __questions_roles(self):
         CLI.colored_print('Which role do you want to assign to this server?',
                           CLI.COLOR_SUCCESS)
         CLI.colored_print('\t1) frontend')
         CLI.colored_print('\t2) backend')
-        self.__config['server_role'] = CLI.get_response(['backend', 'frontend'],
-                                                        self.__config.get(
+        self.__dict['server_role'] = CLI.get_response(['backend', 'frontend'],
+                                                        self.__dict.get(
                                                             'server_role',
                                                             'frontend'))
 
-        if self.__config.get('server_role') == 'backend':
+        if self.__dict.get('server_role') == 'backend':
             CLI.colored_print(
                 'Which role do you want to assign to this backend server?',
                 CLI.COLOR_SUCCESS)
             CLI.colored_print('\t1) primary')
             CLI.colored_print('\t2) secondary')
-            self.__config['backend_server_role'] = CLI.get_response(
+            self.__dict['backend_server_role'] = CLI.get_response(
                 ['primary', 'secondary'],
-                self.__config.get('backend_server_role', 'primary'))
+                self.__dict.get('backend_server_role', 'primary'))
         else:
             # It may be useless to force backend role when using multi servers.
-            self.__config['backend_server_role'] = 'primary'
+            self.__dict['backend_server_role'] = 'primary'
 
     def __questions_secret_keys(self):
         CLI.colored_print(
@@ -1868,80 +1869,80 @@ class Config(with_metaclass(Singleton)):
             CLI.COLOR_SUCCESS)
         CLI.colored_print('\t1) Yes')
         CLI.colored_print('\t2) No')
-        self.__config['custom_secret_keys'] = CLI.get_response(
-            default=self.__config.get('custom_secret_keys'))
+        self.__dict['custom_secret_keys'] = CLI.get_response(
+            default=self.__dict.get('custom_secret_keys'))
 
-        if self.__config['custom_secret_keys'] is True:
+        if self.__dict['custom_secret_keys'] is True:
             CLI.colored_print("Django's secret key?", CLI.COLOR_SUCCESS)
-            self.__config['django_secret_key'] = CLI.get_response(
+            self.__dict['django_secret_key'] = CLI.get_response(
                 r'~^.{50,}$',
-                self.__config.get('django_secret_key'),
+                self.__dict.get('django_secret_key'),
                 to_lower=False,
                 error_msg='Too short. 50 characters minimum.')
 
             CLI.colored_print("Enketo's api key?", CLI.COLOR_SUCCESS)
-            self.__config['enketo_api_token'] = CLI.get_response(
+            self.__dict['enketo_api_token'] = CLI.get_response(
                 r'~^.{50,}$',
-                self.__config.get('enketo_api_token'),
+                self.__dict.get('enketo_api_token'),
                 to_lower=False,
                 error_msg='Too short. 50 characters minimum.')
 
             CLI.colored_print("Enketo's encryption key?", CLI.COLOR_SUCCESS)
-            self.__config['enketo_encryption_key'] = CLI.get_response(
+            self.__dict['enketo_encryption_key'] = CLI.get_response(
                 r'~^.{50,}$',
-                self.__config.get('enketo_encryption_key'),
+                self.__dict.get('enketo_encryption_key'),
                 to_lower=False,
                 error_msg='Too short. 50 characters minimum.')
 
             CLI.colored_print("Enketo's less secure encryption key?",
                               CLI.COLOR_SUCCESS)
-            self.__config[
+            self.__dict[
                 'enketo_less_secure_encryption_key'] = CLI.get_response(
                 r'~^.{10,}$',
-                self.__config.get('enketo_less_secure_encryption_key'),
+                self.__dict.get('enketo_less_secure_encryption_key'),
                 to_lower=False,
                 error_msg='Too short. 10 characters minimum.')
 
     def __questions_smtp(self):
-        self.__config['smtp_host'] = CLI.colored_input('SMTP server',
+        self.__dict['smtp_host'] = CLI.colored_input('SMTP server',
                                                        CLI.COLOR_SUCCESS,
-                                                       self.__config.get(
+                                                       self.__dict.get(
                                                            'smtp_host'))
-        self.__config['smtp_port'] = CLI.colored_input('SMTP port',
+        self.__dict['smtp_port'] = CLI.colored_input('SMTP port',
                                                        CLI.COLOR_SUCCESS,
-                                                       self.__config.get(
+                                                       self.__dict.get(
                                                            'smtp_port', '25'))
-        self.__config['smtp_user'] = CLI.colored_input('SMTP user',
+        self.__dict['smtp_user'] = CLI.colored_input('SMTP user',
                                                        CLI.COLOR_SUCCESS,
-                                                       self.__config.get(
+                                                       self.__dict.get(
                                                            'smtp_user', ''))
-        if self.__config.get('smtp_user'):
-            self.__config['smtp_password'] = CLI.colored_input(
+        if self.__dict.get('smtp_user'):
+            self.__dict['smtp_password'] = CLI.colored_input(
                 'SMTP password',
                 CLI.COLOR_SUCCESS,
-                self.__config.get('smtp_password'))
+                self.__dict.get('smtp_password'))
             CLI.colored_print('Use TLS?', CLI.COLOR_SUCCESS)
             CLI.colored_print('\t1) Yes')
             CLI.colored_print('\t2) No')
-            self.__config['smtp_use_tls'] = CLI.get_response(
-                default=self.__config.get('smtp_use_tls', True))
-        self.__config['default_from_email'] = CLI.colored_input(
+            self.__dict['smtp_use_tls'] = CLI.get_response(
+                default=self.__dict.get('smtp_use_tls', True))
+        self.__dict['default_from_email'] = CLI.colored_input(
             'From email address', CLI.COLOR_SUCCESS,
-            self.__config.get('default_from_email',
+            self.__dict.get('default_from_email',
                               'support@{}'.format(
-                                  self.__config.get(
+                                  self.__dict.get(
                                       'public_domain_name'))))
 
     def __questions_super_user_credentials(self):
         # Super user. Only ask for credentials the first time.
         # Super user is created if db doesn't exists.
         username = CLI.colored_input("Super user's username", CLI.COLOR_SUCCESS,
-                                     self.__config.get('super_user_username'))
+                                     self.__dict.get('super_user_username'))
         password = CLI.colored_input("Super user's password", CLI.COLOR_SUCCESS,
-                                     self.__config.get('super_user_password'))
+                                     self.__dict.get('super_user_password'))
 
-        if username == self.__config.get('super_user_username') and \
-                password != self.__config.get('super_user_password') and \
+        if username == self.__dict.get('super_user_username') and \
+                password != self.__dict.get('super_user_password') and \
                 not self.first_time:
             message = (
                 'WARNING!\n\n'
@@ -1957,8 +1958,8 @@ class Config(with_metaclass(Singleton)):
                 '3. Type `exit` to leave the KPI container;'
             )
             CLI.framed_print(message)
-        self.__config['super_user_username'] = username
-        self.__config['super_user_password'] = password
+        self.__dict['super_user_username'] = username
+        self.__dict['super_user_password'] = password
 
     def __questions_uwsgi(self):
 
@@ -1967,53 +1968,53 @@ class Config(with_metaclass(Singleton)):
                               CLI.COLOR_SUCCESS)
             CLI.colored_print('\t1) Yes')
             CLI.colored_print('\t2) No')
-            self.__config['uwsgi_settings'] = CLI.get_response(
-                default=self.__config.get('uwsgi_settings', False))
+            self.__dict['uwsgi_settings'] = CLI.get_response(
+                default=self.__dict.get('uwsgi_settings', False))
 
-            if self.__config.get('uwsgi_settings') is True:
+            if self.__dict.get('uwsgi_settings') is True:
                 CLI.colored_print('Number of uWSGi workers to start?',
                                   CLI.COLOR_SUCCESS)
-                self.__config['uwsgi_workers_start'] = CLI.get_response(
+                self.__dict['uwsgi_workers_start'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__config.get('uwsgi_workers_start'))
+                    self.__dict.get('uwsgi_workers_start'))
 
                 CLI.colored_print('Maximum uWSGi workers?', CLI.COLOR_SUCCESS)
-                self.__config['uwsgi_workers_max'] = CLI.get_response(
+                self.__dict['uwsgi_workers_max'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__config.get('uwsgi_workers_max'))
+                    self.__dict.get('uwsgi_workers_max'))
 
                 CLI.colored_print('Maximum number of requests per worker?',
                                   CLI.COLOR_SUCCESS)
-                self.__config['uwsgi_max_requests'] = CLI.get_response(
+                self.__dict['uwsgi_max_requests'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__config.get('uwsgi_max_requests'))
+                    self.__dict.get('uwsgi_max_requests'))
 
                 CLI.colored_print('Maximum memory per workers in MB?',
                                   CLI.COLOR_SUCCESS)
-                self.__config['uwsgi_soft_limit'] = CLI.get_response(
+                self.__dict['uwsgi_soft_limit'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__config.get('uwsgi_soft_limit'))
+                    self.__dict.get('uwsgi_soft_limit'))
 
                 CLI.colored_print('Maximum time (in seconds) before killing an '
                                   'unresponsive worker?', CLI.COLOR_SUCCESS)
-                self.__config['uwsgi_harakiri'] = CLI.get_response(
+                self.__dict['uwsgi_harakiri'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__config.get('uwsgi_harakiri'))
+                    self.__dict.get('uwsgi_harakiri'))
 
                 CLI.colored_print('Maximum time (in seconds) a worker can take '
                                   'to reload/shutdown?', CLI.COLOR_SUCCESS)
-                self.__config['uwsgi_worker_reload_mercy'] = CLI.get_response(
+                self.__dict['uwsgi_worker_reload_mercy'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__config.get('uwsgi_worker_reload_mercy'))
+                    self.__dict.get('uwsgi_worker_reload_mercy'))
 
                 return
 
-        self.__config['uwsgi_workers_start'] = '1'
-        self.__config['uwsgi_workers_max'] = '2'
-        self.__config['uwsgi_max_requests'] = '512'
-        self.__config['uwsgi_soft_limit'] = '128'
-        self.__config['uwsgi_harakiri'] = '120'
-        self.__config['uwsgi_worker_reload_mercy'] = '120'
+        self.__dict['uwsgi_workers_start'] = '1'
+        self.__dict['uwsgi_workers_max'] = '2'
+        self.__dict['uwsgi_max_requests'] = '512'
+        self.__dict['uwsgi_soft_limit'] = '128'
+        self.__dict['uwsgi_harakiri'] = '120'
+        self.__dict['uwsgi_worker_reload_mercy'] = '120'
 
     def __is_port_allowed(self, port):
         return not (self.block_common_http_ports and port in [
@@ -2036,24 +2037,24 @@ class Config(with_metaclass(Singleton)):
         reset_nginx_port = kwargs.get('reset_nginx_port', False)
 
         if dev_mode or all:
-            self.__config['dev_mode'] = False
-            self.__config['staging_mode'] = False
-            self.__config['kc_path'] = ''
-            self.__config['kpi_path'] = ''
-            self.__config['debug'] = False
+            self.__dict['dev_mode'] = False
+            self.__dict['staging_mode'] = False
+            self.__dict['kc_path'] = ''
+            self.__dict['kpi_path'] = ''
+            self.__dict['debug'] = False
             if reset_nginx_port:
-                self.__config[
+                self.__dict[
                     'exposed_nginx_docker_port'] = Config.DEFAULT_NGINX_PORT
 
         if private_dns or all:
-            self.__config['use_private_dns'] = False
+            self.__dict['use_private_dns'] = False
 
         if local_install or all:
-            self.__config['multi'] = False
-            self.__config['https'] = False
-            self.__config['proxy'] = False
-            self.__config['nginx_proxy_port'] = Config.DEFAULT_NGINX_PORT
-            self.__config['use_letsencrypt'] = False
+            self.__dict['multi'] = False
+            self.__dict['https'] = False
+            self.__dict['proxy'] = False
+            self.__dict['nginx_proxy_port'] = Config.DEFAULT_NGINX_PORT
+            self.__dict['use_letsencrypt'] = False
 
     def __secure_mongo(self):
         """
@@ -2061,10 +2062,10 @@ class Config(with_metaclass(Singleton)):
         a non secure version of KoBoInstall
         """
         # ToDo remove duplicated code with `__questions_mongo`
-        if not self.__config.get('mongo_secured') and not self.first_time:
+        if not self.__dict.get('mongo_secured') and not self.first_time:
             self.__write_upsert_db_users_trigger_file('', 'mongo')
 
-        self.__config['mongo_secured'] = True
+        self.__dict['mongo_secured'] = True
 
     def __validate_installation(self):
         """
@@ -2073,9 +2074,9 @@ class Config(with_metaclass(Singleton)):
         :return: bool
         """
         if self.first_time:
-            mongo_dir_path = os.path.join(self.__config['kobodocker_path'],
+            mongo_dir_path = os.path.join(self.__dict['kobodocker_path'],
                                           '.vols', 'mongo')
-            postgres_dir_path = os.path.join(self.__config['kobodocker_path'],
+            postgres_dir_path = os.path.join(self.__dict['kobodocker_path'],
                                              '.vols', 'db')
             mongo_data_exists = (
                     os.path.exists(mongo_dir_path) and os.path.isdir(
@@ -2091,7 +2092,7 @@ class Config(with_metaclass(Singleton)):
                 # images are the good ones.
                 # TODO Find a better way
                 docker_composer_file_path = os.path.join(
-                    self.__config['kobodocker_path'],
+                    self.__dict['kobodocker_path'],
                     'docker-compose.backend.template.yml')
                 if not os.path.exists(docker_composer_file_path):
                     message = (
@@ -2126,7 +2127,7 @@ class Config(with_metaclass(Singleton)):
                         # container's entrypoint flawlessly.
                         os.system(
                             'echo $(date) | sudo tee -a {} > /dev/null'.format(
-                                os.path.join(self.__config['kobodocker_path'],
+                                os.path.join(self.__dict['kobodocker_path'],
                                              '.vols', 'db', 'kobo_first_run')
                             ))
 
@@ -2146,7 +2147,7 @@ class Config(with_metaclass(Singleton)):
 
     def __write_upsert_db_users_trigger_file(self, content, destination):
         try:
-            trigger_file = os.path.join(self.__config.get('kobodocker_path'),
+            trigger_file = os.path.join(self.__dict.get('kobodocker_path'),
                                         destination,
                                         Config.UPSERT_DB_USERS_TRIGGER_FILE)
             with open(trigger_file, 'w') as f:

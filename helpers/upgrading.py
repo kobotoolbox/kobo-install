@@ -14,9 +14,9 @@ def migrate_single_to_two_databases():
     while KoBoCAT's has user data, then we are migrating from a
     single-database setup
     """
-    config_object = Config()
-    config = config_object.get_config()
-    backend_role = config.get('backend_server_role', 'primary')
+    config = Config()
+    dict_ = config.get_dict()
+    backend_role = dict_['backend_server_role']
 
     def _kpi_db_alias_kludge(command):
         """
@@ -32,7 +32,7 @@ def migrate_single_to_two_databases():
     kpi_run_command = ['docker-compose',
                        '-f', 'docker-compose.frontend.yml',
                        '-f', 'docker-compose.frontend.override.yml',
-                       '-p', config_object.get_prefix('frontend'),
+                       '-p', config.get_prefix('frontend'),
                        'run', '--rm', 'kpi']
 
     # Make sure Postgres is running
@@ -46,14 +46,14 @@ def migrate_single_to_two_databases():
                            'python', 'manage.py',
                            'wait_for_database', '--retries', '45'
                        ]))
-    CLI.run_command(frontend_command, config.get('kobodocker_path'))
+    CLI.run_command(frontend_command, dict_['kobodocker_path'])
     CLI.colored_print('The PostgreSQL database is running!', CLI.COLOR_SUCCESS)
 
     frontend_command = kpi_run_command + _kpi_db_alias_kludge(' '.join([
                             'python', 'manage.py',
                             'is_database_empty', 'kpi', 'kobocat'
                        ]))
-    output = CLI.run_command(frontend_command, config.get('kobodocker_path'))
+    output = CLI.run_command(frontend_command, dict_['kobodocker_path'])
     # TODO: read only stdout and don't consider stderr unless the exit code
     # is non-zero. Currently, `output` combines both stdout and stderr
     kpi_kc_db_empty = output.strip().split('\n')[-1]
@@ -101,14 +101,14 @@ def migrate_single_to_two_databases():
             'docker-compose.backend.{}.yml'.format(backend_role),
             '-f',
             'docker-compose.backend.{}.override.yml'.format(backend_role),
-            '-p', config_object.get_prefix('backend'),
+            '-p', config.get_prefix('backend'),
             'exec', 'postgres', 'bash',
             '/kobo-docker-scripts/primary/clone_data_from_kc_to_kpi.sh',
             '--noinput'
         ]
         try:
             subprocess.check_call(
-                backend_command, cwd=config.get('kobodocker_path')
+                backend_command, cwd=dict_['kobodocker_path']
             )
         except subprocess.CalledProcessError:
             CLI.colored_print('An error has occurred', CLI.COLOR_ERROR)

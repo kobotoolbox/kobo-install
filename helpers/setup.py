@@ -14,50 +14,51 @@ from helpers.template import Template
 class Setup:
 
     @classmethod
-    def clone_kobodocker(cls, config_object):
+    def clone_kobodocker(cls, config):
         """
-        :param config_object: `Config`
+            Args:
+                config (helpers.config.Config)
         """
-        config = config_object.get_config()
-        do_update = config_object.first_time
+        dict_ = config.get_dict_()
+        do_update = config.first_time
 
-        if not os.path.isdir(os.path.join(config['kobodocker_path'], '.git')):
+        if not os.path.isdir(os.path.join(dict_['kobodocker_path'], '.git')):
             # Move unique id file to /tmp in order to clone without errors
             # (e.g. not empty directory)
             tmp_dirpath = tempfile.mkdtemp()
-            shutil.move(os.path.join(config['kobodocker_path'],
+            shutil.move(os.path.join(dict_['kobodocker_path'],
                                      Config.UNIQUE_ID_FILE),
                         os.path.join(tmp_dirpath, Config.UNIQUE_ID_FILE))
 
             # clone project
             git_command = [
                 'git', 'clone', 'https://github.com/kobotoolbox/kobo-docker',
-                config['kobodocker_path']
+                dict_['kobodocker_path']
             ]
             CLI.run_command(git_command, cwd=os.path.dirname(
-                config['kobodocker_path']))
+                dict_['kobodocker_path']))
 
             shutil.move(os.path.join(tmp_dirpath, Config.UNIQUE_ID_FILE),
-                        os.path.join(config['kobodocker_path'],
+                        os.path.join(dict_['kobodocker_path'],
                                      Config.UNIQUE_ID_FILE))
             shutil.rmtree(tmp_dirpath)
             do_update = True  # Force update
 
         if do_update:
-            cls.update_kobodocker(config)
+            cls.update_kobodocker(dict_)
 
     @classmethod
     def post_update(cls, cron):
 
-        config_object = Config()
+        config = Config()
 
         # When `cron` is True, we want to bypass question and just recreate
         # YML and environment files from new templates
         if cron is True:
-            current_config = config_object.get_config_template()
-            current_config.update(config_object.get_config())
-            config_object.set_config(current_config)
-            Template.render(config_object, force=True)
+            current_dict = config.get_template()
+            current_dict.update(config.get_dict())
+            config.set_config(current_dict)
+            Template.render(config, force=True)
             sys.exit(0)
 
         CLI.colored_print('╔══════════════════════════════════════════════════════╗',
@@ -74,10 +75,10 @@ class Setup:
         CLI.colored_print('\t2) No')
         response = CLI.get_response(default=True)
         if response is True:
-            current_config = config_object.build()
-            Template.render(config_object)
-            config_object.init_letsencrypt()
-            Setup.update_hosts(current_config)
+            current_dict = config.build()
+            Template.render(config)
+            config.init_letsencrypt()
+            Setup.update_hosts(current_dict)
 
             CLI.colored_print('Do you want to (re)start containers?',
                               CLI.COLOR_SUCCESS)
@@ -88,25 +89,26 @@ class Setup:
                 Command.start()
 
     @staticmethod
-    def update_kobodocker(config=None):
+    def update_kobodocker(dict_=None):
         """
-        :param config: Config().get_config()
+            Args:
+                dict_ (dict): Dictionary provided by `Config.get_dict()`
         """
-        if not config:
-            config_object = Config()
-            config = config_object.get_config()
+        if not dict_:
+            config = Config()
+            dict_ = config.get_dict()
 
         # fetch new tags and prune
         git_command = ['git', 'fetch', '-p']
-        CLI.run_command(git_command, cwd=config['kobodocker_path'])
+        CLI.run_command(git_command, cwd=dict_['kobodocker_path'])
 
         # checkout branch
         git_command = ['git', 'checkout', '--force', Config.KOBO_DOCKER_BRANCH]
-        CLI.run_command(git_command, cwd=config['kobodocker_path'])
+        CLI.run_command(git_command, cwd=dict_['kobodocker_path'])
 
         # update code
         git_command = ['git', 'pull', 'origin', Config.KOBO_DOCKER_BRANCH]
-        CLI.run_command(git_command, cwd=config['kobodocker_path'])
+        CLI.run_command(git_command, cwd=dict_['kobodocker_path'])
 
     @staticmethod
     def update_koboinstall(version):
@@ -123,9 +125,12 @@ class Setup:
         CLI.run_command(git_command)
 
     @classmethod
-    def update_hosts(cls, config):
-
-        if config.get('local_installation') is True:
+    def update_hosts(cls, dict_):
+        """
+            Args:
+                dict_ (dict): Dictionary provided by `Config.get_dict()`
+        """
+        if dict_['local_installation'] is True:
             start_sentence = '### (BEGIN) KoBoToolbox local routes'
             end_sentence = '### (END) KoBoToolbox local routes'
 
@@ -143,11 +148,11 @@ class Setup:
                      '{kpi_subdomain}.{public_domain_name} ' \
                      '{kc_subdomain}.{public_domain_name} ' \
                      '{ee_subdomain}.{public_domain_name}'.format(
-                        ip_address=config.get('local_interface_ip'),
-                        public_domain_name=config.get('public_domain_name'),
-                        kpi_subdomain=config.get('kpi_subdomain'),
-                        kc_subdomain=config.get('kc_subdomain'),
-                        ee_subdomain=config.get('ee_subdomain')
+                        ip_address=dict_['local_interface_ip'],
+                        public_domain_name=dict_['public_domain_name'],
+                        kpi_subdomain=dict_['kpi_subdomain'],
+                        kc_subdomain=dict_['kc_subdomain'],
+                        ee_subdomain=dict_['ee_subdomain']
                      )
 
             tmp_host = ('{bof}'
@@ -164,7 +169,7 @@ class Setup:
             with open('/tmp/etchosts', 'w') as f:
                 f.write(tmp_host)
 
-            if config.get('review_host') != False:
+            if dict_['review_host'] is True:
                 CLI.colored_print('╔═══════════════════════════════════════════════════════════════════╗',
                                   CLI.COLOR_WARNING)
                 CLI.colored_print('║ Administrative privileges are required to update your /etc/hosts. ║',
@@ -175,16 +180,16 @@ class Setup:
                                   CLI.COLOR_SUCCESS)
                 CLI.colored_print('\t1) Yes')
                 CLI.colored_print('\t2) No')
-                config['review_host'] = CLI.get_response(
-                    default=config.get('review_host', False))
+                dict_['review_host'] = CLI.get_response(
+                    default=dict_['review_host'])
 
-                if config['review_host'] is True:
+                if dict_['review_host'] is True:
                     print(tmp_host)
                     CLI.colored_input('Press any keys when ready')
 
                 # Save 'review_host'
-                config_ = Config()
-                config_.write_config()
+                config = Config()
+                config.write_config()
 
             cmd = 'sudo mv /etc/hosts /etc/hosts.old ' \
                   '&& sudo mv /tmp/etchosts /etc/hosts'
@@ -199,8 +204,8 @@ class Setup:
         pulled and checked out before going further.
         """
 
-        config_object = Config()
-        config = config_object.get_config()
+        config = Config()
+        dict_ = config.dict_()
 
         def display_error_message(message):
             max_chars_count = 51
@@ -218,9 +223,9 @@ class Setup:
             sys.exit(1)
 
         try:
-            config['kobodocker_path']
+            dict_['kobodocker_path']
         except KeyError:
             display_error_message('No configuration file found.')
 
-        if not os.path.isdir(os.path.join(config['kobodocker_path'], '.git')):
+        if not os.path.isdir(os.path.join(dict_['kobodocker_path'], '.git')):
             display_error_message('`kobo-docker` repository is missing!')

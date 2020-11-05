@@ -48,7 +48,7 @@ def test_toggle_trivial():
        new=MockCommand.run_command)
 def test_toggle_no_letsencrypt():
     config_object = read_config()
-    config_object._Config__config['use_letsencrypt'] = False
+    config_object._Config__dict['use_letsencrypt'] = False
     Command.start()
     mock_docker = MockDocker()
     expected_containers = MockDocker.FRONTEND_CONTAINERS + \
@@ -91,9 +91,9 @@ def test_toggle_frontend():
        new=MockCommand.run_command)
 def test_toggle_primary_backend():
     config_object = read_config()
-    config_object._Config__config['backend_server_role'] = 'primary'
-    config_object._Config__config['server_role'] = 'backend'
-    config_object._Config__config['multi'] = True
+    config_object._Config__dict['backend_server_role'] = 'primary'
+    config_object._Config__dict['server_role'] = 'backend'
+    config_object._Config__dict['multi'] = True
 
     Command.start()
     mock_docker = MockDocker()
@@ -115,9 +115,9 @@ def test_toggle_primary_backend():
        new=MockCommand.run_command)
 def test_toggle_secondary_backend():
     config_object = read_config()
-    config_object._Config__config['backend_server_role'] = 'secondary'
-    config_object._Config__config['server_role'] = 'backend'
-    config_object._Config__config['multi'] = True
+    config_object._Config__dict['backend_server_role'] = 'secondary'
+    config_object._Config__dict['server_role'] = 'backend'
+    config_object._Config__dict['multi'] = True
 
     mock_docker = MockDocker()
     Command.start()
@@ -146,13 +146,13 @@ def test_toggle_maintenance():
                           MockDocker.LETSENCRYPT
     assert sorted(mock_docker.ps()) == sorted(expected_containers)
 
-    config_object._Config__config['maintenance_enabled'] = True
+    config_object._Config__dict['maintenance_enabled'] = True
     Command.start()
     maintenance_containers = MockDocker.PRIMARY_BACKEND_CONTAINERS + \
                              MockDocker.MAINTENANCE_CONTAINERS + \
                              MockDocker.LETSENCRYPT
     assert sorted(mock_docker.ps()) == sorted(maintenance_containers)
-    config_object._Config__config['maintenance_enabled'] = False
+    config_object._Config__dict['maintenance_enabled'] = False
     Command.start()
     assert sorted(mock_docker.ps()) == sorted(expected_containers)
     Command.stop()

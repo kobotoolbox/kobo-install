@@ -59,28 +59,32 @@ class Command:
 
         :param image: str
         """
-        config_object = Config()
-        config = config_object.get_config()
+        config = Config()
+        dict_ = config.get_dict()
 
-        if config_object.dev_mode or config_object.staging_mode:
+        if config.dev_mode or config.staging_mode:
 
             def build_image(image_):
-                frontend_command = ['docker-compose',
-                                    '-f', 'docker-compose.frontend.yml',
-                                    '-f', 'docker-compose.frontend.override.yml',
-                                    '-p', config_object.get_prefix('frontend'),
-                                    'build', '--force-rm', '--no-cache',
-                                    image_]
+                frontend_command = [
+                    'docker-compose',
+                    '-f',
+                    'docker-compose.frontend.yml',
+                    '-f',
+                    'docker-compose.frontend.override.yml',
+                    '-p', config.get_prefix('frontend'),
+                    'build', '--force-rm', '--no-cache',
+                    image_
+                ]
 
-                CLI.run_command(frontend_command, config.get('kobodocker_path'))
+                CLI.run_command(frontend_command, dict_['kobodocker_path'])
 
             if image is None or image == 'kf':
-                config['kpi_dev_build_id'] = '{prefix}{timestamp}'.format(
-                    prefix=config_object.get_prefix('frontend'),
+                dict_['kpi_dev_build_id'] = '{prefix}{timestamp}'.format(
+                    prefix=config.get_prefix('frontend'),
                     timestamp=str(int(time.time()))
                 )
-                config_object.write_config()
-                Template.render(config_object)
+                config.write_config()
+                Template.render(config)
                 build_image('kpi')
 
             if image is None or image == 'kc':
@@ -88,52 +92,52 @@ class Command:
                                      'pull',
                                      'kobotoolbox/koboform_base']
 
-                CLI.run_command(pull_base_command, config.get('kobodocker_path'))
+                CLI.run_command(pull_base_command, dict_['kobodocker_path'])
 
-                config['kc_dev_build_id'] = '{prefix}{timestamp}'.format(
-                    prefix=config_object.get_prefix('frontend'),
+                dict_['kc_dev_build_id'] = '{prefix}{timestamp}'.format(
+                    prefix=config.get_prefix('frontend'),
                     timestamp=str(int(time.time()))
                 )
-                config_object.write_config()
-                Template.render(config_object)
+                config.write_config()
+                Template.render(config)
                 build_image('kobocat')
 
     @classmethod
     def compose_frontend(cls, args):
-        config_object = Config()
-        config = config_object.get_config()
+        config = Config()
+        dict_ = config.get_dict()
         command = ['docker-compose',
                    '-f', 'docker-compose.frontend.yml',
                    '-f', 'docker-compose.frontend.override.yml',
-                   '-p', config_object.get_prefix('frontend')]
+                   '-p', config.get_prefix('frontend')]
         command.extend(args)
-        subprocess.call(command, cwd=config.get('kobodocker_path'))
+        subprocess.call(command, cwd=dict_['kobodocker_path'])
 
     @classmethod
     def compose_backend(cls, args):
-        config_object = Config()
-        config = config_object.get_config()
-        backend_role = config.get('backend_server_role', 'primary')
+        config = Config()
+        dict_ = config.get_dict()
+        backend_role = dict_['backend_server_role']
         command = [
             'docker-compose',
             '-f', 'docker-compose.backend.{}.yml'.format(backend_role),
             '-f', 'docker-compose.backend.{}.override.yml'.format(backend_role),
-            '-p', config_object.get_prefix('backend')
+            '-p', config.get_prefix('backend')
         ]
         command.extend(args)
-        subprocess.call(command, cwd=config.get('kobodocker_path'))
+        subprocess.call(command, cwd=dict_['kobodocker_path'])
 
     @classmethod
     def info(cls, timeout=600):
-        config_object = Config()
-        config = config_object.get_config()
+        config = Config()
+        dict_ = config.get_dict()
 
-        nginx_port = config.get('exposed_nginx_docker_port')
+        nginx_port = dict_['exposed_nginx_docker_port']
 
         main_url = '{}://{}.{}{}'.format(
-            'https' if config.get('https') is True else 'http',
-            config.get('kpi_subdomain'),
-            config.get('public_domain_name'),
+            'https' if dict_.get('https') is True else 'http',
+            dict_.get('kpi_subdomain'),
+            dict_.get('public_domain_name'),
             ':{}'.format(nginx_port) if (
                     nginx_port and
                     str(nginx_port) != Config.DEFAULT_NGINX_PORT
@@ -143,13 +147,11 @@ class Command:
         stop = False
         start = int(time.time())
         success = False
-        hostname = '{}.{}'.format(config.get('kpi_subdomain'),
-                                  config.get('public_domain_name'))
+        hostname = '{}.{}'.format(dict_['kpi_subdomain'],
+                                  dict_['public_domain_name'])
+        https = dict_['https'] is True
         nginx_port = int(Config.DEFAULT_NGINX_HTTPS_PORT) \
-            if config.get('https') is True \
-            else int(config.get('exposed_nginx_docker_port',
-                                Config.DEFAULT_NGINX_PORT))
-        https = config.get('https') is True
+            if https else int(dict_['exposed_nginx_docker_port'])
         already_retried = False
         while not stop:
             if Network.status_check(hostname,
@@ -201,8 +203,8 @@ class Command:
         print('')
 
         if success:
-            username = config['super_user_username']
-            password = config['super_user_password']
+            username = dict_['super_user_username']
+            password = dict_['super_user_password']
             username_chars_count = len(username) + 6
             password_chars_count = len(password) + 10
             url_chars_count = len(main_url) + 6
@@ -233,11 +235,11 @@ class Command:
 
     @classmethod
     def logs(cls):
-        config_object = Config()
-        config = config_object.get_config()
+        config = Config()
+        dict_ = config.get_dict()
 
-        if config_object.primary_backend or config_object.secondary_backend:
-            backend_role = config.get('backend_server_role', 'primary')
+        if config.primary_backend or config.secondary_backend:
+            backend_role = dict_['backend_server_role']
 
             backend_command = ['docker-compose',
                                '-f',
@@ -247,63 +249,63 @@ class Command:
                                'docker-compose.backend.{}.override.yml'.format(
                                    backend_role),
                                '-p',
-                               config_object.get_prefix('backend'),
+                               config.get_prefix('backend'),
                                'logs',
                                '-f'
                                ]
             CLI.run_command(backend_command,
-                            config.get('kobodocker_path'),
+                            dict_['kobodocker_path'],
                             True)
 
-        if config_object.frontend:
+        if config.frontend:
             frontend_command = ['docker-compose',
                                 '-f', 'docker-compose.frontend.yml',
                                 '-f', 'docker-compose.frontend.override.yml',
-                                '-p', config_object.get_prefix('frontend'),
+                                '-p', config.get_prefix('frontend'),
                                 'logs', '-f']
             CLI.run_command(frontend_command,
-                            config.get('kobodocker_path'),
+                            dict_['kobodocker_path'],
                             True)
 
     @classmethod
     def configure_maintenance(cls):
-        config_object = Config()
-        config = config_object.get_config()
+        config = Config()
+        dict_ = config.get_dict()
 
-        if not config_object.multi_servers or config_object.frontend:
+        if not config.multi_servers or config.frontend:
 
-            config_object.maintenance()
-            Template.render_maintenance(config_object)
-            config['maintenance_enabled'] = True
-            config_object.write_config()
+            config.maintenance()
+            Template.render_maintenance(config)
+            dict_['maintenance_enabled'] = True
+            config.write_config()
             cls.stop_nginx()
             cls.start_maintenance()
 
     @classmethod
     def stop_nginx(cls):
-        config_object = Config()
-        config = config_object.get_config()
+        config = Config()
+        dict_ = config.get_dict()
 
         nginx_stop_command = ['docker-compose',
                               '-f', 'docker-compose.frontend.yml',
                               '-f', 'docker-compose.frontend.override.yml',
-                              '-p', config_object.get_prefix('frontend'),
+                              '-p', config.get_prefix('frontend'),
                               'stop', 'nginx']
 
-        CLI.run_command(nginx_stop_command, config.get('kobodocker_path'))
+        CLI.run_command(nginx_stop_command, dict_['kobodocker_path'])
 
     @classmethod
     def start_maintenance(cls):
-        config_object = Config()
-        config = config_object.get_config()
+        config = Config()
+        dict_ = config.get_dict()
 
         frontend_command = ['docker-compose',
                             '-f', 'docker-compose.maintenance.yml',
                             '-f', 'docker-compose.maintenance.override.yml',
-                            '-p', config_object.get_prefix('maintenance'),
+                            '-p', config.get_prefix('maintenance'),
                             'up', '-d']
 
-        CLI.run_command(frontend_command, config.get('kobodocker_path'))
+        CLI.run_command(frontend_command, dict_['kobodocker_path'])
         CLI.colored_print('Maintenance mode has been started',
                           CLI.COLOR_SUCCESS)
 
@@ -313,8 +315,8 @@ class Command:
 
     @classmethod
     def start(cls, frontend_only=False):
-        config_object = Config()
-        config = config_object.get_config()
+        config = Config()
+        dict_ = config.get_dict()
 
         cls.stop(output=False, frontend_only=frontend_only)
         if frontend_only:
@@ -324,22 +326,22 @@ class Command:
 
         # Test if ports are available
         ports = []
-        if config_object.proxy:
-            nginx_port = int(config.get('nginx_proxy_port', 80))
+        if config.proxy:
+            nginx_port = int(dict_['nginx_proxy_port'])
         else:
-            nginx_port = int(config.get('exposed_nginx_docker_port', 80))
+            nginx_port = int(dict_['exposed_nginx_docker_port'])
 
-        if frontend_only or config_object.frontend or \
-                not config_object.multi_servers:
+        if frontend_only or config.frontend or \
+                not config.multi_servers:
             ports.append(nginx_port)
 
-        if (not frontend_only or config_object.primary_backend or
-                config_object.secondary_backend) and \
-                config_object.expose_backend_ports:
-            ports.append(config.get('postgresql_port', 5432))
-            ports.append(config.get('mongo_port', 27017))
-            ports.append(config.get('redis_main_port', 6379))
-            ports.append(config.get('redis_cache_port', 6380))
+        if (not frontend_only or config.primary_backend or
+                config.secondary_backend) and \
+                config.expose_backend_ports:
+            ports.append(dict_['postgresql_port'])
+            ports.append(dict_['mongo_port'])
+            ports.append(dict_['redis_main_port'])
+            ports.append(dict_['redis_cache_port'])
 
         for port in ports:
             if Network.is_port_open(port):
@@ -349,8 +351,8 @@ class Command:
                 sys.exit(1)
 
         # Start the back-end containers
-        if not frontend_only and config_object.backend:
-                backend_role = config.get('backend_server_role', 'primary')
+        if not frontend_only and config.backend:
+                backend_role = dict_['backend_server_role']
 
                 backend_command = ['docker-compose',
                                    '-f',
@@ -359,12 +361,12 @@ class Command:
                                    '-f',
                                    'docker-compose.backend.{}.override.yml'.format(
                                        backend_role),
-                                   '-p', config_object.get_prefix('backend'),
+                                   '-p', config.get_prefix('backend'),
                                    'up', '-d']
-                CLI.run_command(backend_command, config.get('kobodocker_path'))
+                CLI.run_command(backend_command, dict_['kobodocker_path'])
 
         # Start the front-end containers
-        if config_object.frontend:
+        if config.frontend:
 
             # If this was previously a shared-database setup, migrate to separate
             # databases for KPI and KoBoCAT
@@ -373,31 +375,31 @@ class Command:
             frontend_command = ['docker-compose',
                                 '-f', 'docker-compose.frontend.yml',
                                 '-f', 'docker-compose.frontend.override.yml',
-                                '-p', config_object.get_prefix('frontend'),
+                                '-p', config.get_prefix('frontend'),
                                 'up', '-d']
 
-            if config.get('maintenance_enabled', False):
+            if dict_['maintenance_enabled']:
                 cls.start_maintenance()
                 # Start all front-end services except the non-maintenance NGINX
                 frontend_command.extend([
-                    s for s in config_object.get_service_names() if s != 'nginx'
+                    s for s in config.get_service_names() if s != 'nginx'
                 ])
 
-            CLI.run_command(frontend_command, config.get('kobodocker_path'))
+            CLI.run_command(frontend_command, dict_['kobodocker_path'])
 
             # Start reverse proxy if user uses it.
-            if config_object.use_letsencrypt:
+            if config.use_letsencrypt:
                 proxy_command = ['docker-compose',
                                  'up', '-d']
                 CLI.run_command(proxy_command,
-                                config_object.get_letsencrypt_repo_path())
+                                config.get_letsencrypt_repo_path())
 
-        if config.get('maintenance_enabled', False):
+        if dict_['maintenance_enabled']:
                 CLI.colored_print('Maintenance mode is enabled. To resume '
                                   'normal operation, use `--stop-maintenance`',
                                   CLI.COLOR_INFO)
         elif not frontend_only:
-            if not config_object.multi_servers or config_object.frontend:
+            if not config.multi_servers or config.frontend:
                 CLI.colored_print('Waiting for environment to be ready. '
                                   'It can take a few minutes.', CLI.COLOR_SUCCESS)
                 cls.info()
@@ -406,7 +408,7 @@ class Command:
                     ('{} backend server is starting up and should be '
                      'up & running soon!\nPlease look at docker logs for '
                      'further information: `python3 run.py -cb logs -f`'.format(
-                        config.get('backend_server_role'))),
+                        dict_['backend_server_role'])),
                     CLI.COLOR_WARNING)
 
     @classmethod
@@ -414,38 +416,38 @@ class Command:
         """
         Stop containers
         """
-        config_object = Config()
-        config = config_object.get_config()
+        config = Config()
+        dict_ = config.get_dict()
 
-        if not config_object.multi_servers or config_object.frontend:
+        if not config.multi_servers or config.frontend:
             # Shut down maintenance container in case it's up&running
             maintenance_down_command = [
                 'docker-compose',
                 '-f', 'docker-compose.maintenance.yml',
                 '-f', 'docker-compose.maintenance.override.yml',
-                '-p', config_object.get_prefix('maintenance'),
+                '-p', config.get_prefix('maintenance'),
                 'down']
 
             CLI.run_command(maintenance_down_command,
-                            config.get('kobodocker_path'))
+                            dict_['kobodocker_path'])
 
             # Shut down frontend containers
             frontend_command = ['docker-compose',
                                 '-f', 'docker-compose.frontend.yml',
                                 '-f', 'docker-compose.frontend.override.yml',
-                                '-p', config_object.get_prefix('frontend'),
+                                '-p', config.get_prefix('frontend'),
                                 'down']
-            CLI.run_command(frontend_command, config.get('kobodocker_path'))
+            CLI.run_command(frontend_command, dict_['kobodocker_path'])
 
             # Stop reverse proxy if user uses it.
-            if config_object.use_letsencrypt:
+            if config.use_letsencrypt:
                 proxy_command = ['docker-compose',
                                  'down']
                 CLI.run_command(proxy_command,
-                                config_object.get_letsencrypt_repo_path())
+                                config.get_letsencrypt_repo_path())
 
-        if not frontend_only and config_object.backend:
-            backend_role = config.get('backend_server_role', 'primary')
+        if not frontend_only and config.backend:
+            backend_role = dict_['backend_server_role']
 
             backend_command = [
                 'docker-compose',
@@ -453,10 +455,10 @@ class Command:
                 'docker-compose.backend.{}.yml'.format(backend_role),
                 '-f',
                 'docker-compose.backend.{}.override.yml'.format(backend_role),
-                '-p', config_object.get_prefix('backend'),
+                '-p', config.get_prefix('backend'),
                 'down'
             ]
-            CLI.run_command(backend_command, config.get('kobodocker_path'))
+            CLI.run_command(backend_command, dict_['kobodocker_path'])
 
         if output:
             CLI.colored_print('KoBoToolbox has been stopped', CLI.COLOR_SUCCESS)
@@ -466,34 +468,34 @@ class Command:
         """
         Stop maintenance mode
         """
-        config_object = Config()
-        config = config_object.get_config()
+        config = Config()
+        dict_ = config.get_dict()
 
-        if not config_object.multi_servers or config_object.frontend:
+        if not config.multi_servers or config.frontend:
             # Shut down maintenance container in case it's up&running
             maintenance_down_command = [
                 'docker-compose',
                 '-f', 'docker-compose.maintenance.yml',
                 '-f', 'docker-compose.maintenance.override.yml',
-                '-p', config_object.get_prefix('maintenance'),
+                '-p', config.get_prefix('maintenance'),
                 'down']
 
             CLI.run_command(maintenance_down_command,
-                            config.get('kobodocker_path'))
+                            dict_['kobodocker_path'])
 
             # Create and start NGINX container
             frontend_command = ['docker-compose',
                                 '-f', 'docker-compose.frontend.yml',
                                 '-f', 'docker-compose.frontend.override.yml',
-                                '-p', config_object.get_prefix('frontend'),
+                                '-p', config.get_prefix('frontend'),
                                 'up', '-d', 'nginx']
-            CLI.run_command(frontend_command, config.get('kobodocker_path'))
+            CLI.run_command(frontend_command, dict_['kobodocker_path'])
 
             CLI.colored_print('Maintenance mode has been stopped',
                               CLI.COLOR_SUCCESS)
 
-            config['maintenance_enabled'] = False
-            config_object.write_config()
+            dict_['maintenance_enabled'] = False
+            config.write_config()
 
     @classmethod
     def version(cls):

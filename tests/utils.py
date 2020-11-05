@@ -15,27 +15,26 @@ from helpers.singleton import Singleton, with_metaclass
 
 def read_config(overrides=None):
 
-    config_dict = dict(Config.get_config_template())
+    config_dict = dict(Config.get_template())
     config_dict['kobodocker_path'] = '/tmp'
     if overrides is not None:
         config_dict.update(overrides)
 
     str_config = json.dumps(config_dict)
     with patch(builtin_open, mock_open(read_data=str_config)) as mock_file:
-        config_object = Config()
-        config_object.read_config()
-        config_ = config_object.get_config()
-        assert config_.get('kobodocker_path') \
-               == config_dict.get('kobodocker_path')
+        config = Config()
+        config.read_config()
+        dict_ = config.get_dict()
+        assert config_dict['kobodocker_path'] == dict_['kobodocker_path']
 
-    return config_object
+    return config
 
 
-def reset_config(config_object):
+def reset_config(config):
 
-    config_dict = dict(Config.get_config_template())
-    config_dict['kobodocker_path'] = '/tmp'
-    config_object.__config = config_dict
+    dict_ = dict(Config.get_template())
+    dict_['kobodocker_path'] = '/tmp'
+    config.__dict = dict_
 
 
 def write_trigger_upsert_db_users(*args):
