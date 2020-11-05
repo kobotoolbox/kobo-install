@@ -46,13 +46,12 @@ class Template:
                 'overwritten.'
             )
             CLI.framed_print(message)
-
-            CLI.colored_print('Do you want to continue?', CLI.COLOR_SUCCESS)
-            CLI.colored_print('\t1) Yes')
-            CLI.colored_print('\t2) No')
-
-            if CLI.get_response(default=False) is False:
-                sys.exit()
+            response = CLI.yes_no_question(
+                'Do you want to continue?',
+                default=False
+            )
+            if response is False:
+                sys.exit(0)
 
         cls.__write_unique_id(environment_directory, dict_['unique_id'])
 

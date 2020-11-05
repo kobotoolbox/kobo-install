@@ -94,10 +94,10 @@ class Upgrading:
                 'to-separate-databases-for-kpi-and-kobocat/7202.',
             )
             CLI.colored_print(message, CLI.COLOR_WARNING)
-            CLI.colored_print('Do you want to proceed?', CLI.COLOR_SUCCESS)
-            CLI.colored_print('\t1) Yes')
-            CLI.colored_print('\t2) No')
-            response = CLI.get_response(default=False)
+            response = CLI.yes_no_question(
+                'Do you want to proceed?',
+                default=False
+            )
             if response is False:
                 sys.exit(0)
 

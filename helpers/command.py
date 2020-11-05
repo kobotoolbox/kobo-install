@@ -165,12 +165,8 @@ class Command:
                         '\n`KoBoToolbox` has not started yet. '
                         'This is can be normal with low CPU/RAM computers.\n',
                         CLI.COLOR_INFO)
-                    CLI.colored_print('Wait for another {} seconds?'.format(
-                        timeout), CLI.COLOR_SUCCESS)
-                    CLI.colored_print('\t1) Yes')
-                    CLI.colored_print('\t2) No')
-                    response = CLI.get_response(default=True)
-
+                    question = 'Wait for another {} seconds?'.format(timeout)
+                    response = CLI.yes_no_question(question)
                     if response is True:
                         start = int(time.time())
                         continue
@@ -178,17 +174,12 @@ class Command:
                         if already_retried is False:
                             already_retried = True
                             CLI.colored_print(
-                                '\nSometimes frontend containers '
-                                'can not communicate with backend '
-                                'containers.\n'
+                                '\nSometimes front-end containers cannot '
+                                'communicate with back-end containers.\n'
                                 'Restarting the frontend containers usually '
                                 'fixes it.\n', CLI.COLOR_INFO)
-                            CLI.colored_print(
-                                'Do you want to try?'.format(timeout),
-                                CLI.COLOR_SUCCESS)
-                            CLI.colored_print('\t1) Yes')
-                            CLI.colored_print('\t2) No')
-                            response = CLI.get_response(default=True)
+                            question = 'Would you like to try?'
+                            response = CLI.yes_no_question(question)
                             if response is True:
                                 start = int(time.time())
                                 cls.restart_frontend()

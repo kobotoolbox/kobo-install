@@ -127,7 +127,7 @@ class Config(with_metaclass(Singleton)):
             prefix_ = roles[role]
         except KeyError:
             CLI.colored_print('Invalid composer file', CLI.COLOR_ERROR)
-            sys.exit(-1)
+            sys.exit(1)
 
         if not self.__dict.get('docker_prefix'):
             return prefix_
@@ -625,13 +625,9 @@ class Config(with_metaclass(Singleton)):
                 kobodocker_path = os.path.normpath(
                     os.path.join(base_dir, kobodocker_path))
 
-            CLI.colored_print(
-                'Please confirm path [{}]'.format(kobodocker_path),
-                CLI.COLOR_SUCCESS)
-            CLI.colored_print('\t1) Yes')
-            CLI.colored_print('\t2) No')
-
-            if CLI.get_response(default=True):
+            question = 'Please confirm path [{}]'.format(kobodocker_path)
+            response = CLI.yes_no_question(question)
+            if response is True:
                 if os.path.isdir(kobodocker_path):
                     break
                 else:
@@ -740,12 +736,8 @@ class Config(with_metaclass(Singleton)):
         """
         Asks if user wants to see advanced options
         """
-        CLI.colored_print('Do you want to see advanced options?',
-                          CLI.COLOR_SUCCESS)
-        CLI.colored_print('\t1) Yes')
-        CLI.colored_print('\t2) No')
-
-        self.__dict['advanced'] = CLI.get_response(
+        self.__dict['advanced'] = CLI.yes_no_question(
+            'Do you want to see advanced options?',
             default=self.__dict['advanced'])
 
     def __questions_aws(self):
@@ -753,12 +745,10 @@ class Config(with_metaclass(Singleton)):
         Asks if user wants to see AWS option
         and asks for credentials if needed.
         """
-        CLI.colored_print('Do you want to use AWS S3 storage?',
-                          CLI.COLOR_SUCCESS)
-        CLI.colored_print('\t1) Yes')
-        CLI.colored_print('\t2) No')
-        self.__dict['use_aws'] = CLI.get_response(
-            default=self.__dict['use_aws'])
+        self.__dict['use_aws'] = CLI.yes_no_question(
+            'Do you want to use AWS S3 storage?',
+            default=self.__dict['use_aws']
+        )
         if self.__dict['use_aws'] is True:
             self.__dict['aws_access_key'] = CLI.colored_input(
                 'AWS Access Key', CLI.COLOR_SUCCESS,
@@ -847,14 +837,11 @@ class Config(with_metaclass(Singleton)):
             self.__dict['aws_backup_upload_chunk_size'] = CLI.get_response(
                 r'~^\d+$', self.__dict.get('aws_backup_upload_chunk_size'))
 
-            CLI.colored_print('Use AWS LifeCycle deletion rule?',
-                              CLI.COLOR_SUCCESS)
-            CLI.colored_print('\t1) Yes')
-            CLI.colored_print('\t2) No')
-            self.__dict[
-                'aws_backup_bucket_deletion_rule_enabled'] = CLI.get_response(
-                default=self.__dict.get('aws_backup_bucket_deletion_rule_enabled',
-                                          False))
+            response = CLI.yes_no_question(
+                'Use AWS LifeCycle deletion rule?',
+                default=self.__dict['aws_backup_bucket_deletion_rule_enabled']
+            )
+            self.__dict['aws_backup_bucket_deletion_rule_enabled'] = response
 
     def __questions_backup(self):
         """
@@ -862,14 +849,12 @@ class Config(with_metaclass(Singleton)):
         """
         if self.backend_questions or (self.frontend_questions and not self.aws):
 
-            CLI.colored_print('Do you want to activate backups?',
-                              CLI.COLOR_SUCCESS)
-            CLI.colored_print('\t1) Yes')
-            CLI.colored_print('\t2) No')
-            self.__dict['use_backup'] = CLI.get_response(
-                default=self.__dict['use_backup'])
+            self.__dict['use_backup'] = CLI.yes_no_question(
+                'Do you want to activate backups?',
+                default=self.__dict['use_backup']
+            )
 
-            if self.__dict.get('use_backup') is True:
+            if self.__dict['use_backup']:
                 if self.advanced_options:
                     if self.backend_questions and not self.frontend_questions:
                         self.__questions_aws()
@@ -879,19 +864,13 @@ class Config(with_metaclass(Singleton)):
                     # for backups
                     if self.aws:
                         if self.primary_backend or not self.multi_servers:
-                            CLI.colored_print(
+                            self.__dict['use_wal_e'] = CLI.yes_no_question(
                                 'Do you want to use WAL-E for continuous '
                                 'archiving of PostgreSQL backups?',
-                                CLI.COLOR_SUCCESS,
+                                default=self.__dict['use_wal_e']
                             )
-                            CLI.colored_print('\t1) Yes')
-                            CLI.colored_print('\t2) No')
-                            self.__dict['use_wal_e'] = CLI.get_response(
-                                default=self.__dict['use_wal_e'])
-
                             if self.__dict['use_wal_e'] is True:
-                                self.__dict[
-                                    'backup_from_primary'] = True
+                                self.__dict['backup_from_primary'] = True
                         else:
                             # WAL-E cannot run on secondary
                             self.__dict['use_wal_e'] = False
@@ -928,18 +907,14 @@ class Config(with_metaclass(Singleton)):
                             self.__dict['backup_from_primary'] = True
                         else:
                             if self.primary_backend:
-                                CLI.colored_print(
+                                response = CLI.yes_no_question(
                                     'Run PostgreSQL backup from primary '
                                     'backend server?',
-                                    CLI.COLOR_SUCCESS
+                                    default=self.__dict['backup_from_primary']
                                 )
-                                CLI.colored_print('\t1) Yes')
-                                CLI.colored_print('\t2) No')
-                                self.__dict['backup_from_primary'] \
-                                    = CLI.get_response(default=self.__dict['backup_from_primary'])
+                                self.__dict['backup_from_primary'] = response
                             else:
-                                self.__dict[
-                                    'backup_from_primary'] = False
+                                self.__dict['backup_from_primary'] = False
 
                         backup_from_primary = \
                             self.__dict['backup_from_primary'] is True
@@ -1000,19 +975,16 @@ class Config(with_metaclass(Singleton)):
                 CLI.colored_print('Web server port?', CLI.COLOR_SUCCESS)
                 self.__dict['exposed_nginx_docker_port'] = CLI.get_response(
                     r'~^\d+$', self.__dict['exposed_nginx_docker_port'])
-                CLI.colored_print('Developer mode?', CLI.COLOR_SUCCESS)
-                CLI.colored_print('\t1) Yes')
-                CLI.colored_print('\t2) No')
-                self.__dict['dev_mode'] = CLI.get_response(
-                    default=self.__dict['dev_mode'])
+                self.__dict['dev_mode'] = CLI.yes_no_question(
+                    'Use developer mode?',
+                    default=self.__dict['dev_mode']
+                )
                 self.__dict['staging_mode'] = False
             else:
-
-                CLI.colored_print('Staging mode?', CLI.COLOR_SUCCESS)
-                CLI.colored_print('\t1) Yes')
-                CLI.colored_print('\t2) No')
-                self.__dict['staging_mode'] = CLI.get_response(
-                    default=self.__dict.get('staging_mode', False))
+                self.__dict['staging_mode'] = CLI.yes_no_question(
+                    'Use staging mode?',
+                    default=self.__dict['staging_mode']
+                )
                 self.__dict['dev_mode'] = False
 
             if self.dev_mode or self.staging_mode:
@@ -1052,20 +1024,20 @@ class Config(with_metaclass(Singleton)):
                         timestamp=str(int(time.time()))
                     )
                 if self.dev_mode:
-                    # Debug
-                    CLI.colored_print('Enable DEBUG?', CLI.COLOR_SUCCESS)
-                    CLI.colored_print('\t1) True')
-                    CLI.colored_print('\t2) False')
-                    self.__dict['debug'] = CLI.get_response(
-                        default=self.__dict.get('debug', True))
+                    self.__dict['debug'] = CLI.yes_no_question(
+                        'Enable DEBUG?',
+                        default=self.__dict['debug']
+                    )
 
                     # Frontend development
-                    CLI.colored_print('How do you want to run `npm`?',
-                                      CLI.COLOR_SUCCESS)
-                    CLI.colored_print('\t1) From within the container')
-                    CLI.colored_print('\t2) Locally')
-                    self.__dict['npm_container'] = CLI.get_response(
-                        default=self.__dict.get('npm_container', True))
+                    self.__dict['npm_container'] = CLI.yes_no_question(
+                        'How do you want to run `npm`?',
+                        default=self.__dict['npm_container'],
+                        labels=[
+                            'From within the container',
+                            'Locally',
+                        ]
+                    )
             else:
                 # Force reset paths
                 self.__reset(dev=True, reset_nginx_port=self.staging_mode)
@@ -1099,12 +1071,10 @@ class Config(with_metaclass(Singleton)):
         """
         Asks for HTTPS usage
         """
-        CLI.colored_print('Do you want to use HTTPS?', CLI.COLOR_SUCCESS)
-        CLI.colored_print('\t1) Yes')
-        CLI.colored_print('\t2) No')
-        self.__dict['https'] = CLI.get_response(
-            default=self.__dict.get('https', True))
-
+        self.__dict['https'] = CLI.yes_no_question(
+            'Do you want to use HTTPS?',
+            default=self.__dict['https']
+        )
         if self.is_secure:
             message = (
                 'Please note that certificates must be installed on a '
@@ -1117,13 +1087,14 @@ class Config(with_metaclass(Singleton)):
         """
         Asks for installation type
         """
-
-        CLI.colored_print('What kind of installation do you need?',
-                          CLI.COLOR_SUCCESS)
-        CLI.colored_print('\t1) On your workstation')
-        CLI.colored_print('\t2) On a server')
-        self.__dict['local_installation'] = CLI.get_response(
-            default=self.__dict.get('local_installation', False))
+        self.__dict['local_installation'] = CLI.yes_no_question(
+            'What kind of installation do you need?',
+            default=self.__dict['local_installation'],
+            labels=[
+                'On your workstation',
+                'On a server',
+            ]
+        )
         if self.local_install:
             # Reset previous choices, in case server role is not the same.
             self.__reset(local_install=True, private_dns=True)
@@ -1242,13 +1213,9 @@ class Config(with_metaclass(Singleton)):
                         "MongoDB root's and/or user's usernames have changed!"
                     )
                     CLI.framed_print(message)
-                    CLI.colored_print('Do you want to remove old users?',
-                                      CLI.COLOR_SUCCESS)
-                    CLI.colored_print('\t1) Yes')
-                    CLI.colored_print('\t2) No')
-                    delete_users = CLI.get_response(default=True)
-
-                    if delete_users is True:
+                    question = 'Do you want to remove old users?'
+                    response = CLI.yes_no_question(question)
+                    if response is True:
                         usernames_by_db = {
                             mongo_user_username: 'formhub',
                             mongo_root_username: 'admin'
@@ -1270,13 +1237,10 @@ class Config(with_metaclass(Singleton)):
         Asks if installation is for only one server
         or different frontend and backend servers.
         """
-        CLI.colored_print(
+        self.__dict['multi'] = CLI.yes_no_question(
             'Do you want to use separate servers for frontend and backend?',
-            CLI.COLOR_SUCCESS)
-        CLI.colored_print('\t1) Yes')
-        CLI.colored_print('\t2) No')
-        self.__dict['multi'] = CLI.get_response(
-            default=self.__dict.get('multi', False))
+            default=self.__dict['multi']
+        )
 
     def __questions_postgres(self):
         """
@@ -1319,12 +1283,12 @@ class Config(with_metaclass(Singleton)):
             )
             CLI.framed_print(message)
 
-            CLI.colored_print('Do you want to continue?', CLI.COLOR_SUCCESS)
-            CLI.colored_print('\t1) Yes')
-            CLI.colored_print('\t2) No')
-
-            if CLI.get_response(default=False) is False:
-                sys.exit()
+            response = CLI.yes_no_question(
+                'Do you want to continue?',
+                default=False
+            )
+            if response is False:
+                sys.exit(0)
 
         self.__dict['kc_postgres_db'] = kc_postgres_db
         self.__dict['kpi_postgres_db'] = kpi_postgres_db
@@ -1369,13 +1333,9 @@ class Config(with_metaclass(Singleton)):
 
                 CLI.colored_print("PostgreSQL user's username has changed!",
                                   CLI.COLOR_WARNING)
-                CLI.colored_print('Do you want to remove old user?',
-                                  CLI.COLOR_SUCCESS)
-                CLI.colored_print('\t1) Yes')
-                CLI.colored_print('\t2) No')
-                delete_user = CLI.get_response(default=True)
-
-                if delete_user is True:
+                question = 'Do you want to remove old user?',
+                response = CLI.yes_no_question(question)
+                if response is True:
                     content = '{username}\ttrue'.format(username=postgres_user)
                     message = (
                         'WARNING!\n\n'
@@ -1389,13 +1349,10 @@ class Config(with_metaclass(Singleton)):
 
         if self.backend_questions:
             # Postgres settings
-            CLI.colored_print('Do you want to tweak PostgreSQL settings?',
-                              CLI.COLOR_SUCCESS)
-            CLI.colored_print('\t1) Yes')
-            CLI.colored_print('\t2) No')
-            self.__dict['postgres_settings'] = CLI.get_response(
-                default=self.__dict.get('postgres_settings', False))
-
+            self.__dict['postgres_settings'] = CLI.yes_no_question(
+                'Do you want to tweak PostgreSQL settings?',
+                default=self.__dict['postgres_settings']
+            )
             if self.__dict['postgres_settings'] is True:
 
                 # pgconfig.org API is often unresponsive and make kobo-install
@@ -1527,14 +1484,11 @@ class Config(with_metaclass(Singleton)):
             self.__dict['redis_cache_port'] = '6380'
 
         if not self.multi_servers:
-            CLI.colored_print('Do you want to expose backend container ports '
-                              '(`PostgreSQL`, `MongoDB`, `redis`) ?',
-                              CLI.COLOR_SUCCESS)
-            CLI.colored_print('\t1) Yes')
-            CLI.colored_print('\t2) No')
-            self.__dict['expose_backend_ports'] = CLI.get_response(
-                default=self.__dict.get('expose_backend_ports',
-                                          False))
+            self.__dict['expose_backend_ports'] = CLI.yes_no_question(
+                'Do you want to expose backend container ports '
+                '(`PostgreSQL`, `MongoDB`, `redis`) ?',
+                default=self.__dict['expose_backend_ports']
+            )
         else:
             self.__dict['expose_backend_ports'] = True
 
@@ -1550,13 +1504,10 @@ class Config(with_metaclass(Singleton)):
         )
         CLI.framed_print(message)
 
-        CLI.colored_print('Do you want to customize service ports?',
-                          CLI.COLOR_SUCCESS)
-        CLI.colored_print('\t1) Yes')
-        CLI.colored_print('\t2) No')
-        self.__dict['customized_ports'] = CLI.get_response(
-            default=self.__dict.get('customized_ports',
-                                      False))
+        self.__dict['customized_ports'] = CLI.yes_no_question(
+            'Do you want to customize service ports?',
+            default=self.__dict['customized_ports']
+        )
 
         if self.__dict['customized_ports'] is False:
             reset_ports()
@@ -1585,15 +1536,10 @@ class Config(with_metaclass(Singleton)):
         Otherwise, it will create entries in `extra_hosts` in composer
         file based on the provided ip.
         """
-        CLI.colored_print('Do you use DNS for private routes?',
-                          CLI.COLOR_SUCCESS)
-        CLI.colored_print('\t1) Yes')
-        CLI.colored_print('\t2) No')
-
-        self.__dict['use_private_dns'] = CLI.get_response(
-            default=self.__dict.get('use_private_dns',
-                                      False))
-
+        self.__dict['use_private_dns'] = CLI.yes_no_question(
+            'Do you use DNS for private routes?',
+            default=self.__dict['use_private_dns']
+        )
         if self.__dict['use_private_dns'] is False:
             CLI.colored_print('IP address (IPv4) of primary backend server?',
                               CLI.COLOR_SUCCESS)
@@ -1641,20 +1587,18 @@ class Config(with_metaclass(Singleton)):
             )
 
     def __questions_raven(self):
-        CLI.colored_print('Do you want to use Sentry?', CLI.COLOR_SUCCESS)
-        CLI.colored_print('\t1) Yes')
-        CLI.colored_print('\t2) No')
-        self.__dict['raven_settings'] = CLI.get_response(
-            default=self.__dict.get('raven_settings', False))
-
-        if self.__dict.get('raven_settings') is True:
-            self.__dict['kpi_raven'] = CLI.colored_input('KPI Raven token',
-                                                           CLI.COLOR_SUCCESS,
-                                                           self.__dict.get(
-                                                               'kpi_raven', ''))
+        self.__dict['raven_settings'] = CLI.yes_no_question(
+            'Do you want to use Sentry?',
+            default=self.__dict['raven_settings']
+        )
+        if self.__dict['raven_settings'] is True:
+            self.__dict['kpi_raven'] = CLI.colored_input(
+                'KPI Raven token',
+                CLI.COLOR_SUCCESS,
+                self.__dict['kpi_raven'])
             self.__dict['kobocat_raven'] = CLI.colored_input(
                 'KoBoCat Raven token', CLI.COLOR_SUCCESS,
-                self.__dict.get('kobocat_raven', ''))
+                self.__dict['kobocat_raven'])
             self.__dict['kpi_raven_js'] = CLI.colored_input(
                 'KPI Raven JS token', CLI.COLOR_SUCCESS,
                 self.__dict.get('kpi_raven_js', ''))
@@ -1684,26 +1628,25 @@ class Config(with_metaclass(Singleton)):
                     'as well.'
                 )
                 CLI.framed_print(message)
-
-                CLI.colored_print('Do you want to continue?', CLI.COLOR_SUCCESS)
-                CLI.colored_print('\t1) Yes')
-                CLI.colored_print('\t2) No')
-
-                if CLI.get_response(default=False) is False:
+                response = CLI.yes_no_question(
+                    'Do you want to continue without password?',
+                    default=False
+                )
+                if response is False:
                     self.__questions_redis()
 
     def __questions_reverse_proxy(self):
 
         if self.is_secure:
 
-            CLI.colored_print(
+            self.__dict['use_letsencrypt'] = CLI.yes_no_question(
                 "Auto-install HTTPS certificates with Let's Encrypt?",
-                CLI.COLOR_SUCCESS)
-            CLI.colored_print('\t1) Yes')
-            CLI.colored_print(
-                '\t2) No - Use my own reverse-proxy/load-balancer')
-            self.__dict['use_letsencrypt'] = CLI.get_response(
-                default=self.__dict.get('use_letsencrypt', True))
+                default=self.__dict['use_letsencrypt'],
+                labels=[
+                    'Yes',
+                    'No - Use my own reverse-proxy/load-balancer',
+                ]
+            )
             self.__dict['proxy'] = True
             self.__dict[
                 'exposed_nginx_docker_port'] = Config.DEFAULT_NGINX_PORT
@@ -1721,16 +1664,12 @@ class Config(with_metaclass(Singleton)):
 
                 while True:
                     letsencrypt_email = CLI.colored_input(
-                        "Email address for Let's Encrypt", CLI.COLOR_SUCCESS,
+                        "Email address for Let's Encrypt",
+                        CLI.COLOR_SUCCESS,
                         self.__dict.get('letsencrypt_email'))
-
-                    CLI.colored_print(
-                        'Please confirm [{}]'.format(letsencrypt_email),
-                        CLI.COLOR_SUCCESS)
-                    CLI.colored_print('\t1) Yes')
-                    CLI.colored_print('\t2) No')
-
-                    if CLI.get_response(default=True) is True:
+                    question = 'Please confirm [{}]'.format(letsencrypt_email)
+                    response = CLI.yes_no_question(question)
+                    if response is True:
                         self.__dict['letsencrypt_email'] = letsencrypt_email
                         break
 
@@ -1738,13 +1677,11 @@ class Config(with_metaclass(Singleton)):
                                   'nginx-certbot')
         else:
             if self.advanced_options:
-                CLI.colored_print(
-                    'Is `KoBoToolbox` behind a reverse-proxy/load-balancer?',
-                    CLI.COLOR_SUCCESS)
-                CLI.colored_print('\t1) Yes')
-                CLI.colored_print('\t2) No')
-                self.__dict['proxy'] = CLI.get_response(
-                    default=self.__dict.get('proxy', False))
+                self.__dict['proxy'] = CLI.yes_no_question(
+                    'Are kobo-docker containers behind a '
+                    'reverse-proxy/load-balancer?',
+                    default=self.__['proxy']
+                )
                 self.__dict['use_letsencrypt'] = False
             else:
                 self.__dict['proxy'] = False
@@ -1756,15 +1693,12 @@ class Config(with_metaclass(Singleton)):
                 'exposed_nginx_docker_port'] = Config.DEFAULT_NGINX_PORT
             if self.advanced_options:
                 if not self.use_letsencrypt:
-                    CLI.colored_print(
+                    response = CLI.yes_no_question(
                         'Is your reverse-proxy/load-balancer installed on '
                         'this server?',
-                        CLI.COLOR_SUCCESS)
-                    CLI.colored_print('\t1) Yes')
-                    CLI.colored_print('\t2) No')
-                    self.__dict['block_common_http_ports'] = CLI.get_response(
-                        default=self.__dict.get('block_common_http_ports',
-                                                  False))
+                        default=self.__dict['block_common_http_ports']
+                    )
+                    self.__dict['block_common_http_ports'] = response
                 else:
                     self.__dict['block_common_http_ports'] = True
 
@@ -1824,14 +1758,10 @@ class Config(with_metaclass(Singleton)):
             self.__dict['backend_server_role'] = 'primary'
 
     def __questions_secret_keys(self):
-        CLI.colored_print(
+        self.__dict['custom_secret_keys'] = CLI.yes_no_question(
             'Do you want to customize the application secret keys?',
-            CLI.COLOR_SUCCESS)
-        CLI.colored_print('\t1) Yes')
-        CLI.colored_print('\t2) No')
-        self.__dict['custom_secret_keys'] = CLI.get_response(
-            default=self.__dict.get('custom_secret_keys'))
-
+            default=self.__dict['custom_secret_keys']
+        )
         if self.__dict['custom_secret_keys'] is True:
             CLI.colored_print("Django's secret key?", CLI.COLOR_SUCCESS)
             self.__dict['django_secret_key'] = CLI.get_response(
@@ -1877,18 +1807,18 @@ class Config(with_metaclass(Singleton)):
             self.__dict['smtp_password'] = CLI.colored_input(
                 'SMTP password',
                 CLI.COLOR_SUCCESS,
-                self.__dict.get('smtp_password'))
-            CLI.colored_print('Use TLS?', CLI.COLOR_SUCCESS)
-            CLI.colored_print('\t1) Yes')
-            CLI.colored_print('\t2) No')
-            self.__dict['smtp_use_tls'] = CLI.get_response(
-                default=self.__dict.get('smtp_use_tls', True))
+                self.__dict['smtp_password']
+            )
+            self.__dict['smtp_use_tls'] = CLI.yes_no_question(
+                'Use TLS?',
+                default=self.__dict['smtp_use_tls']
+            )
+
         self.__dict['default_from_email'] = CLI.colored_input(
             'From email address', CLI.COLOR_SUCCESS,
             self.__dict.get('default_from_email',
-                              'support@{}'.format(
-                                  self.__dict.get(
-                                      'public_domain_name'))))
+                            'support@{}'.format(self.__dict[
+                                                    'public_domain_name'])))
 
     def __questions_super_user_credentials(self):
         # Super user. Only ask for credentials the first time.
@@ -1921,12 +1851,10 @@ class Config(with_metaclass(Singleton)):
     def __questions_uwsgi(self):
 
         if not self.dev_mode:
-            CLI.colored_print('Do you want to tweak uWSGI settings?',
-                              CLI.COLOR_SUCCESS)
-            CLI.colored_print('\t1) Yes')
-            CLI.colored_print('\t2) No')
-            self.__dict['uwsgi_settings'] = CLI.get_response(
-                default=self.__dict.get('uwsgi_settings', False))
+            self.__dict['uwsgi_settings'] = CLI.yes_no_question(
+                'Do you want to tweak uWSGI settings?',
+                default=self.__dict['uwsgi_settings']
+            )
 
             if self.__dict.get('uwsgi_settings') is True:
                 CLI.colored_print('Number of uWSGi workers to start?',
@@ -2067,14 +1995,12 @@ class Config(with_metaclass(Singleton)):
                         'further!'
                     )
                     CLI.framed_print(message)
-
-                    CLI.colored_print('Are you sure you want to continue?',
-                                      CLI.COLOR_SUCCESS)
-                    CLI.colored_print('\t1) Yes')
-                    CLI.colored_print('\t2) No')
-                    response = CLI.get_response(default=False)
+                    response = CLI.yes_no_question(
+                        'Are you sure you want to continue?',
+                        default=False
+                    )
                     if response is False:
-                        sys.exit()
+                        sys.exit(0)
                     else:
                         CLI.colored_print(
                             'Administrator privilege escalation '

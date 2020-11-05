@@ -66,22 +66,14 @@ class Setup:
             '`./run.py --setup` to regenerate environment files.'
         )
         CLI.framed_print(message, color=CLI.COLOR_INFO)
-
-        CLI.colored_print('Do you want to proceed?', CLI.COLOR_SUCCESS)
-        CLI.colored_print('\t1) Yes')
-        CLI.colored_print('\t2) No')
-        response = CLI.get_response(default=True)
+        response = CLI.yes_no_question('Do you want to proceed?')
         if response is True:
             current_dict = config.build()
             Template.render(config)
             config.init_letsencrypt()
             Setup.update_hosts(current_dict)
-
-            CLI.colored_print('Do you want to (re)start containers?',
-                              CLI.COLOR_SUCCESS)
-            CLI.colored_print('\t1) Yes')
-            CLI.colored_print('\t2) No')
-            response = CLI.get_response(default=True)
+            question = 'Do you want to (re)start containers?'
+            response = CLI.yes_no_question(question)
             if response is True:
                 Command.start()
 
@@ -172,15 +164,11 @@ class Setup:
                     '`/etc/hosts`.'
                 )
                 CLI.framed_print(message, color=CLI.COLOR_INFO)
-
-                CLI.colored_print('Do you want to review your /etc/hosts file '
-                                  'before overwriting it?',
-                                  CLI.COLOR_SUCCESS)
-                CLI.colored_print('\t1) Yes')
-                CLI.colored_print('\t2) No')
-                dict_['review_host'] = CLI.get_response(
-                    default=dict_['review_host'])
-
+                dict_['review_host'] = CLI.yes_no_question(
+                    'Do you want to review your /etc/hosts file '
+                    'before overwriting it?',
+                    default=dict_['review_host']
+                )
                 if dict_['review_host'] is True:
                     print(tmp_host)
                     CLI.colored_input('Press any keys when ready')
