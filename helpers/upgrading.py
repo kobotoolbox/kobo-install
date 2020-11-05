@@ -27,7 +27,7 @@ class Upgrading:
             Sorry, this is not very nice. See
             https://github.com/kobotoolbox/kobo-docker/issues/264.
             """
-            set_env = "DATABASE_URL='${KPI_DATABASE_URL}'"
+            set_env = 'DATABASE_URL="${KPI_DATABASE_URL}"'
             return [
                 'bash', '-c',
                 '{} {}'.format(set_env, command)
