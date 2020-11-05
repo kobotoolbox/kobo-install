@@ -1680,7 +1680,7 @@ class Config(with_metaclass(Singleton)):
                 self.__dict['proxy'] = CLI.yes_no_question(
                     'Are kobo-docker containers behind a '
                     'reverse-proxy/load-balancer?',
-                    default=self.__['proxy']
+                    default=self.__dict['proxy']
                 )
                 self.__dict['use_letsencrypt'] = False
             else:
