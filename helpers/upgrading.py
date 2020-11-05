@@ -43,7 +43,7 @@ class Upgrading:
         # We add this message to users because when AWS backups are activated,
         # it takes a long time to install the virtualenv in PostgreSQL
         # container, so the `wait_for_database` below sits there a while.
-        # It makes us think KoBoInstall is frozen.
+        # It makes us think kobo-install is frozen.
         CLI.colored_print(
             'Waiting for PostgreSQL database to be up & running...',
             CLI.COLOR_INFO)
@@ -199,7 +199,7 @@ class Upgrading:
         else:
             return upgraded_dict
 
-        CLI.colored_print('Upgrading configuration to KoBoInstall v4.x and '
+        CLI.colored_print('Upgrading configuration to kobo-install v4.x and '
                           'later',
                           color=CLI.COLOR_INFO)
         boolean_properties = [

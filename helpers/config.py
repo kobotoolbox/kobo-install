@@ -1109,7 +1109,7 @@ class Config(with_metaclass(Singleton)):
             message = (
                 'Please note that certificates must be installed on a '
                 'reverse-proxy or a load balancer.'
-                'KoBoInstall can install one, if needed.'
+                'kobo-install can install one, if needed.'
             )
             CLI.framed_print(message, color=CLI.COLOR_INFO)
 
@@ -1313,7 +1313,7 @@ class Config(with_metaclass(Singleton)):
             message = (
                 'WARNING!\n\n'
                 'PostgreSQL database names have changed!\n'
-                'KoBoInstall does not support database name changes after '
+                'kobo-install does not support database name changes after '
                 'database initialization.\n'
                 'Data will not appear in KPI and/or KoBoCAT.'
             )
@@ -2016,7 +2016,7 @@ class Config(with_metaclass(Singleton)):
     def __secure_mongo(self):
         """
         Force creations of MongoDB users/passwords when users upgrade from
-        a non secure version of KoBoInstall
+        a non secure version of kobo-install
         """
         # ToDo remove duplicated code with `__questions_mongo`
         if not self.__dict.get('mongo_secured') and not self.first_time:
@@ -2044,7 +2044,7 @@ class Config(with_metaclass(Singleton)):
 
             if mongo_data_exists or postgres_data_exists:
                 # Not a reliable way to detect whether folder contains
-                # `KoBoInstall` files. We assume that if
+                # kobo-install files. We assume that if
                 # `docker-compose.backend.template.yml` is there, Docker
                 # images are the good ones.
                 # TODO Find a better way
@@ -2059,7 +2059,7 @@ class Config(with_metaclass(Singleton)):
                         'It is recommended to backup your data and import it '
                         'to a fresh installed (by KoBoInstall) database.\n'
                         '\n'
-                        'KoBoInstall uses these images:\n'
+                        'kobo-install uses these images:\n'
                         '    - MongoDB: mongo:3.4\n'
                         '    - PostgreSQL: mdillon/postgis:9.5\n'
                         '\n'
@@ -2091,7 +2091,7 @@ class Config(with_metaclass(Singleton)):
     @staticmethod
     def __welcome():
         message = (
-            'Welcome to KoBoInstall!\n'
+            'Welcome to kobo-install.\n'
             '\n'
             'You are going to be asked some questions that will determine how '
             'to build the configuration of `KoBoToolBox`.\n'

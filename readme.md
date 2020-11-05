@@ -123,7 +123,9 @@ User can choose between 2 types of installations:
 |Staging mode|  **False**  |  | ✓ (frontend only) |
 
 <sup>1)</sup> _HTTPS certificates must be installed on a Reverse Proxy. 
-`KoBoInstall` can install one and use `Let's Encrypt` to generate certificates thanks to [nginx-certbot project](https://github.com/wmnnd/nginx-certbot "")_
+`kobo-install` can install one and use `Let's Encrypt` to generate certificates
+ thanks
+ to [nginx-certbot project](https://github.com/wmnnd/nginx-certbot "")_
 
 <sup>2)</sup> _If AWS credentials are provided, backups are sent to configured bucket_
 
@@ -145,7 +147,7 @@ User can choose between 2 types of installations:
 - Available TCP Ports: <sup>7</sup>
 
     1. 80 NGINX
-    1. 443 NGINX (if you use KoBoInstall with LetsEncrypt proxy) 
+    1. 443 NGINX (if you use kobo-install with LetsEncrypt proxy) 
     2. Additional ports when `expose ports` advanced option has been selected
         1. 5432 PostgreSQL
         3. 6379-6380 redis
@@ -153,7 +155,7 @@ User can choose between 2 types of installations:
 
     _**WARNING:**_
     
-    - _If you use a firewall, be sure to open traffic publicly on NGINX port, otherwise KoBoInstall cannot work_
+    - _If you use a firewall, be sure to open traffic publicly on NGINX port, otherwise kobo-install cannot work_
     - _By default, additional ports are not exposed except when using multi servers configuration. If you choose to expose them, **be sure to not expose them publicly** (e.g. use a firewall and allow traffic between frontend and backend containers only. NGINX port still has to stay publicly opened though)._
     
 <sup>5)</sup> _It has been tested with Ubuntu 14.04, 16.04 and 18.04, CentOS 8_
