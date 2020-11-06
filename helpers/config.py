@@ -910,8 +910,10 @@ class Config(with_metaclass(Singleton)):
                                     default=self.__dict['backup_from_primary']
                                 )
                                 self.__dict['backup_from_primary'] = response
-                            else:
+                            elif self.secondary_backend:
                                 self.__dict['backup_from_primary'] = False
+                            else:
+                                self.__dict['backup_from_primary'] = True
 
                         backup_from_primary = \
                             self.__dict['backup_from_primary'] is True
@@ -945,9 +947,15 @@ class Config(with_metaclass(Singleton)):
 
                         if self.aws:
                             self.__questions_aws_backup_settings()
-
+                    else:
+                        # Back to default value
+                        self.__dict['backup_from_primary'] = True
+            else:
+                # Back to default value
+                self.__dict['backup_from_primary'] = True
         else:
             self.__dict['use_backup'] = False
+            self.__dict['backup_from_primary'] = True  # Back to default value
 
     def __questions_dev_mode(self):
         """
