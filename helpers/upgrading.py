@@ -91,7 +91,7 @@ class Upgrading:
             CLI.framed_print(message)
             message = (
                 'For help, visit https://community.kobotoolbox.org/t/upgrading-'
-                'to-separate-databases-for-kpi-and-kobocat/7202.',
+                'to-separate-databases-for-kpi-and-kobocat/7202.'
             )
             CLI.colored_print(message, CLI.COLOR_WARNING)
             response = CLI.yes_no_question(
