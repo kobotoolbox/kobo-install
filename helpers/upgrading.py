@@ -169,8 +169,9 @@ class Upgrading:
             dict
 
         """
+        # TODO FIX
         if (current_dict.get('postgres_db')
-                and not current_dict.get('kc_postgres_db')):
+                and not current_dict['kc_postgres_db']):
             CLI.colored_print('Upgrading configuration to use two databases',
                               color=CLI.COLOR_INFO)
             upgraded_dict['kc_postgres_db'] = current_dict['postgres_db']

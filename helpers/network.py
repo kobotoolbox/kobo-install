@@ -26,9 +26,9 @@ class Network:
     @staticmethod
     def get_local_interfaces(all=False):
         """
-            Returns a dictionary of name:ip key value pairs.
-            Linux Only!
-            Source: https://gist.github.com/bubthegreat/24c0c43ad159d8dfed1a5d3f6ca99f9b
+        Returns a dictionary of name:ip key value pairs.
+        Linux Only!
+        Source: https://gist.github.com/bubthegreat/24c0c43ad159d8dfed1a5d3f6ca99f9b
 
         :param all: bool If False, filter virtual interfaces such VMWare, Docker etc...
         :return: dict

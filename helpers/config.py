@@ -37,7 +37,6 @@ class Config(with_metaclass(Singleton)):
     def __init__(self):
         self.__dict = self.read_config()
         self.__first_time = None
-        self.__primary_ip = Network.get_primary_ip()
 
     @property
     def advanced_options(self):
@@ -59,8 +58,7 @@ class Config(with_metaclass(Singleton)):
         changed = False
         local_interfaces = Network.get_local_interfaces(all=True)
 
-        if self.__dict.get(
-                'local_interface_ip') not in local_interfaces.values():
+        if self.__dict['local_interface_ip'] not in local_interfaces.values():
             self.__detect_network()
             self.write_config()
             changed = True
@@ -74,7 +72,7 @@ class Config(with_metaclass(Singleton)):
         Returns:
             bool
         """
-        return self.__dict.get('use_aws') is True
+        return self.__dict['use_aws'] is True
 
     @property
     def backend(self):
@@ -83,22 +81,21 @@ class Config(with_metaclass(Singleton)):
 
     @property
     def block_common_http_ports(self):
-        return self.use_letsencrypt or self.__dict.get(
-            'block_common_http_ports') is True
+        return self.use_letsencrypt or self.__dict['block_common_http_ports']
 
     @property
     def expose_backend_ports(self):
-        return self.__dict.get('expose_backend_ports') is True
+        return self.__dict['expose_backend_ports']
 
     def get_env_files_path(self):
         current_path = os.path.realpath(os.path.normpath(os.path.join(
-            self.__dict.get('kobodocker_path'),
+            self.__dict['kobodocker_path'],
             '..',
             Config.ENV_FILES_DIR
         )))
 
         old_path = os.path.realpath(os.path.normpath(os.path.join(
-            self.__dict.get('kobodocker_path'),
+            self.__dict['kobodocker_path'],
             '..',
             'kobo-deployments'
         )))
@@ -111,7 +108,7 @@ class Config(with_metaclass(Singleton)):
 
     def get_letsencrypt_repo_path(self):
         return os.path.realpath(os.path.normpath(os.path.join(
-            self.__dict.get('kobodocker_path'),
+            self.__dict['kobodocker_path'],
             '..',
             Config.LETSENCRYPT_DOCKER_DIR
         )))
@@ -129,11 +126,10 @@ class Config(with_metaclass(Singleton)):
             CLI.colored_print('Invalid composer file', CLI.COLOR_ERROR)
             sys.exit(1)
 
-        if not self.__dict.get('docker_prefix'):
+        if not self.__dict['docker_prefix']:
             return prefix_
 
-        return '{}-{}'.format(self.__dict.get('docker_prefix'),
-                              prefix_)
+        return '{}-{}'.format(self.__dict['docker_prefix'], prefix_)
 
     def get_upgraded_dict(self):
         """
@@ -176,7 +172,7 @@ class Config(with_metaclass(Singleton)):
             dict: all values from user's responses needed to create
             configuration files
         """
-        if not self.__primary_ip:
+        if not Network.get_primary_ip():
             message = (
                 'No valid networks detected. Can not continue!\n'
                 'Please connect to a network and re-run the command.'
@@ -248,7 +244,7 @@ class Config(with_metaclass(Singleton)):
             bool
         """
         if self.__first_time is None:
-            self.__first_time = self.__dict.get( 'date_created') is None
+            self.__first_time = self.__dict.get('date_created') is None
         return self.__first_time
 
     @property
@@ -359,7 +355,6 @@ class Config(with_metaclass(Singleton)):
             'letsencrypt_email': 'support@kobo.local',
             'maintenance_date_iso': '',
             'maintenance_date_str': '',
-            'maintenance_email': '',
             'maintenance_enabled': False,
             'maintenance_eta': '2 hours',
             'mongo_backup_schedule': '0 1 * * 0',
@@ -463,7 +458,7 @@ class Config(with_metaclass(Singleton)):
         Returns:
             bool
         """
-        return self.__dict.get('local_installation') is True
+        return self.__dict['local_installation']
 
     def maintenance(self):
         self.__questions_maintenance()
@@ -477,8 +472,8 @@ class Config(with_metaclass(Singleton)):
             bool
         """
         return self.multi_servers and \
-               self.__dict.get('server_role') == 'backend' and \
-               self.__dict.get('backend_server_role') == 'primary'
+            self.__dict['server_role'] == 'backend' and \
+            self.__dict['backend_server_role'] == 'primary'
 
     @property
     def multi_servers(self):
@@ -488,7 +483,7 @@ class Config(with_metaclass(Singleton)):
         Returns:
             bool
         """
-        return self.__dict.get('multi') is True
+        return self.__dict['multi']
 
     @property
     def proxy(self):
@@ -498,7 +493,7 @@ class Config(with_metaclass(Singleton)):
         Returns:
             bool
         """
-        return self.__dict.get('proxy') is True
+        return self.__dict['proxy']
 
     def read_config(self):
         """
@@ -534,7 +529,7 @@ class Config(with_metaclass(Singleton)):
         unique_id = None
 
         try:
-            unique_id_file = os.path.join(self.__dict.get('kobodocker_path'),
+            unique_id_file = os.path.join(self.__dict['kobodocker_path'],
                                           Config.UNIQUE_ID_FILE)
             with open(unique_id_file, 'r') as f:
                 unique_id = f.read().strip()
@@ -552,15 +547,15 @@ class Config(with_metaclass(Singleton)):
             bool
         """
         return self.multi_servers and \
-               self.__dict.get('server_role') == 'backend' and \
-               self.__dict.get('backend_server_role') == 'secondary'
+            self.__dict['server_role'] == 'backend' and \
+            self.__dict['backend_server_role'] == 'secondary'
 
     def set_config(self, value):
         self.__dict = value
 
     @property
     def staging_mode(self):
-        return self.__dict.get('staging_mode') is True
+        return self.__dict['staging_mode'] is True
 
     @property
     def use_letsencrypt(self):
@@ -597,10 +592,10 @@ class Config(with_metaclass(Singleton)):
 
     def write_unique_id(self):
         try:
-            unique_id_file = os.path.join(self.__dict.get('kobodocker_path'),
+            unique_id_file = os.path.join(self.__dict['kobodocker_path'],
                                           Config.UNIQUE_ID_FILE)
             with open(unique_id_file, 'w') as f:
-                f.write(str(self.__dict.get('unique_id')))
+                f.write(str(self.__dict['unique_id']))
 
             os.chmod(unique_id_file, stat.S_IWRITE | stat.S_IREAD)
         except (IOError, OSError):
@@ -615,9 +610,11 @@ class Config(with_metaclass(Singleton)):
         """
         CLI.colored_print('Where do you want to install?', CLI.COLOR_QUESTION)
         while True:
-            kobodocker_path = CLI.colored_input('', CLI.COLOR_QUESTION,
-                                                self.__dict.get(
-                                                    'kobodocker_path'))
+            kobodocker_path = CLI.colored_input(
+                '',
+                CLI.COLOR_QUESTION,
+                self.__dict['kobodocker_path']
+            )
 
             if kobodocker_path.startswith('.'):
                 base_dir = os.path.dirname(
@@ -697,7 +694,7 @@ class Config(with_metaclass(Singleton)):
             docker_interface = 'docker0'
             interfaces.update({'other': 'Other'})
 
-            if self.__dict.get('local_interface') == docker_interface and \
+            if self.__dict['local_interface'] == docker_interface and \
                     docker_interface in all_interfaces:
                 interfaces.update(
                     {docker_interface: all_interfaces.get(docker_interface)})
@@ -707,6 +704,7 @@ class Config(with_metaclass(Singleton)):
 
             choices = [str(interface) for interface in interfaces.keys()]
             choices.append('other')
+            # TODO VALIDATE GET
             response = CLI.get_response(
                 choices,
                 default=self.__dict.get('local_interface',
@@ -721,16 +719,16 @@ class Config(with_metaclass(Singleton)):
                 self.__dict['local_interface'] = CLI.get_response(
                     choices,
                     self.__dict.get('local_interface',
-                                      Network.get_primary_interface()))
+                                    Network.get_primary_interface()))
             else:
                 self.__dict['local_interface'] = response
 
             self.__dict['local_interface_ip'] = interfaces[
-                self.__dict.get('local_interface')]
+                self.__dict['local_interface']]
 
             if self.frontend:
-                self.__dict['primary_backend_ip'] = self.__dict.get(
-                    'local_interface_ip')
+                self.__dict['primary_backend_ip'] = self.__dict[
+                    'local_interface_ip']
 
     def __questions_advanced_options(self):
         """
@@ -752,13 +750,13 @@ class Config(with_metaclass(Singleton)):
         if self.__dict['use_aws'] is True:
             self.__dict['aws_access_key'] = CLI.colored_input(
                 'AWS Access Key', CLI.COLOR_QUESTION,
-                self.__dict.get('aws_access_key', ''))
+                self.__dict['aws_access_key'])
             self.__dict['aws_secret_key'] = CLI.colored_input(
                 'AWS Secret Key', CLI.COLOR_QUESTION,
-                self.__dict.get('aws_secret_key', ''))
+                self.__dict['aws_secret_key'])
             self.__dict['aws_bucket_name'] = CLI.colored_input(
                 'AWS Bucket name', CLI.COLOR_QUESTION,
-                self.__dict.get('aws_bucket_name', ''))
+                self.__dict['aws_bucket_name'])
         else:
             self.__dict['aws_access_key'] = ''
             self.__dict['aws_secret_key'] = ''
@@ -768,7 +766,7 @@ class Config(with_metaclass(Singleton)):
 
         self.__dict['aws_backup_bucket_name'] = CLI.colored_input(
             'AWS Backups bucket name', CLI.COLOR_QUESTION,
-            self.__dict.get('aws_backup_bucket_name', ''))
+            self.__dict['aws_backup_bucket_name'])
 
         if self.__dict['aws_backup_bucket_name'] != '':
 
@@ -778,22 +776,22 @@ class Config(with_metaclass(Singleton)):
             CLI.colored_print('How many yearly backups to keep?',
                               CLI.COLOR_QUESTION)
             self.__dict['aws_backup_yearly_retention'] = CLI.get_response(
-                r'~^\d+$', self.__dict.get('aws_backup_yearly_retention'))
+                r'~^\d+$', self.__dict['aws_backup_yearly_retention'])
 
             CLI.colored_print('How many monthly backups to keep?',
                               CLI.COLOR_QUESTION)
             self.__dict['aws_backup_monthly_retention'] = CLI.get_response(
-                r'~^\d+$', self.__dict.get('aws_backup_monthly_retention'))
+                r'~^\d+$', self.__dict['aws_backup_monthly_retention'])
 
             CLI.colored_print('How many weekly backups to keep?',
                               CLI.COLOR_QUESTION)
             self.__dict['aws_backup_weekly_retention'] = CLI.get_response(
-                r'~^\d+$', self.__dict.get('aws_backup_weekly_retention'))
+                r'~^\d+$', self.__dict['aws_backup_weekly_retention'])
 
             CLI.colored_print('How many daily backups to keep?',
                               CLI.COLOR_QUESTION)
             self.__dict['aws_backup_daily_retention'] = CLI.get_response(
-                r'~^\d+$', self.__dict.get('aws_backup_daily_retention'))
+                r'~^\d+$', self.__dict['aws_backup_daily_retention'])
 
             if (not self.multi_servers or
                     (self.primary_backend and backup_from_primary) or
@@ -807,7 +805,7 @@ class Config(with_metaclass(Singleton)):
                 self.__dict[
                     'aws_postgres_backup_minimum_size'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__dict.get('aws_postgres_backup_minimum_size'))
+                    self.__dict['aws_postgres_backup_minimum_size'])
 
             if self.primary_backend or not self.multi_servers:
                 CLI.colored_print('MongoDB backup minimum size (in MB)?',
@@ -819,7 +817,7 @@ class Config(with_metaclass(Singleton)):
                 self.__dict[
                     'aws_mongo_backup_minimum_size'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__dict.get('aws_mongo_backup_minimum_size'))
+                    self.__dict['aws_mongo_backup_minimum_size'])
 
                 CLI.colored_print('Redis backup minimum size (in MB)?',
                                   CLI.COLOR_QUESTION)
@@ -830,12 +828,12 @@ class Config(with_metaclass(Singleton)):
                 self.__dict[
                     'aws_redis_backup_minimum_size'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__dict.get('aws_redis_backup_minimum_size'))
+                    self.__dict['aws_redis_backup_minimum_size'])
 
             CLI.colored_print('Chunk size of multipart uploads (in MB)?',
                               CLI.COLOR_QUESTION)
             self.__dict['aws_backup_upload_chunk_size'] = CLI.get_response(
-                r'~^\d+$', self.__dict.get('aws_backup_upload_chunk_size'))
+                r'~^\d+$', self.__dict['aws_backup_upload_chunk_size'])
 
             response = CLI.yes_no_question(
                 'Use AWS LifeCycle deletion rule?',
@@ -898,9 +896,7 @@ class Config(with_metaclass(Singleton)):
                         self.__dict[
                             'kobocat_media_backup_schedule'] = CLI.get_response(
                             '~{}'.format(schedule_regex_pattern),
-                            self.__dict.get(
-                                'kobocat_media_backup_schedule',
-                                '0 0 * * 0'))
+                            self.__dict['kobocat_media_backup_schedule'])
 
                     if self.backend_questions:
                         if self.__dict['use_wal_e'] is True:
@@ -929,9 +925,7 @@ class Config(with_metaclass(Singleton)):
                             self.__dict[
                                 'postgres_backup_schedule'] = CLI.get_response(
                                 '~{}'.format(schedule_regex_pattern),
-                                self.__dict.get(
-                                    'postgres_backup_schedule',
-                                    '0 2 * * 0'))
+                                self.__dict['postgres_backup_schedule'])
 
                         if self.primary_backend or not self.multi_servers:
                             CLI.colored_print('MongoDB backup schedule?',
@@ -939,18 +933,14 @@ class Config(with_metaclass(Singleton)):
                             self.__dict[
                                 'mongo_backup_schedule'] = CLI.get_response(
                                 '~{}'.format(schedule_regex_pattern),
-                                self.__dict.get(
-                                    'mongo_backup_schedule',
-                                    '0 1 * * 0'))
+                                self.__dict['mongo_backup_schedule'])
 
                             CLI.colored_print('Redis backup schedule?',
                                               CLI.COLOR_QUESTION)
                             self.__dict[
                                 'redis_backup_schedule'] = CLI.get_response(
                                 '~{}'.format(schedule_regex_pattern),
-                                self.__dict.get(
-                                    'redis_backup_schedule',
-                                    '0 3 * * 0'))
+                                self.__dict['redis_backup_schedule'])
 
                         if self.aws:
                             self.__questions_aws_backup_settings()
@@ -997,12 +987,12 @@ class Config(with_metaclass(Singleton)):
 
                 self.__dict['kc_path'] = CLI.colored_input(
                     'KoBoCat files location', CLI.COLOR_QUESTION,
-                    self.__dict.get('kc_path'))
+                    self.__dict['kc_path'])
 
                 self.__clone_repo(self.__dict['kc_path'], 'kobocat')
                 self.__dict['kpi_path'] = CLI.colored_input(
                     'KPI files location', CLI.COLOR_QUESTION,
-                    self.__dict.get('kpi_path'))
+                    self.__dict['kpi_path'])
                 self.__clone_repo(self.__dict['kpi_path'], 'kpi')
 
                 # Create an unique id to build fresh image
@@ -1015,9 +1005,9 @@ class Config(with_metaclass(Singleton)):
                         prefix=self.get_prefix('frontend'),
                         timestamp=str(int(time.time()))
                     )
-                if (self.__dict.get('kpi_dev_build_id', '') == '' or
-                        self.__dict.get('kpi_path') != self.__dict.get(
-                            'kpi_path')):
+                # TODO VALIDATE GET kpi_dev_build_id
+                if (self.__dict['kpi_dev_build_id'] == '' or
+                        self.__dict['kpi_path'] != self.__dict['kpi_path']):
                     self.__dict[
                         'kpi_dev_build_id'] = '{prefix}{timestamp}'.format(
                         prefix=self.get_prefix('frontend'),
@@ -1050,7 +1040,7 @@ class Config(with_metaclass(Singleton)):
         self.__dict['docker_prefix'] = CLI.colored_input(
             'Docker Compose prefix? (leave empty for default)',
             CLI.COLOR_QUESTION,
-            self.__dict.get('docker_prefix', ''))
+            self.__dict['docker_prefix'])
 
     def __questions_google(self):
         """
@@ -1059,13 +1049,13 @@ class Config(with_metaclass(Singleton)):
         # Google Analytics
         self.__dict['google_ua'] = CLI.colored_input(
             'Google Analytics Identifier', CLI.COLOR_QUESTION,
-            self.__dict.get('google_ua', ''))
+            self.__dict['google_ua'])
 
         # Google API Key
         self.__dict['google_api_key'] = CLI.colored_input(
             'Google API Key',
             CLI.COLOR_QUESTION,
-            self.__dict.get('google_api_key', ''))
+            self.__dict['google_api_key'])
 
     def __questions_https(self):
         """
@@ -1117,7 +1107,7 @@ class Config(with_metaclass(Singleton)):
                           CLI.COLOR_QUESTION)
         self.__dict['maintenance_eta'] = CLI.get_response(
             r'~^[\w\ ]+$',
-            self.__dict.get('maintenance_eta', '2 hours'))
+            self.__dict['maintenance_eta'])
 
         date_start = _round_nearest_quarter(datetime.utcnow())
         iso_format = '%Y%m%dT%H%M'
@@ -1137,7 +1127,7 @@ class Config(with_metaclass(Singleton)):
             'Contact during maintenance?',
             CLI.COLOR_QUESTION,
             self.__dict.get('maintenance_email',
-                              self.__dict.get('default_from_email')))
+                            self.__dict['default_from_email']))
         self.write_config()
 
     def __questions_mongo(self):
@@ -1156,13 +1146,13 @@ class Config(with_metaclass(Singleton)):
                               CLI.COLOR_QUESTION)
             self.__dict['mongo_root_username'] = CLI.get_response(
                 r'~^\w+$',
-                self.__dict.get('mongo_root_username'),
+                self.__dict['mongo_root_username'],
                 to_lower=False)
 
             CLI.colored_print("MongoDB root's password?", CLI.COLOR_QUESTION)
             self.__dict['mongo_root_password'] = CLI.get_response(
                 r'~^.{8,}$',
-                self.__dict.get('mongo_root_password'),
+                self.__dict['mongo_root_password'],
                 to_lower=False,
                 error_msg='Too short. 8 characters minimum.')
 
@@ -1170,25 +1160,21 @@ class Config(with_metaclass(Singleton)):
                               CLI.COLOR_QUESTION)
             self.__dict['mongo_user_username'] = CLI.get_response(
                 r'~^\w+$',
-                self.__dict.get('mongo_user_username'),
+                self.__dict['mongo_user_username'],
                 to_lower=False)
 
             CLI.colored_print("MongoDB user's password?", CLI.COLOR_QUESTION)
             self.__dict['mongo_user_password'] = CLI.get_response(
                 r'~^.{8,}$',
-                self.__dict.get('mongo_user_password'),
+                self.__dict['mongo_user_password'],
                 to_lower=False,
                 error_msg='Too short. 8 characters minimum.')
 
-            if (self.__dict.get('mongo_secured') != True or
-                mongo_user_username != self.__dict.get(
-                        'mongo_user_username') or
-                mongo_user_password != self.__dict.get(
-                        'mongo_user_password') or
-                mongo_root_username != self.__dict.get(
-                        'mongo_root_username') or
-                mongo_root_password != self.__dict.get(
-                        'mongo_root_password')) and \
+            if (self.__dict.get('mongo_secured') is not True or
+                mongo_user_username != self.__dict['mongo_user_username'] or
+                mongo_user_password != self.__dict['mongo_user_password'] or
+                mongo_root_username != self.__dict['mongo_root_username'] or
+                mongo_root_password != self.__dict['mongo_root_password']) and \
                     not self.first_time:
 
                 # Because chances are high we cannot communicate with DB
@@ -1203,10 +1189,8 @@ class Config(with_metaclass(Singleton)):
                 # Its format should be: `<user><TAB><database>`
                 content = ''
 
-                if (mongo_user_username != self.__dict.get(
-                        'mongo_user_username') or
-                        mongo_root_username != self.__dict.get(
-                            'mongo_root_username')):
+                if (mongo_user_username != self.__dict['mongo_user_username'] or
+                    mongo_root_username != self.__dict['mongo_root_username']):
 
                     message = (
                         'WARNING!\n\n'
@@ -1252,7 +1236,7 @@ class Config(with_metaclass(Singleton)):
                           CLI.COLOR_QUESTION)
         kc_postgres_db = CLI.get_response(
             r'~^\w+$',
-            self.__dict.get('kc_postgres_db'),
+            self.__dict['kc_postgres_db'],
             to_lower=False
         )
 
@@ -1260,7 +1244,7 @@ class Config(with_metaclass(Singleton)):
                           CLI.COLOR_QUESTION)
         kpi_postgres_db = CLI.get_response(
             r'~^\w+$',
-            self.__dict.get('kpi_postgres_db'),
+            self.__dict['kpi_postgres_db'],
             to_lower=False)
 
         while kpi_postgres_db == kc_postgres_db:
@@ -1301,18 +1285,18 @@ class Config(with_metaclass(Singleton)):
                           CLI.COLOR_QUESTION)
         self.__dict['postgres_user'] = CLI.get_response(
             r'~^\w+$',
-            self.__dict.get('postgres_user'),
+            self.__dict['postgres_user'],
             to_lower=False)
 
         CLI.colored_print("PostgreSQL user's password?", CLI.COLOR_QUESTION)
         self.__dict['postgres_password'] = CLI.get_response(
             r'~^.{8,}$',
-            self.__dict.get('postgres_password'),
+            self.__dict['postgres_password'],
             to_lower=False,
             error_msg='Too short. 8 characters minimum.')
 
-        if (postgres_user != self.__dict.get('postgres_user') or
-            postgres_password != self.__dict.get('postgres_password')) and \
+        if (postgres_user != self.__dict['postgres_user'] or
+            postgres_password != self.__dict['postgres_password']) and \
                 not self.first_time:
 
             # Because chances are high we cannot communicate with DB
@@ -1329,7 +1313,7 @@ class Config(with_metaclass(Singleton)):
             # Its format should be: `<user><TAB><boolean>`
             content = '{username}\tfalse'.format(username=postgres_user)
 
-            if postgres_user != self.__dict.get('postgres_user'):
+            if postgres_user != self.__dict['postgres_user']:
 
                 CLI.colored_print("PostgreSQL user's username has changed!",
                                   CLI.COLOR_WARNING)
@@ -1374,10 +1358,20 @@ class Config(with_metaclass(Singleton)):
                                   'sebastianwebber/pgconfig-api']
                 CLI.run_command(docker_command)
 
+                # From https://docs.pgconfig.org/api/#available-parameters
+                # Parameters are case-sensitive, for example
+                # `environment_name` must be one these values:
+                # - `WEB`
+                # - `OLTP`,
+                # - `DW`
+                # - `Mixed`
+                # - `Desktop`
+                # It's case-sensitive.
+
                 CLI.colored_print('Total Memory in GB?', CLI.COLOR_QUESTION)
                 self.__dict['postgres_ram'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__dict.get('postgres_ram'))
+                    self.__dict['postgres_ram'])
 
                 CLI.colored_print('Storage type?', CLI.COLOR_QUESTION)
                 CLI.colored_print('\thdd) Hard Disk Drive')
@@ -1385,12 +1379,12 @@ class Config(with_metaclass(Singleton)):
                 CLI.colored_print('\tsan) Storage Area Network')
                 self.__dict['postgres_hard_drive_type'] = CLI.get_response(
                     ['hdd', 'ssd', 'san'],
-                    self.__dict.get('postgres_hard_drive_type').lower())
+                    self.__dict['postgres_hard_drive_type'].lower())
 
                 CLI.colored_print('Number of connections?', CLI.COLOR_QUESTION)
                 self.__dict['postgres_max_connections'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__dict.get('postgres_max_connections'))
+                    self.__dict['postgres_max_connections'])
 
                 if self.multi_servers:
                     multi_servers_profiles = ['web', 'oltp', 'dw']
@@ -1406,7 +1400,7 @@ class Config(with_metaclass(Singleton)):
 
                     self.__dict['postgres_profile'] = CLI.get_response(
                         ['web', 'oltp', 'dw'],
-                        self.__dict.get('postgres_profile').lower())
+                        self.__dict['postgres_profile'].lower())
 
                     self.__dict['postgres_profile'] = self.__dict[
                         'postgres_profile'].upper()
@@ -1510,19 +1504,19 @@ class Config(with_metaclass(Singleton)):
 
         CLI.colored_print('PostgreSQL?', CLI.COLOR_QUESTION)
         self.__dict['postgresql_port'] = CLI.get_response(
-            r'~^\d+$', self.__dict.get('postgresql_port', '5432'))
+            r'~^\d+$', self.__dict['postgresql_port'])
 
         CLI.colored_print('MongoDB?', CLI.COLOR_QUESTION)
         self.__dict['mongo_port'] = CLI.get_response(
-            r'~^\d+$', self.__dict.get('mongo_port', '27017'))
+            r'~^\d+$', self.__dict['mongo_port'])
 
         CLI.colored_print('Redis (main)?', CLI.COLOR_QUESTION)
         self.__dict['redis_main_port'] = CLI.get_response(
-            r'~^\d+$', self.__dict.get('redis_main_port', '6379'))
+            r'~^\d+$', self.__dict['redis_main_port'])
 
         CLI.colored_print('Redis (cache)?', CLI.COLOR_QUESTION)
         self.__dict['redis_cache_port'] = CLI.get_response(
-            r'~^\d+$', self.__dict.get('redis_cache_port', '6380'))
+            r'~^\d+$', self.__dict['redis_cache_port'])
 
     def __questions_private_routes(self):
         """
@@ -1540,13 +1534,12 @@ class Config(with_metaclass(Singleton)):
                               CLI.COLOR_QUESTION)
             self.__dict['primary_backend_ip'] = CLI.get_response(
                 r'~\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}',
-                self.__dict.get('primary_backend_ip', self.__primary_ip))
+                self.__dict['primary_backend_ip'])
         else:
             self.__dict['private_domain_name'] = CLI.colored_input(
                 'Private domain name',
                 CLI.COLOR_QUESTION,
-                self.__dict.get(
-                    'private_domain_name', ''))
+                self.__dict['private_domain_name'])
 
     def __questions_public_routes(self):
         """
@@ -1554,25 +1547,25 @@ class Config(with_metaclass(Singleton)):
         """
 
         self.__dict['public_domain_name'] = CLI.colored_input(
-            'Public domain name', CLI.COLOR_QUESTION,
-            self.__dict.get('public_domain_name', ''))
+            'Public domain name?', CLI.COLOR_QUESTION,
+            self.__dict['public_domain_name'])
         self.__dict['kpi_subdomain'] = CLI.colored_input(
-            'KPI sub domain',
+            'KPI sub domain?',
             CLI.COLOR_QUESTION,
             self.__dict['kpi_subdomain']
         )
         self.__dict['kc_subdomain'] = CLI.colored_input(
-            'KoBoCat sub domain',
+            'KoBoCat sub domain?',
             CLI.COLOR_QUESTION,
             self.__dict['kc_subdomain']
         )
         self.__dict['ee_subdomain'] = CLI.colored_input(
-            'Enketo Express sub domain name',
+            'Enketo Express sub domain name?',
             CLI.COLOR_SUCCESS,
             self.__dict['ee_subdomain']
         )
 
-        parts = self.__dict.get('public_domain_name', '').split('.')
+        parts = self.__dict['public_domain_name'].split('.')
         self.__dict['internal_domain_name'] = '{}.internal'.format(
             '.'.join(parts[:-1])
         )
@@ -1597,7 +1590,7 @@ class Config(with_metaclass(Singleton)):
                 self.__dict['kobocat_raven'])
             self.__dict['kpi_raven_js'] = CLI.colored_input(
                 'KPI Raven JS token', CLI.COLOR_QUESTION,
-                self.__dict.get('kpi_raven_js', ''))
+                self.__dict['kpi_raven_js'])
         else:
             self.__dict['kpi_raven'] = ''
             self.__dict['kobocat_raven'] = ''
@@ -1613,7 +1606,7 @@ class Config(with_metaclass(Singleton)):
             CLI.colored_print('Redis password?', CLI.COLOR_QUESTION)
             self.__dict['redis_password'] = CLI.get_response(
                 r'~^.{8,}|$',
-                self.__dict.get('redis_password'),
+                self.__dict['redis_password'],
                 to_lower=False,
                 error_msg='Too short. 8 characters minimum.')
 
@@ -1658,11 +1651,15 @@ class Config(with_metaclass(Singleton)):
                 )
                 CLI.framed_print(message)
 
+                if self.first_time:
+                    email = self.__dict['default_from_email']
+                    self.__dict['letsencrypt_email'] = email
+
                 while True:
                     letsencrypt_email = CLI.colored_input(
-                        "Email address for Let's Encrypt",
+                        "Email address for Let's Encrypt?",
                         CLI.COLOR_QUESTION,
-                        self.__dict.get('letsencrypt_email'))
+                        self.__dict['letsencrypt_email'])
                     question = 'Please confirm [{}]'.format(letsencrypt_email)
                     response = CLI.yes_no_question(question)
                     if response is True:
@@ -1709,7 +1706,7 @@ class Config(with_metaclass(Singleton)):
                 while True:
                     self.__dict['nginx_proxy_port'] = CLI.get_response(
                         r'~^\d+$',
-                        self.__dict.get('nginx_proxy_port'))
+                        self.__dict['nginx_proxy_port'])
                     if self.__is_port_allowed(
                             self.__dict['nginx_proxy_port']):
                         break
@@ -1735,12 +1732,11 @@ class Config(with_metaclass(Singleton)):
                           CLI.COLOR_QUESTION)
         CLI.colored_print('\t1) frontend')
         CLI.colored_print('\t2) backend')
-        self.__dict['server_role'] = CLI.get_response(['backend', 'frontend'],
-                                                        self.__dict.get(
-                                                            'server_role',
-                                                            'frontend'))
+        self.__dict['server_role'] = CLI.get_response(
+            ['backend', 'frontend'],
+            self.__dict['server_role'])
 
-        if self.__dict.get('server_role') == 'backend':
+        if self.__dict['server_role'] == 'backend':
             CLI.colored_print(
                 'Which role do you want to assign to this backend server?',
                 CLI.COLOR_QUESTION)
@@ -1748,7 +1744,7 @@ class Config(with_metaclass(Singleton)):
             CLI.colored_print('\t2) secondary')
             self.__dict['backend_server_role'] = CLI.get_response(
                 ['primary', 'secondary'],
-                self.__dict.get('backend_server_role', 'primary'))
+                self.__dict['backend_server_role'])
         else:
             # It may be useless to force backend role when using multi servers.
             self.__dict['backend_server_role'] = 'primary'
@@ -1762,21 +1758,21 @@ class Config(with_metaclass(Singleton)):
             CLI.colored_print("Django's secret key?", CLI.COLOR_QUESTION)
             self.__dict['django_secret_key'] = CLI.get_response(
                 r'~^.{50,}$',
-                self.__dict.get('django_secret_key'),
+                self.__dict['django_secret_key'],
                 to_lower=False,
                 error_msg='Too short. 50 characters minimum.')
 
             CLI.colored_print("Enketo's api key?", CLI.COLOR_QUESTION)
             self.__dict['enketo_api_token'] = CLI.get_response(
                 r'~^.{50,}$',
-                self.__dict.get('enketo_api_token'),
+                self.__dict['enketo_api_token'],
                 to_lower=False,
                 error_msg='Too short. 50 characters minimum.')
 
             CLI.colored_print("Enketo's encryption key?", CLI.COLOR_QUESTION)
             self.__dict['enketo_encryption_key'] = CLI.get_response(
                 r'~^.{50,}$',
-                self.__dict.get('enketo_encryption_key'),
+                self.__dict['enketo_encryption_key'],
                 to_lower=False,
                 error_msg='Too short. 50 characters minimum.')
 
@@ -1785,7 +1781,7 @@ class Config(with_metaclass(Singleton)):
             self.__dict[
                 'enketo_less_secure_encryption_key'] = CLI.get_response(
                 r'~^.{10,}$',
-                self.__dict.get('enketo_less_secure_encryption_key'),
+                self.__dict['enketo_less_secure_encryption_key'],
                 to_lower=False,
                 error_msg='Too short. 10 characters minimum.')
 
@@ -1799,7 +1795,7 @@ class Config(with_metaclass(Singleton)):
         self.__dict['smtp_user'] = CLI.colored_input('SMTP user',
                                                      CLI.COLOR_QUESTION,
                                                      self.__dict['smtp_user'])
-        if self.__dict.get('smtp_user'):
+        if self.__dict['smtp_user']:
             self.__dict['smtp_password'] = CLI.colored_input(
                 'SMTP password',
                 CLI.COLOR_QUESTION,
@@ -1810,22 +1806,28 @@ class Config(with_metaclass(Singleton)):
                 default=self.__dict['smtp_use_tls']
             )
 
+        if self.first_time:
+            domain_name = self.__dict['public_domain_name']
+            self.__dict['default_from_email'] = 'support@{}'.format(domain_name)
+
         self.__dict['default_from_email'] = CLI.colored_input(
-            'From email address', CLI.COLOR_QUESTION,
-            self.__dict.get('default_from_email',
-                            'support@{}'.format(self.__dict[
-                                                    'public_domain_name'])))
+            'From email address?',
+            CLI.COLOR_QUESTION,
+            self.__dict['default_from_email']
+        )
 
     def __questions_super_user_credentials(self):
         # Super user. Only ask for credentials the first time.
         # Super user is created if db doesn't exists.
-        username = CLI.colored_input("Super user's username", CLI.COLOR_QUESTION,
-                                     self.__dict.get('super_user_username'))
-        password = CLI.colored_input("Super user's password", CLI.COLOR_QUESTION,
-                                     self.__dict.get('super_user_password'))
+        username = CLI.colored_input("Super user's username?",
+                                     CLI.COLOR_QUESTION,
+                                     self.__dict['super_user_username'])
+        password = CLI.colored_input("Super user's password?",
+                                     CLI.COLOR_QUESTION,
+                                     self.__dict['super_user_password'])
 
-        if username == self.__dict.get('super_user_username') and \
-                password != self.__dict.get('super_user_password') and \
+        if username == self.__dict['super_user_username'] and \
+                password != self.__dict['super_user_password'] and \
                 not self.first_time:
             message = (
                 'WARNING!\n\n'
@@ -1852,41 +1854,41 @@ class Config(with_metaclass(Singleton)):
                 default=self.__dict['uwsgi_settings']
             )
 
-            if self.__dict.get('uwsgi_settings') is True:
+            if self.__dict['uwsgi_settings'] is True:
                 CLI.colored_print('Number of uWSGi workers to start?',
                                   CLI.COLOR_QUESTION)
                 self.__dict['uwsgi_workers_start'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__dict.get('uwsgi_workers_start'))
+                    self.__dict['uwsgi_workers_start'])
 
                 CLI.colored_print('Maximum uWSGi workers?', CLI.COLOR_QUESTION)
                 self.__dict['uwsgi_workers_max'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__dict.get('uwsgi_workers_max'))
+                    self.__dict['uwsgi_workers_max'])
 
                 CLI.colored_print('Maximum number of requests per worker?',
                                   CLI.COLOR_QUESTION)
                 self.__dict['uwsgi_max_requests'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__dict.get('uwsgi_max_requests'))
+                    self.__dict['uwsgi_max_requests'])
 
                 CLI.colored_print('Maximum memory per workers in MB?',
                                   CLI.COLOR_QUESTION)
                 self.__dict['uwsgi_soft_limit'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__dict.get('uwsgi_soft_limit'))
+                    self.__dict['uwsgi_soft_limit'])
 
                 CLI.colored_print('Maximum time (in seconds) before killing an '
                                   'unresponsive worker?', CLI.COLOR_QUESTION)
                 self.__dict['uwsgi_harakiri'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__dict.get('uwsgi_harakiri'))
+                    self.__dict['uwsgi_harakiri'])
 
                 CLI.colored_print('Maximum time (in seconds) a worker can take '
                                   'to reload/shutdown?', CLI.COLOR_QUESTION)
                 self.__dict['uwsgi_worker_reload_mercy'] = CLI.get_response(
                     r'~^\d+$',
-                    self.__dict.get('uwsgi_worker_reload_mercy'))
+                    self.__dict['uwsgi_worker_reload_mercy'])
 
                 return
 
@@ -2027,7 +2029,7 @@ class Config(with_metaclass(Singleton)):
 
     def __write_upsert_db_users_trigger_file(self, content, destination):
         try:
-            trigger_file = os.path.join(self.__dict.get('kobodocker_path'),
+            trigger_file = os.path.join(self.__dict['kobodocker_path'],
                                         destination,
                                         Config.UPSERT_DB_USERS_TRIGGER_FILE)
             with open(trigger_file, 'w') as f:

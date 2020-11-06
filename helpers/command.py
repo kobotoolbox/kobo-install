@@ -135,9 +135,9 @@ class Command:
         nginx_port = dict_['exposed_nginx_docker_port']
 
         main_url = '{}://{}.{}{}'.format(
-            'https' if dict_.get('https') is True else 'http',
-            dict_.get('kpi_subdomain'),
-            dict_.get('public_domain_name'),
+            'https' if dict_['https'] is True else 'http',
+            dict_['kpi_subdomain'],
+            dict_['public_domain_name'],
             ':{}'.format(nginx_port) if (
                     nginx_port and
                     str(nginx_port) != Config.DEFAULT_NGINX_PORT
@@ -196,24 +196,18 @@ class Command:
         if success:
             username = dict_['super_user_username']
             password = dict_['super_user_password']
-            username_chars_count = len(username) + 6
-            password_chars_count = len(password) + 10
-            url_chars_count = len(main_url) + 6
-            max_chars_count = max(username_chars_count,
-                                  password_chars_count,
-                                  url_chars_count)
+
             message = (
                 'Ready\n'
                 'URL: {url}\n'
-                'User: {username}.\n'
+                'User: {username}\n'
                 'Password: {password}'
             ).format(
                 url=main_url,
                 username=username,
                 password=password)
             CLI.framed_print(message,
-                             color=CLI.COLOR_SUCCESS,
-                             columns=max_chars_count)
+                             color=CLI.COLOR_SUCCESS)
 
         else:
             message = (

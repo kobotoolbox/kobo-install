@@ -101,8 +101,7 @@ def test_dev_mode():
         dict_ = config.get_dict()
         assert config.dev_mode
         assert not config.staging_mode
-        assert config.get_dict().get(
-            'exposed_nginx_docker_port') == '8080'
+        assert config.get_dict().get('exposed_nginx_docker_port') == '8080'
         assert dict_['kpi_path'] == kpi_repo_path and \
                dict_['kc_path'] == kc_repo_path
         assert dict_['npm_container'] is False
@@ -388,7 +387,7 @@ def test_exposed_ports():
 @patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
 def test_force_secure_mongo():
     config = read_config()
-    config_ = config.get_dict()
+    dict_ = config.get_dict()
 
     with patch('helpers.cli.CLI.colored_input') as mock_ci:
         # We need to run it like if user has already run the setup once to
@@ -397,21 +396,21 @@ def test_force_secure_mongo():
         # Run with no advanced options
 
         mock_ci.side_effect = iter([
-            config_['kobodocker_path'],
+            dict_['kobodocker_path'],
             CHOICE_YES,  # Confirm path
             CHOICE_NO,
             CHOICE_NO,
-            config_['public_domain_name'],
-            config_['kpi_subdomain'],
-            config_['kc_subdomain'],
-            config_['ee_subdomain'],
+            dict_['public_domain_name'],
+            dict_['kpi_subdomain'],
+            dict_['kc_subdomain'],
+            dict_['ee_subdomain'],
             CHOICE_NO,  # Do you want to use HTTPS?
-            config_.get('smtp_host', ''),
-            config_.get('smtp_port', '25'),
-            config_.get('smtp_user', ''),
+            dict_['smtp_host'],
+            dict_['smtp_port'],
+            dict_['smtp_user'],
             'test@test.com',
-            config_['super_user_username'],
-            config_['super_user_password'],
+            dict_['super_user_username'],
+            dict_['super_user_password'],
             CHOICE_NO,
         ])
         new_config = config.build()
