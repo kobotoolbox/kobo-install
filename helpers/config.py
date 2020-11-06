@@ -56,7 +56,7 @@ class Config(with_metaclass(Singleton)):
             bool: `True` if network has changed
         """
         changed = False
-        local_interfaces = Network.get_local_interfaces(all=True)
+        local_interfaces = Network.get_local_interfaces(all_=True)
 
         if self.__dict['local_interface_ip'] not in local_interfaces.values():
             self.__detect_network()
@@ -350,11 +350,12 @@ class Config(with_metaclass(Singleton)):
             'kpi_raven_js': '',
             'kpi_subdomain': 'kf',
             'local_installation': False,
-            'local_interface': 'eth0',
+            'local_interface': Network.get_primary_interface(),
             'local_interface_ip': primary_ip,
             'letsencrypt_email': 'support@kobo.local',
             'maintenance_date_iso': '',
             'maintenance_date_str': '',
+            'maintenance_email': 'support@kobo.local',
             'maintenance_enabled': False,
             'maintenance_eta': '2 hours',
             'mongo_backup_schedule': '0 1 * * 0',
@@ -690,7 +691,7 @@ class Config(with_metaclass(Singleton)):
                 'Please choose which network interface you want to use?',
                 CLI.COLOR_QUESTION)
             interfaces = Network.get_local_interfaces()
-            all_interfaces = Network.get_local_interfaces(all=True)
+            all_interfaces = Network.get_local_interfaces(all_=True)
             docker_interface = 'docker0'
             interfaces.update({'other': 'Other'})
 
@@ -704,22 +705,21 @@ class Config(with_metaclass(Singleton)):
 
             choices = [str(interface) for interface in interfaces.keys()]
             choices.append('other')
-            # TODO VALIDATE GET
             response = CLI.get_response(
                 choices,
-                default=self.__dict.get('local_interface',
-                                          Network.get_primary_interface()))
+                default=self.__dict['local_interface']
+            )
 
             if response == 'other':
-                interfaces = Network.get_local_interfaces(all=True)
+                interfaces = Network.get_local_interfaces(all_=True)
                 for interface, ip_address in interfaces.items():
                     CLI.colored_print('\t{}) {}'.format(interface, ip_address))
 
                 choices = [str(interface) for interface in interfaces.keys()]
                 self.__dict['local_interface'] = CLI.get_response(
                     choices,
-                    self.__dict.get('local_interface',
-                                    Network.get_primary_interface()))
+                    self.__dict['local_interface']
+                )
             else:
                 self.__dict['local_interface'] = response
 
@@ -986,12 +986,12 @@ class Config(with_metaclass(Singleton)):
                 CLI.framed_print(message, color=CLI.COLOR_INFO)
 
                 self.__dict['kc_path'] = CLI.colored_input(
-                    'KoBoCat files location', CLI.COLOR_QUESTION,
+                    'KoBoCat files location?', CLI.COLOR_QUESTION,
                     self.__dict['kc_path'])
 
                 self.__clone_repo(self.__dict['kc_path'], 'kobocat')
                 self.__dict['kpi_path'] = CLI.colored_input(
-                    'KPI files location', CLI.COLOR_QUESTION,
+                    'KPI files location?', CLI.COLOR_QUESTION,
                     self.__dict['kpi_path'])
                 self.__clone_repo(self.__dict['kpi_path'], 'kpi')
 
@@ -1005,7 +1005,7 @@ class Config(with_metaclass(Singleton)):
                         prefix=self.get_prefix('frontend'),
                         timestamp=str(int(time.time()))
                     )
-                # TODO VALIDATE GET kpi_dev_build_id
+
                 if (self.__dict['kpi_dev_build_id'] == '' or
                         self.__dict['kpi_path'] != self.__dict['kpi_path']):
                     self.__dict[
@@ -1120,14 +1120,14 @@ class Config(with_metaclass(Singleton)):
 
         date_iso = self.__dict['maintenance_date_iso']
         self.__dict['maintenance_date_str'] = datetime.strptime(date_iso,
-                                                                  iso_format). \
+                                                                iso_format). \
             strftime('%A,&nbsp;%B&nbsp;%d&nbsp;at&nbsp;%H:%M&nbsp;GMT')
 
         self.__dict['maintenance_email'] = CLI.colored_input(
             'Contact during maintenance?',
             CLI.COLOR_QUESTION,
-            self.__dict.get('maintenance_email',
-                            self.__dict['default_from_email']))
+            self.__dict['maintenance_email']
+        )
         self.write_config()
 
     def __questions_mongo(self):
@@ -1339,6 +1339,8 @@ class Config(with_metaclass(Singleton)):
             )
             if self.__dict['postgres_settings'] is True:
 
+                CLI.colored_print('Launching pgconfig.org API container...',
+                                  CLI.COLOR_INFO)
                 # pgconfig.org API is often unresponsive and make kobo-install
                 # hang forever.
                 # A docker image is available, let's use it instead.
@@ -1437,6 +1439,8 @@ class Config(with_metaclass(Singleton)):
                 docker_command = ['docker', 'stop', '-t', '0',
                                   'pgconfig_container']
                 CLI.run_command(docker_command)
+                CLI.colored_print('pgconfig.org API container has been stopped!',
+                                  CLI.COLOR_INFO)
             else:
                 # Forcing the default settings to remain even if there
                 # is an existing value in .run.conf. Without this,
@@ -1475,7 +1479,7 @@ class Config(with_metaclass(Singleton)):
         if not self.multi_servers:
             self.__dict['expose_backend_ports'] = CLI.yes_no_question(
                 'Do you want to expose backend container ports '
-                '(`PostgreSQL`, `MongoDB`, `redis`) ?',
+                '(`PostgreSQL`, `MongoDB`, `redis`)?',
                 default=self.__dict['expose_backend_ports']
             )
         else:
@@ -1561,7 +1565,7 @@ class Config(with_metaclass(Singleton)):
         )
         self.__dict['ee_subdomain'] = CLI.colored_input(
             'Enketo Express sub domain name?',
-            CLI.COLOR_SUCCESS,
+            CLI.COLOR_QUESTION,
             self.__dict['ee_subdomain']
         )
 
@@ -1786,13 +1790,13 @@ class Config(with_metaclass(Singleton)):
                 error_msg='Too short. 10 characters minimum.')
 
     def __questions_smtp(self):
-        self.__dict['smtp_host'] = CLI.colored_input('SMTP server',
+        self.__dict['smtp_host'] = CLI.colored_input('SMTP server?',
                                                      CLI.COLOR_QUESTION,
                                                      self.__dict['smtp_host'])
-        self.__dict['smtp_port'] = CLI.colored_input('SMTP port',
+        self.__dict['smtp_port'] = CLI.colored_input('SMTP port?',
                                                      CLI.COLOR_QUESTION,
                                                      self.__dict['smtp_port'])
-        self.__dict['smtp_user'] = CLI.colored_input('SMTP user',
+        self.__dict['smtp_user'] = CLI.colored_input('SMTP user?',
                                                      CLI.COLOR_QUESTION,
                                                      self.__dict['smtp_user'])
         if self.__dict['smtp_user']:
@@ -2001,8 +2005,7 @@ class Config(with_metaclass(Singleton)):
                         sys.exit(0)
                     else:
                         CLI.colored_print(
-                            'Administrator privilege escalation '
-                            'is needed to prepare DB',
+                            'Privileges escalation is needed to prepare DB',
                             CLI.COLOR_WARNING)
                         # Write `kobo_first_run` file to run postgres
                         # container's entrypoint flawlessly.

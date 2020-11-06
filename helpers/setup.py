@@ -116,10 +116,11 @@ class Setup:
     @classmethod
     def update_hosts(cls, dict_):
         """
-            Args:
-                dict_ (dict): Dictionary provided by `Config.get_dict()`
+
+        Args:
+            dict_ (dict): Dictionary provided by `Config.get_dict()`
         """
-        if dict_['local_installation'] is True:
+        if dict_['local_installation']:
             start_sentence = '### (BEGIN) KoBoToolbox local routes'
             end_sentence = '### (END) KoBoToolbox local routes'
 
@@ -160,8 +161,8 @@ class Setup:
 
             if dict_['review_host'] is True:
                 message = (
-                    'Administrative privileges are required to update your '
-                    '`/etc/hosts`.'
+                    'Privileges escalation is required to update '
+                    'your `/etc/hosts`.'
                 )
                 CLI.framed_print(message, color=CLI.COLOR_INFO)
                 dict_['review_host'] = CLI.yes_no_question(
