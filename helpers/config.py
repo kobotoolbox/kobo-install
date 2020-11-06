@@ -404,6 +404,7 @@ class Config(with_metaclass(Singleton)):
             'redis_main_port': '6379',
             'redis_password': Config.generate_password(),
             'review_host': True,
+            'server_role': '',
             'smtp_host': '',
             'smtp_password': '',
             'smtp_port': '25',
