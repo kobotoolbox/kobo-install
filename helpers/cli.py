@@ -125,10 +125,15 @@ class CLI(object):
     @classmethod
     def get_message_with_default(cls, message, default):
         message = '{} '.format(message) if message else ''
-        default = '{}[{}]{}: '.format(cls.COLOR_DEFAULT,
-                                      default,
-                                      cls.NO_COLOR) \
-            if default else ''
+
+        if default is None:
+            default = ''
+        else:
+            default = '{white}[{off}{default}{white}]{off}: '.format(
+                white=cls.COLOR_DEFAULT,
+                off=cls.NO_COLOR,
+                default=default
+            )
 
         if message:
             message = '{}: '.format(message.strip()) if not default else message

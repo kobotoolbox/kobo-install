@@ -1542,7 +1542,7 @@ class Config(with_metaclass(Singleton)):
                 self.__dict['primary_backend_ip'])
         else:
             self.__dict['private_domain_name'] = CLI.colored_input(
-                'Private domain name',
+                'Private domain name?',
                 CLI.COLOR_QUESTION,
                 self.__dict['private_domain_name'])
 
