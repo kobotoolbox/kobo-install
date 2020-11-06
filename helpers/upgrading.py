@@ -145,9 +145,6 @@ class Upgrading:
 
         backend_role = upgraded_dict['backend_server_role']
         if backend_role in ['master', 'slave']:
-            CLI.colored_print('Upgrading configuration to use new '
-                              'terminology of `kobo-docker`',
-                              color=CLI.COLOR_INFO)
             upgraded_dict['backend_server_role'] = 'primary' \
                 if backend_role == 'master' else 'secondary'
 
@@ -169,12 +166,23 @@ class Upgrading:
             dict
 
         """
-        # TODO FIX
-        if (current_dict.get('postgres_db')
-                and not current_dict['kc_postgres_db']):
-            CLI.colored_print('Upgrading configuration to use two databases',
-                              color=CLI.COLOR_INFO)
+
+        try:
+            current_dict['postgres_db']
+        except KeyError:
+            # Install has been made with two databases.
+            return upgraded_dict
+
+        try:
+            current_dict['kc_postgres_db']
+        except KeyError:
+            # Configuration does not have names of KPI and KoBoCAT databases.
+            # Let's copy old single database name to KoBoCAT database name
             upgraded_dict['kc_postgres_db'] = current_dict['postgres_db']
+
+            # Force this property to False. It helps to detect whether the
+            # database names have changed in `Config.__questions_postgres()`
+            upgraded_dict['two_databases'] = False
 
         return upgraded_dict
 
@@ -200,9 +208,6 @@ class Upgrading:
         else:
             return upgraded_dict
 
-        CLI.colored_print('Upgrading configuration to kobo-install v4.x and '
-                          'later',
-                          color=CLI.COLOR_INFO)
         boolean_properties = [
             'advanced',
             'aws_backup_bucket_deletion_rule_enabled',

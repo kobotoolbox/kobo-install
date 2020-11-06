@@ -181,8 +181,8 @@ class Config(with_metaclass(Singleton)):
             sys.exit(1)
         else:
 
-            self.__dict = self.get_upgraded_dict()
             self.__welcome()
+            self.__dict = self.get_upgraded_dict()
 
             self.__create_directory()
             self.__questions_advanced_options()
@@ -1257,7 +1257,7 @@ class Config(with_metaclass(Singleton)):
 
         if (kc_postgres_db != self.__dict['kc_postgres_db'] or
                 (kpi_postgres_db != self.__dict['kpi_postgres_db'] and
-                 self.__dict.get('two_databases') is True)):
+                 self.__dict['two_databases'])):
             message = (
                 'WARNING!\n\n'
                 'PostgreSQL database names have changed!\n'
