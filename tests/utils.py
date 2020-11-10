@@ -1,16 +1,9 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 import json
-try:
-    from unittest.mock import patch, mock_open
-    builtin_open = 'builtins.open'
-except ImportError:
-    from mock import patch, mock_open
-    builtin_open = '__builtin__.open'
+from unittest.mock import patch, mock_open
 
 from helpers.config import Config
-from helpers.singleton import Singleton, with_metaclass
+from helpers.singleton import Singleton
 
 
 def read_config(overrides=None):
@@ -25,7 +18,7 @@ def read_config(overrides=None):
     # We need to mock `open()` twice.
     # - Once to read kobo-install config file (i.e. `.run.conf`)
     # - Once to read value of `unique_id` (i.e. `/tmp/.uniqid`)
-    with patch(builtin_open, spec=open) as mock_file:
+    with patch('builtins.open', spec=open) as mock_file:
         mock_file.side_effect = iter([
             mock_open(read_data=str_config).return_value,
             mock_open(read_data='').return_value,
@@ -35,7 +28,7 @@ def read_config(overrides=None):
     # We call `read_config()` another time to be sure to reset the config
     # before each test. Thanks to `mock_open`, `Config.get_dict()` always
     # returns `config_dict`.
-    with patch(builtin_open, spec=open) as mock_file:
+    with patch('builtins.open', spec=open) as mock_file:
         mock_file.side_effect = iter([
             mock_open(read_data=str_config).return_value,
             mock_open(read_data='').return_value,
@@ -77,7 +70,7 @@ class MockCommand:
         return mock_docker.compose(command, cwd)
 
 
-class MockDocker(with_metaclass(Singleton)):
+class MockDocker(metaclass=Singleton):
 
     PRIMARY_BACKEND_CONTAINERS = ['primary_postgres',
                                   'mongo',

@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function, unicode_literals, division
-
 import binascii
 import json
 import os
@@ -15,20 +13,14 @@ from random import choice
 
 from helpers.cli import CLI
 from helpers.network import Network
-from helpers.singleton import Singleton, with_metaclass
+from helpers.singleton import Singleton
 from helpers.upgrading import Upgrading
 from helpers.aws_validation import AWSValidation
-
-# Python retro compatibility
-try:
-    FileNotFoundError
-except NameError:
-    FileNotFoundError = IOError
 
 
 # Use this class as a singleton to get the same configuration
 # for each instantiation.
-class Config(with_metaclass(Singleton)):
+class Config(metaclass=Singleton):
 
     CONFIG_FILE = '.run.conf'
     UNIQUE_ID_FILE = '.uniqid'
@@ -39,7 +31,7 @@ class Config(with_metaclass(Singleton)):
     DEFAULT_NGINX_PORT = '80'
     DEFAULT_NGINX_HTTPS_PORT = '443'
     KOBO_DOCKER_BRANCH = '2.020.45'
-    KOBO_INSTALL_VERSION = '4.0.0'
+    KOBO_INSTALL_VERSION = '4.1.0'
     MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
 
     def __init__(self):
