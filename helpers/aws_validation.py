@@ -99,6 +99,8 @@ class AwsValidation:
             with urlopen(req) as res:
                 if res.status == 200:
                     return True
+                else:
+                    return False
         except HTTPError as e:
             return False
 
