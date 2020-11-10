@@ -18,6 +18,12 @@ from helpers.network import Network
 from helpers.singleton import Singleton, with_metaclass
 from helpers.upgrading import Upgrading
 
+# Python retro compatibility
+try:
+    FileNotFoundError
+except NameError:
+    FileNotFoundError = IOError
+
 
 # Use this class as a singleton to get the same configuration
 # for each instantiation.
@@ -504,22 +510,22 @@ class Config(with_metaclass(Singleton)):
         Returns:
             dict
         """
-        config = {}
+        dict_ = {}
         try:
             base_dir = os.path.dirname(
                 os.path.dirname(os.path.realpath(__file__)))
             config_file = os.path.join(base_dir, Config.CONFIG_FILE)
             with open(config_file, 'r') as f:
-                config = json.loads(f.read())
+                dict_ = json.loads(f.read())
         except IOError:
             pass
 
-        self.__dict = config
+        self.__dict = dict_
         unique_id = self.read_unique_id()
         if not unique_id:
             self.__dict['unique_id'] = int(time.time())
 
-        return config
+        return dict_
 
     def read_unique_id(self):
         """
@@ -530,12 +536,12 @@ class Config(with_metaclass(Singleton)):
         """
         unique_id = None
 
+        unique_id_file = os.path.join(self.__dict['kobodocker_path'],
+                                      Config.UNIQUE_ID_FILE)
         try:
-            unique_id_file = os.path.join(self.__dict['kobodocker_path'],
-                                          Config.UNIQUE_ID_FILE)
             with open(unique_id_file, 'r') as f:
                 unique_id = f.read().strip()
-        except Exception as e:
+        except FileNotFoundError:
             pass
 
         return unique_id

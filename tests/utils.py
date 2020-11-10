@@ -21,11 +21,29 @@ def read_config(overrides=None):
         config_dict.update(overrides)
 
     str_config = json.dumps(config_dict)
-    with patch(builtin_open, mock_open(read_data=str_config)) as mock_file:
+    # `Config()` constructor calls `read_config()` internally
+    # We need to mock `open()` twice.
+    # - Once to read kobo-install config file (i.e. `.run.conf`)
+    # - Once to read value of `unique_id` (i.e. `/tmp/.uniqid`)
+    with patch(builtin_open, spec=open) as mock_file:
+        mock_file.side_effect = iter([
+            mock_open(read_data=str_config).return_value,
+            mock_open(read_data='').return_value,
+        ])
         config = Config()
+
+    # We call `read_config()` another time to be sure to reset the config
+    # before each test. Thanks to `mock_open`, `Config.get_dict()` always
+    # returns `config_dict`.
+    with patch(builtin_open, spec=open) as mock_file:
+        mock_file.side_effect = iter([
+            mock_open(read_data=str_config).return_value,
+            mock_open(read_data='').return_value,
+        ])
         config.read_config()
-        dict_ = config.get_dict()
-        assert config_dict['kobodocker_path'] == dict_['kobodocker_path']
+
+    dict_ = config.get_dict()
+    assert config_dict['kobodocker_path'] == dict_['kobodocker_path']
 
     return config
 
