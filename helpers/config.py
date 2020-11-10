@@ -17,6 +17,7 @@ from helpers.cli import CLI
 from helpers.network import Network
 from helpers.singleton import Singleton, with_metaclass
 from helpers.upgrading import Upgrading
+from helpers.aws_validation import AwsValidation
 
 # Python retro compatibility
 try:
@@ -310,6 +311,7 @@ class Config(with_metaclass(Singleton)):
             'aws_backup_weekly_retention': '4',
             'aws_backup_yearly_retention': '2',
             'aws_bucket_name': '',
+            'aws_credentials_valid': False,
             'aws_mongo_backup_minimum_size': '50',
             'aws_postgres_backup_minimum_size': '50',
             'aws_redis_backup_minimum_size': '5',
@@ -574,6 +576,13 @@ class Config(with_metaclass(Singleton)):
     def use_private_dns(self):
         return self.__dict['use_private_dns'] is True
 
+    def validate_aws_credentials(self):
+        sts = AwsValidation(
+            aws_access_key_id=self.__config.get("aws_access_key"),
+            aws_secret_access_key=self.__config.get("aws_secret_key"),
+        )
+        self.__dict['aws_credentials_valid'] = sts.validate_credentials()
+
     def write_config(self):
         """
         Writes config to file `Config.CONFIG_FILE`.
@@ -754,16 +763,32 @@ class Config(with_metaclass(Singleton)):
             'Do you want to use AWS S3 storage?',
             default=self.__dict['use_aws']
         )
+
+        MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 2
+        aws_credential_attempts = 0
         if self.__dict['use_aws'] is True:
-            self.__dict['aws_access_key'] = CLI.colored_input(
-                'AWS Access Key', CLI.COLOR_QUESTION,
-                self.__dict['aws_access_key'])
-            self.__dict['aws_secret_key'] = CLI.colored_input(
-                'AWS Secret Key', CLI.COLOR_QUESTION,
-                self.__dict['aws_secret_key'])
-            self.__dict['aws_bucket_name'] = CLI.colored_input(
-                'AWS Bucket name', CLI.COLOR_QUESTION,
-                self.__dict['aws_bucket_name'])
+            while (
+                self.__config.get("aws_credentials_valid") == Config.FALSE
+            ) and (aws_credential_attempts <= MAXIMUM_AWS_CREDENTIAL_ATTEMPTS):
+                self.__dict['aws_access_key'] = CLI.colored_input(
+                    'AWS Access Key', CLI.COLOR_QUESTION,
+                    self.__dict['aws_access_key'])
+                self.__dict['aws_secret_key'] = CLI.colored_input(
+                    'AWS Secret Key', CLI.COLOR_QUESTION,
+                    self.__dict['aws_secret_key'])
+                self.__dict['aws_bucket_name'] = CLI.colored_input(
+                    'AWS Bucket name', CLI.COLOR_QUESTION,
+                    self.__dict['aws_bucket_name'])
+            else:
+                if self.__config.get("aws_credentials_valid") == Config.FALSE:
+                    CLI.colored_print(
+                        "Please restart configuration.", CLI.COLOR_ERROR
+                    )
+                    sys.exit(1)
+                else:
+                    CLI.colored_print(
+                        "AWS credentials verified.", CLI.COLOR_INFO
+                    )
         else:
             self.__dict['aws_access_key'] = ''
             self.__dict['aws_secret_key'] = ''
