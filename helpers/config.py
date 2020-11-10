@@ -41,8 +41,8 @@ class Config(with_metaclass(Singleton)):
     KOBO_INSTALL_VERSION = '4.0.0'
 
     def __init__(self):
-        self.__dict = self.read_config()
         self.__first_time = None
+        self.__dict = self.read_config()
 
     @property
     def advanced_options(self):
@@ -536,8 +536,19 @@ class Config(with_metaclass(Singleton)):
         """
         unique_id = None
 
-        unique_id_file = os.path.join(self.__dict['kobodocker_path'],
-                                      Config.UNIQUE_ID_FILE)
+        try:
+            unique_id_file = os.path.join(self.__dict['kobodocker_path'],
+                                          Config.UNIQUE_ID_FILE)
+        except KeyError:
+            if self.first_time:
+                return None
+            else:
+                CLI.framed_print('Bad configuration! The path of kobo-docker '
+                                 'path is missing. Please delete `.run.conf` '
+                                 'and start from scratch',
+                                 color=CLI.COLOR_ERROR)
+                sys.exit(1)
+
         try:
             with open(unique_id_file, 'r') as f:
                 unique_id = f.read().strip()
