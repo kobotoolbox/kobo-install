@@ -2,12 +2,6 @@
 import os
 import pytest
 
-# Python retro compatibility
-try:
-    FileNotFoundError
-except NameError:
-    FileNotFoundError = OSError
-
 
 def clean_up():
     """

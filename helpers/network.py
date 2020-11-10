@@ -1,19 +1,12 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function, unicode_literals
-
 import array
 import fcntl
-try:
-    import httplib
-    from urllib2 import urlopen
-except:
-    from http import client as httplib
-    from urllib.request import urlopen
-
 import platform
 import socket
 import struct
 import sys
+from http import client as httplib
+from urllib.request import urlopen
 
 from helpers.cli import CLI
 

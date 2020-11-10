@@ -1,20 +1,11 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function, unicode_literals
-
 import subprocess
 import sys
 import re
 import textwrap
 
-PY2 = sys.version_info[0] == 2
-if PY2:
-    input = raw_input
-    string_type = unicode
-else:
-    string_type = str
 
-
-class CLI(object):
+class CLI:
 
     NO_COLOR = '\033[0;0m'
     COLOR_ERROR = '\033[0;31m'  # dark red
@@ -105,7 +96,7 @@ class CLI(object):
 
                 if (response.lower() in map(lambda x: x.lower(), validators) or
                         validators is None or
-                        (isinstance(validators, string_type) and
+                        (isinstance(validators, str) and
                          validators.startswith('~') and
                          re.match(validators[1:], response)
                         )):
