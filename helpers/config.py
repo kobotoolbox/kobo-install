@@ -589,8 +589,8 @@ class Config(with_metaclass(Singleton)):
 
     def validate_aws_credentials(self):
         sts = AwsValidation(
-            aws_access_key_id=self.__config.get("aws_access_key"),
-            aws_secret_access_key=self.__config.get("aws_secret_key"),
+            aws_access_key_id=self.__dict.get('aws_access_key'),
+            aws_secret_access_key=self.__dict.get('aws_secret_key'),
         )
         self.__dict['aws_credentials_valid'] = sts.validate_credentials()
 
@@ -779,7 +779,7 @@ class Config(with_metaclass(Singleton)):
         aws_credential_attempts = 0
         if self.__dict['use_aws'] is True:
             while (
-                self.__config.get("aws_credentials_valid") == Config.FALSE
+                not self.__dict.get('aws_credentials_valid')
             ) and (aws_credential_attempts <= MAXIMUM_AWS_CREDENTIAL_ATTEMPTS):
                 self.__dict['aws_access_key'] = CLI.colored_input(
                     'AWS Access Key', CLI.COLOR_QUESTION,
@@ -790,15 +790,28 @@ class Config(with_metaclass(Singleton)):
                 self.__dict['aws_bucket_name'] = CLI.colored_input(
                     'AWS Bucket name', CLI.COLOR_QUESTION,
                     self.__dict['aws_bucket_name'])
-            else:
-                if self.__config.get("aws_credentials_valid") == Config.FALSE:
+
+                aws_credential_attempts += 1
+                self.validate_aws_credentials()
+                attempts_remaining = (
+                    MAXIMUM_AWS_CREDENTIAL_ATTEMPTS - aws_credential_attempts
+                )
+                if (not self.__dict.get('aws_credentials_valid')) and (
+                    attempts_remaining >= 0
+                ):
                     CLI.colored_print(
-                        "Please restart configuration.", CLI.COLOR_ERROR
+                        f'Attempts remaining: {attempts_remaining}',
+                        CLI.COLOR_INFO,
+                    )
+            else:
+                if not self.__dict.get('aws_credentials_valid'):
+                    CLI.colored_print(
+                        'Please restart configuration.', CLI.COLOR_ERROR
                     )
                     sys.exit(1)
                 else:
                     CLI.colored_print(
-                        "AWS credentials verified.", CLI.COLOR_INFO
+                        'AWS credentials verified.', CLI.COLOR_INFO
                     )
         else:
             self.__dict['aws_access_key'] = ''
