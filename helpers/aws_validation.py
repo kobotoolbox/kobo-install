@@ -101,7 +101,7 @@ class AwsValidation:
 
     def validate_credentials(self):
         request_url, headers = self._get_request_url_and_headers()
-        req = Request(request_url, headers=headers, method='POST')
+        req = Request(request_url, headers=headers, method=self.METHOD)
 
         try:
             with urlopen(req) as res:
