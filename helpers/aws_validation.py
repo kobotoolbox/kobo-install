@@ -1,12 +1,20 @@
 # -*- coding: utf-8 -*-
+import datetime
+import hashlib
+import hmac
 
-# http://docs.aws.amazon.com/general/latest/gr/signature-v4-examples.html#signature-v4-examples-python
-
-import datetime, hashlib, hmac
-from urllib.request import Request, urlopen
 from urllib.error import HTTPError
+from urllib.request import Request, urlopen
+
 
 class AwsValidation:
+    """
+    A class to validate AWS credentials without using boto3 as a dependancy.
+
+    The scructure and methods have been adapted from the AWS documentation:
+    http://docs.aws.amazon.com/general/latest/gr/signature-v4-examples.html#signature-v4-examples-python
+    """
+
     METHOD = 'POST'
     SERVICE = 'sts'
     REGION = 'us-east-1'
@@ -23,17 +31,17 @@ class AwsValidation:
         self.secret_key = aws_secret_access_key
 
     @staticmethod
-    def __sign(key, msg):
+    def _sign(key, msg):
         return hmac.new(key, msg.encode('utf-8'), hashlib.sha256).digest()
 
     @classmethod
-    def __get_signature_key(cls, key, date_stamp, region_name, service_name):
-        k_date = cls.__sign(('AWS4' + key).encode('utf-8'), date_stamp)
-        k_region = cls.__sign(k_date, region_name)
-        k_service = cls.__sign(k_region, service_name)
-        return cls.__sign(k_service, 'aws4_request')
+    def _get_signature_key(cls, key, date_stamp, region_name, service_name):
+        k_date = cls._sign(('AWS4' + key).encode('utf-8'), date_stamp)
+        k_region = cls._sign(k_date, region_name)
+        k_service = cls._sign(k_region, service_name)
+        return cls._sign(k_service, 'aws4_request')
 
-    def __get_request_url_and_headers(self):
+    def _get_request_url_and_headers(self):
         t = datetime.datetime.utcnow()
         amzdate = t.strftime('%Y%m%dT%H%M%SZ')
         datestamp = t.strftime('%Y%m%d')
@@ -68,7 +76,7 @@ class AwsValidation:
             ]
         )
 
-        signing_key = self.__get_signature_key(
+        signing_key = self._get_signature_key(
             self.secret_key, datestamp, self.REGION, self.SERVICE
         )
 
@@ -92,7 +100,7 @@ class AwsValidation:
         return request_url, headers
 
     def validate_credentials(self):
-        request_url, headers = self.__get_request_url_and_headers()
+        request_url, headers = self._get_request_url_and_headers()
         req = Request(request_url, headers=headers, method='POST')
 
         try:

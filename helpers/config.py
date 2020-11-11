@@ -806,12 +806,12 @@ class Config(with_metaclass(Singleton)):
             else:
                 if not self.__dict.get('aws_credentials_valid'):
                     CLI.colored_print(
-                        'Please restart configuration.', CLI.COLOR_ERROR
+                        'Please restart configuration', CLI.COLOR_ERROR
                     )
                     sys.exit(1)
                 else:
                     CLI.colored_print(
-                        'AWS credentials verified.', CLI.COLOR_INFO
+                        'AWS credentials verified', CLI.COLOR_INFO
                     )
         else:
             self.__dict['aws_access_key'] = ''
