@@ -316,6 +316,7 @@ class Config(with_metaclass(Singleton)):
             'aws_postgres_backup_minimum_size': '50',
             'aws_redis_backup_minimum_size': '5',
             'aws_secret_key': '',
+            'aws_skip_validation': False,
             'backend_server_role': 'primary',
             'backup_from_primary': True,
             'block_common_http_ports': True,
@@ -805,10 +806,15 @@ class Config(with_metaclass(Singleton)):
                     )
             else:
                 if not self.__dict.get('aws_credentials_valid'):
-                    CLI.colored_print(
-                        'Please restart configuration', CLI.COLOR_ERROR
+                    self.__dict['aws_skip_validation'] = CLI.yes_no_question(
+                        'Would you like to skip validation?',
+                        default=self.__dict['aws_skip_validation'],
                     )
-                    sys.exit(1)
+                    if not self.__dict['aws_skip_validation']:
+                        CLI.colored_print(
+                            'Please restart configuration', CLI.COLOR_ERROR
+                        )
+                        sys.exit(1)
                 else:
                     CLI.colored_print(
                         'AWS credentials verified', CLI.COLOR_INFO
