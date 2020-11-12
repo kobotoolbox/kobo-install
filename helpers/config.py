@@ -127,7 +127,7 @@ class Config(metaclass=Singleton):
         if not self.__dict['docker_prefix']:
             return prefix_
 
-        return '{}-{}'.format(self.__dict['docker_prefix'], prefix_)
+        return f"{self.__dict['docker_prefix']}-{prefix_}"
 
     def get_upgraded_dict(self):
         """
@@ -632,7 +632,7 @@ class Config(metaclass=Singleton):
                 kobodocker_path = os.path.normpath(
                     os.path.join(base_dir, kobodocker_path))
 
-            question = 'Please confirm path [{}]'.format(kobodocker_path)
+            question = f'Please confirm path [{kobodocker_path}]'
             response = CLI.yes_no_question(question)
             if response is True:
                 if os.path.isdir(kobodocker_path):
@@ -643,8 +643,8 @@ class Config(metaclass=Singleton):
                         break
                     except OSError:
                         CLI.colored_print(
-                            'Could not create directory {}!'.format(
-                                kobodocker_path), CLI.COLOR_ERROR)
+                            f'Could not create directory {kobodocker_path}!',
+                            CLI.COLOR_ERROR)
                         CLI.colored_print(
                             'Please make sure you have permissions '
                             'and path is correct',
@@ -677,13 +677,14 @@ class Config(metaclass=Singleton):
             if not os.path.isdir(os.path.join(full_repo_path, '.git')):
                 git_command = [
                     'git', 'clone',
-                    'https://github.com/kobotoolbox/{}'.format(repo_name),
+                    f'https://github.com/kobotoolbox/{repo_name}',
                     full_repo_path
                 ]
 
-                CLI.colored_print('Cloning `{}` repository to `{}` '.format(
-                    repo_name,
-                    full_repo_path), CLI.COLOR_INFO)
+                CLI.colored_print(
+                    f'Cloning `{repo_name}` repository to `{full_repo_path}`',
+                    CLI.COLOR_INFO
+                )
                 CLI.run_command(git_command,
                                 cwd=os.path.dirname(full_repo_path))
 
@@ -710,7 +711,7 @@ class Config(metaclass=Singleton):
                     {docker_interface: all_interfaces.get(docker_interface)})
 
             for interface, ip_address in interfaces.items():
-                CLI.colored_print('\t{}) {}'.format(interface, ip_address))
+                CLI.colored_print(f'\t{interface}) {ip_address}')
 
             choices = [str(interface) for interface in interfaces.keys()]
             choices.append('other')
@@ -722,7 +723,7 @@ class Config(metaclass=Singleton):
             if response == 'other':
                 interfaces = Network.get_local_interfaces(all_=True)
                 for interface, ip_address in interfaces.items():
-                    CLI.colored_print('\t{}) {}'.format(interface, ip_address))
+                    CLI.colored_print(f'\t{interface}) {ip_address}')
 
                 choices = [str(interface) for interface in interfaces.keys()]
                 self.__dict['local_interface'] = CLI.get_response(
@@ -903,7 +904,7 @@ class Config(metaclass=Singleton):
                                           CLI.COLOR_QUESTION)
                         self.__dict[
                             'kobocat_media_backup_schedule'] = CLI.get_response(
-                            '~{}'.format(schedule_regex_pattern),
+                            f'~{schedule_regex_pattern}',
                             self.__dict['kobocat_media_backup_schedule'])
 
                     if self.backend_questions:
@@ -933,7 +934,7 @@ class Config(metaclass=Singleton):
                                               CLI.COLOR_QUESTION)
                             self.__dict[
                                 'postgres_backup_schedule'] = CLI.get_response(
-                                '~{}'.format(schedule_regex_pattern),
+                                f'~{schedule_regex_pattern}',
                                 self.__dict['postgres_backup_schedule'])
 
                         if self.primary_backend or not self.multi_servers:
@@ -941,14 +942,14 @@ class Config(metaclass=Singleton):
                                               CLI.COLOR_QUESTION)
                             self.__dict[
                                 'mongo_backup_schedule'] = CLI.get_response(
-                                '~{}'.format(schedule_regex_pattern),
+                                f'~{schedule_regex_pattern}',
                                 self.__dict['mongo_backup_schedule'])
 
                             CLI.colored_print('Redis backup schedule?',
                                               CLI.COLOR_QUESTION)
                             self.__dict[
                                 'redis_backup_schedule'] = CLI.get_response(
-                                '~{}'.format(schedule_regex_pattern),
+                                f'~{schedule_regex_pattern}',
                                 self.__dict['redis_backup_schedule'])
 
                         if self.aws:
@@ -1018,21 +1019,17 @@ class Config(metaclass=Singleton):
                     not self.__dict['kc_dev_build_id'] or
                     self.__dict['kc_path'] != kc_path
                 ):
-                    build_id = '{prefix}{timestamp}'.format(
-                        prefix=self.get_prefix('frontend'),
-                        timestamp=str(int(time.time()))
-                    )
-                    self.__dict['kc_dev_build_id'] = build_id
+                    prefix = self.get_prefix('frontend')
+                    timestamp = str(int(time.time()))
+                    self.__dict['kc_dev_build_id'] = f'{prefix}{timestamp}'
 
                 if (
                     not self.__dict['kpi_dev_build_id'] == '' or
                     self.__dict['kpi_path'] != kpi_path
                 ):
-                    build_id = '{prefix}{timestamp}'.format(
-                        prefix=self.get_prefix('frontend'),
-                        timestamp=str(int(time.time()))
-                    )
-                    self.__dict['kpi_dev_build_id'] = build_id
+                    prefix = self.get_prefix('frontend')
+                    timestamp = str(int(time.time()))
+                    self.__dict['kpi_dev_build_id'] = f'{prefix}{timestamp}'
 
                 if self.dev_mode:
                     self.__dict['debug'] = CLI.yes_no_question(
@@ -1335,7 +1332,7 @@ class Config(metaclass=Singleton):
             # It should always contain previous username and a boolean
             # for deletion.
             # Its format should be: `<user><TAB><boolean>`
-            content = '{username}\tfalse'.format(username=postgres_user)
+            content = f'{postgres_user}\tfalse'
 
             if postgres_user != self.__dict['postgres_user']:
 
@@ -1344,7 +1341,7 @@ class Config(metaclass=Singleton):
                 question = 'Do you want to remove old user?',
                 response = CLI.yes_no_question(question)
                 if response is True:
-                    content = '{username}\ttrue'.format(username=postgres_user)
+                    content = f'{postgres_user}\ttrue'
                     message = (
                         'WARNING!\n\n'
                         'User cannot be deleted if it has been used to '
@@ -1379,7 +1376,7 @@ class Config(metaclass=Singleton):
 
                 # Start pgconfig.org API docker image
                 docker_command = ['docker', 'run', '--rm', '-p',
-                                  '127.0.0.1:{}:8080'.format(open_port),
+                                  f'127.0.0.1:{open_port}:8080',
                                   '-d', '--name', 'pgconfig_container',
                                   'sebastianwebber/pgconfig-api']
                 CLI.run_command(docker_command)
@@ -1594,14 +1591,12 @@ class Config(metaclass=Singleton):
         )
 
         parts = self.__dict['public_domain_name'].split('.')
-        self.__dict['internal_domain_name'] = '{}.internal'.format(
-            '.'.join(parts[:-1])
-        )
+        domain_wo_tld = '.'.join(parts[:-1])
+        self.__dict['internal_domain_name'] = f'{domain_wo_tld}.internal'
+
         if not self.multi_servers or \
                 (self.multi_servers and not self.use_private_dns):
-            self.__dict['private_domain_name'] = '{}.private'.format(
-                '.'.join(parts[:-1])
-            )
+            self.__dict['private_domain_name'] = f'{domain_wo_tld}.private'
 
     def __questions_raven(self):
         self.__dict['raven_settings'] = CLI.yes_no_question(
@@ -1688,7 +1683,7 @@ class Config(metaclass=Singleton):
                         "Email address for Let's Encrypt?",
                         CLI.COLOR_QUESTION,
                         self.__dict['letsencrypt_email'])
-                    question = 'Please confirm [{}]'.format(letsencrypt_email)
+                    question = f'Please confirm [{letsencrypt_email}]'
                     response = CLI.yes_no_question(question)
                     if response is True:
                         self.__dict['letsencrypt_email'] = letsencrypt_email
@@ -1745,9 +1740,9 @@ class Config(metaclass=Singleton):
                 self.__dict['block_common_http_ports'] = True
                 if not self.use_letsencrypt:
                     CLI.colored_print(
-                        'Internal port used by reverse proxy is {}.'.format(
-                            Config.DEFAULT_PROXY_PORT
-                        ), CLI.COLOR_WARNING)
+                        'Internal port used by reverse proxy is '
+                        f'{Config.DEFAULT_PROXY_PORT}.',
+                        CLI.COLOR_WARNING)
                 self.__dict['nginx_proxy_port'] = Config.DEFAULT_PROXY_PORT
 
         else:
@@ -1836,7 +1831,7 @@ class Config(metaclass=Singleton):
 
         if self.first_time:
             domain_name = self.__dict['public_domain_name']
-            self.__dict['default_from_email'] = 'support@{}'.format(domain_name)
+            self.__dict['default_from_email'] = f'support@{domain_name}'
 
         self.__dict['default_from_email'] = CLI.colored_input(
             'From email address?',
@@ -2033,11 +2028,15 @@ class Config(metaclass=Singleton):
                             CLI.COLOR_WARNING)
                         # Write `kobo_first_run` file to run postgres
                         # container's entrypoint flawlessly.
+                        filepath = os.path.join(
+                            self.__dict['kobodocker_path'],
+                            '.vols',
+                            'db',
+                            'kobo_first_run'
+                        )
                         os.system(
-                            'echo $(date) | sudo tee -a {} > /dev/null'.format(
-                                os.path.join(self.__dict['kobodocker_path'],
-                                             '.vols', 'db', 'kobo_first_run')
-                            ))
+                            f'echo $(date) | sudo tee -a {filepath} > /dev/null'
+                        )
 
     @staticmethod
     def __welcome():
@@ -2062,8 +2061,9 @@ class Config(metaclass=Singleton):
             with open(trigger_file, 'w') as f:
                 f.write(content)
         except (IOError, OSError):
-            CLI.colored_print('Could not write {} file'.format(
-                Config.UPSERT_DB_USERS_TRIGGER_FILE), CLI.COLOR_ERROR)
+            filename = Config.UPSERT_DB_USERS_TRIGGER_FILE
+            CLI.colored_print(f'Could not write {filename} file',
+                              CLI.COLOR_ERROR)
             return False
 
         return True

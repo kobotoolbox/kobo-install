@@ -44,14 +44,15 @@ class CLI:
 
     @classmethod
     def colorize(cls, message, color=NO_COLOR):
-        return '{}{}{}'.format(color, message, cls.NO_COLOR)
+        return f'{color}{message}{cls.NO_COLOR}'
 
     @classmethod
     def framed_print(cls, message, color=COLOR_WARNING, columns=70):
         border = '═' * (columns - 2)
+        blank_line = ' ' * (columns - 2)
         framed_message = [
-            '╔{}╗'.format(border),
-            '║ {} ║'.format(' ' * (columns - 4)),
+            f'╔{border}╗',
+            f'║{blank_line}║',
         ]
 
         if not isinstance(message, list):
@@ -62,7 +63,7 @@ class CLI:
         for paragraph in paragraphs:
             if paragraph == '':
                 framed_message.append(
-                    '║ {} ║'.format(' ' * (columns - 4))
+                    f'║{blank_line}║'
                 )
                 continue
 
@@ -70,11 +71,11 @@ class CLI:
                 message_length = len(line)
                 spacer = ' ' * (columns - 4 - message_length)
                 framed_message.append(
-                    '║ {}{} ║'.format(line, spacer)
+                    f'║ {line}{spacer} ║'
                 )
 
-        framed_message.append('║ {} ║'.format(' ' * (columns - 4)))
-        framed_message.append('╚{}╝'.format(border))
+        framed_message.append(f'║{blank_line}║')
+        framed_message.append(f'╚{border}╝')
         cls.colored_print('\n'.join(framed_message), color=color)
 
     @classmethod
@@ -118,7 +119,7 @@ class CLI:
 
     @classmethod
     def get_message_with_default(cls, message, default):
-        message = '{} '.format(message) if message else ''
+        message = f'{message} ' if message else ''
 
         if default is None:
             default = ''
@@ -130,9 +131,10 @@ class CLI:
             )
 
         if message:
-            message = '{}: '.format(message.strip()) if not default else message
+            message = message.strip()
+            message = f'{message}: ' if not default else message
 
-        return '{}{}'.format(message, default)
+        return f'{message}{default}'
 
     @classmethod
     def run_command(cls, command, cwd=None, polling=False):
@@ -143,10 +145,7 @@ class CLI:
                 if output == '' and process.poll() is not None:
                     break
                 if output:
-                    if PY2:
-                        print(output.strip())
-                    else:
-                        print(output.decode().strip())
+                    print(output.decode().strip())
             return process.poll()
         else:
             try:
@@ -167,8 +166,6 @@ class CLI:
                         labels=['Yes', 'No']):
         cls.colored_print(question, color=cls.COLOR_QUESTION)
         for index, label in enumerate(labels):
-            cls.colored_print('\t{index}) {label}'.format(
-                index=index + 1,
-                label=label
-            ))
+            choice_number = index + 1
+            cls.colored_print(f'\t{choice_number}) {label}')
         return cls.get_response(default=default)

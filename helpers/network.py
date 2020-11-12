@@ -156,11 +156,11 @@ class Network:
         try:
             if secure:
                 conn = httplib.HTTPSConnection(
-                    '{}:{}'.format(hostname, port),
+                    f'{hostname}:{port}',
                     timeout=10)
             else:
                 conn = httplib.HTTPConnection(
-                    '{}:{}'.format(hostname, port),
+                    f'{hostname}:{port}',
                     timeout=10)
             conn.request('GET', endpoint)
             response = conn.getresponse()

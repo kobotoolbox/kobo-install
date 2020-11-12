@@ -78,10 +78,9 @@ class Command:
                 CLI.run_command(frontend_command, dict_['kobodocker_path'])
 
             if image is None or image == 'kf':
-                dict_['kpi_dev_build_id'] = '{prefix}{timestamp}'.format(
-                    prefix=config.get_prefix('frontend'),
-                    timestamp=str(int(time.time()))
-                )
+                prefix = config.get_prefix('frontend')
+                timestamp = str(int(time.time()))
+                dict_['kpi_dev_build_id'] = f'{prefix}{timestamp}'
                 config.write_config()
                 Template.render(config)
                 build_image('kpi')
@@ -93,10 +92,9 @@ class Command:
 
                 CLI.run_command(pull_base_command, dict_['kobodocker_path'])
 
-                dict_['kc_dev_build_id'] = '{prefix}{timestamp}'.format(
-                    prefix=config.get_prefix('frontend'),
-                    timestamp=str(int(time.time()))
-                )
+                prefix = config.get_prefix('frontend')
+                timestamp = str(int(time.time()))
+                dict_['kc_dev_build_id'] = f'{prefix}{timestamp}'
                 config.write_config()
                 Template.render(config)
                 build_image('kobocat')
@@ -119,9 +117,12 @@ class Command:
         backend_role = dict_['backend_server_role']
         command = [
             'docker-compose',
-            '-f', 'docker-compose.backend.{}.yml'.format(backend_role),
-            '-f', 'docker-compose.backend.{}.override.yml'.format(backend_role),
-            '-p', config.get_prefix('backend')
+            '-f',
+            f'docker-compose.backend.{backend_role}.yml',
+            '-f',
+            f'docker-compose.backend.{backend_role}.override.yml',
+            '-p',
+            config.get_prefix('backend')
         ]
         command.extend(args)
         subprocess.call(command, cwd=dict_['kobodocker_path'])
@@ -146,8 +147,7 @@ class Command:
         stop = False
         start = int(time.time())
         success = False
-        hostname = '{}.{}'.format(dict_['kpi_subdomain'],
-                                  dict_['public_domain_name'])
+        hostname = f"{dict_['kpi_subdomain']}.{dict_['public_domain_name']}"
         https = dict_['https']
         nginx_port = int(Config.DEFAULT_NGINX_HTTPS_PORT) \
             if https else int(dict_['exposed_nginx_docker_port'])
@@ -164,7 +164,7 @@ class Command:
                         '\n`KoBoToolbox` has not started yet. '
                         'This is can be normal with low CPU/RAM computers.\n',
                         CLI.COLOR_INFO)
-                    question = 'Wait for another {} seconds?'.format(timeout)
+                    question = f'Wait for another {timeout} seconds?'
                     response = CLI.yes_no_question(question)
                     if response:
                         start = int(time.time())
@@ -198,13 +198,10 @@ class Command:
 
             message = (
                 'Ready\n'
-                'URL: {url}\n'
-                'User: {username}\n'
-                'Password: {password}'
-            ).format(
-                url=main_url,
-                username=username,
-                password=password)
+                f'URL: {main_url}\n'
+                f'User: {username}\n'
+                f'Password: {password}'
+            )
             CLI.framed_print(message,
                              color=CLI.COLOR_SUCCESS)
 
@@ -224,19 +221,17 @@ class Command:
 
         if config.primary_backend or config.secondary_backend:
             backend_role = dict_['backend_server_role']
-
-            backend_command = ['docker-compose',
-                               '-f',
-                               'docker-compose.backend.{}.yml'.format(
-                                   backend_role),
-                               '-f',
-                               'docker-compose.backend.{}.override.yml'.format(
-                                   backend_role),
-                               '-p',
-                               config.get_prefix('backend'),
-                               'logs',
-                               '-f'
-                               ]
+            backend_command = [
+                'docker-compose',
+                '-f',
+                f'docker-compose.backend.{backend_role}.yml',
+                '-f',
+                f'docker-compose.backend.{backend_role}.override.yml',
+                '-p',
+                config.get_prefix('backend'),
+                'logs',
+                '-f'
+            ]
             CLI.run_command(backend_command,
                             dict_['kobodocker_path'],
                             True)
@@ -329,8 +324,8 @@ class Command:
 
         for port in ports:
             if Network.is_port_open(port):
-                CLI.colored_print('Port {} is already open. '
-                                  'KoboToolbox cannot start'.format(port),
+                CLI.colored_print(f'Port {port} is already open. '
+                                  'KoboToolbox cannot start',
                                   CLI.COLOR_ERROR)
                 sys.exit(1)
 
@@ -342,9 +337,9 @@ class Command:
             backend_command = [
                 'docker-compose',
                 '-f',
-                'docker-compose.backend.{}.yml'.format(backend_role),
+                f'docker-compose.backend.{backend_role}.yml',
                 '-f',
-                'docker-compose.backend.{}.override.yml'.format(backend_role),
+                f'docker-compose.backend.{backend_role}.override.yml',
                 '-p',
                 config.get_prefix('backend'),
                 'up',
@@ -391,11 +386,12 @@ class Command:
                                   'It can take a few minutes.', CLI.COLOR_INFO)
                 cls.info()
             else:
+                backend_server_role = dict_['backend_server_role']
                 CLI.colored_print(
-                    ('{} backend server is starting up and should be '
-                     'up & running soon!\nPlease look at docker logs for '
-                     'further information: `python3 run.py -cb logs -f`'.format(
-                        dict_['backend_server_role'])),
+                    (f'{backend_server_role} backend server is starting up '
+                     'and should be up & running soon!\nPlease look at docker '
+                     'logs for further information: '
+                     '`python3 run.py -cb logs -f`'),
                     CLI.COLOR_WARNING)
 
     @classmethod
@@ -439,10 +435,11 @@ class Command:
             backend_command = [
                 'docker-compose',
                 '-f',
-                'docker-compose.backend.{}.yml'.format(backend_role),
+                f'docker-compose.backend.{backend_role}.yml',
                 '-f',
-                'docker-compose.backend.{}.override.yml'.format(backend_role),
-                '-p', config.get_prefix('backend'),
+                f'docker-compose.backend.{backend_role}.override.yml',
+                '-p',
+                config.get_prefix('backend'),
                 'down'
             ]
             CLI.run_command(backend_command, dict_['kobodocker_path'])
@@ -488,8 +485,7 @@ class Command:
     def version(cls):
         git_commit_version_command = ['git', 'rev-parse', 'HEAD']
         stdout = CLI.run_command(git_commit_version_command)
-
-        CLI.colored_print('kobo-install Version: {} (build {})'.format(
-            Config.KOBO_INSTALL_VERSION,
-            stdout.strip()[0:7],
-        ), CLI.COLOR_SUCCESS)
+        build = stdout.strip()[0:7]
+        version = Config.KOBO_INSTALL_VERSION
+        CLI.colored_print(f'kobo-install Version: {version} (build {build})',
+                          CLI.COLOR_SUCCESS)
