@@ -21,7 +21,10 @@ class CLI:
         '1': True,
         '2': False,
     }
-    DEFAULT_RESPONSES = dict((v, k) for k, v in DEFAULT_CHOICES.items())
+    # We need an inverted dict version of `DEFAULT_CHOICES` to be able to
+    # retrieve keys from the values
+    DEFAULT_RESPONSES = dict(zip(DEFAULT_CHOICES.values(),
+                                 DEFAULT_CHOICES.keys()))
 
     @classmethod
     def colored_input(cls, message, color=NO_COLOR, default=None):

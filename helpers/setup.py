@@ -62,7 +62,7 @@ class Setup:
 
         message = (
             'After an update, it is strongly recommended to run\n'
-            '`./run.py --setup` to regenerate environment files.'
+            '`python3 run.py --setup` to regenerate environment files.'
         )
         CLI.framed_print(message, color=CLI.COLOR_INFO)
         response = CLI.yes_no_question('Do you want to proceed?')
@@ -194,7 +194,7 @@ class Setup:
         dict_ = config.get_dict()
 
         def display_error_message(message):
-            message += '\nPlease run `./run.py --setup` first.'
+            message += '\nPlease run `python3 run.py --setup` first.'
             CLI.framed_print(message, color=CLI.COLOR_ERROR)
             sys.exit(1)
 
