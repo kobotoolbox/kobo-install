@@ -143,10 +143,7 @@ class CLI:
                 if output == '' and process.poll() is not None:
                     break
                 if output:
-                    if PY2:
-                        print(output.strip())
-                    else:
-                        print(output.decode().strip())
+                    print(output.decode().strip())
             return process.poll()
         else:
             try:
