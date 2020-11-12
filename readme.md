@@ -142,7 +142,7 @@ User can choose between 2 types of installations:
 ## Requirements
 
 - Linux <sup>5</sup> / macOS <sup>6</sup>
-- Python 2.7/3.5+ <sup>_Python2 support will be dropped in a future release_</sup>
+- Python 3.5+
 - [Docker](https://www.docker.com/get-started "") & [Docker Compose](https://docs.docker.com/compose/install/ "")
 - Available TCP Ports: <sup>7</sup>
 
