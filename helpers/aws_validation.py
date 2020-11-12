@@ -2,16 +2,15 @@
 import datetime
 import hashlib
 import hmac
-
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 
-class AwsValidation:
+class AWSValidation:
     """
-    A class to validate AWS credentials without using boto3 as a dependancy.
+    A class to validate AWS credentials without using boto3 as a dependency.
 
-    The scructure and methods have been adapted from the AWS documentation:
+    The structure and methods have been adapted from the AWS documentation:
     http://docs.aws.amazon.com/general/latest/gr/signature-v4-examples.html#signature-v4-examples-python
     """
 
@@ -23,7 +22,7 @@ class AwsValidation:
     REQUEST_PARAMETERS = 'Action=GetCallerIdentity&Version=2011-06-15'
     CANONICAL_URI = '/'
     SIGNED_HEADERS = 'host;x-amz-date'
-    PAYLOAD_HASH = hashlib.sha256(('').encode('utf-8')).hexdigest()
+    PAYLOAD_HASH = hashlib.sha256(''.encode('utf-8')).hexdigest()
     ALGORITHM = 'AWS4-HMAC-SHA256'
 
     def __init__(self, aws_access_key_id, aws_secret_access_key):
@@ -81,7 +80,7 @@ class AwsValidation:
         )
 
         signature = hmac.new(
-            signing_key, (string_to_sign).encode('utf-8'), hashlib.sha256
+            signing_key, string_to_sign.encode('utf-8'), hashlib.sha256
         ).hexdigest()
 
         authorization_header = (

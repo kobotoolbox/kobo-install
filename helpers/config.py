@@ -17,7 +17,7 @@ from helpers.cli import CLI
 from helpers.network import Network
 from helpers.singleton import Singleton, with_metaclass
 from helpers.upgrading import Upgrading
-from helpers.aws_validation import AwsValidation
+from helpers.aws_validation import AWSValidation
 
 # Python retro compatibility
 try:
@@ -40,6 +40,7 @@ class Config(with_metaclass(Singleton)):
     DEFAULT_NGINX_HTTPS_PORT = '443'
     KOBO_DOCKER_BRANCH = '2.020.45'
     KOBO_INSTALL_VERSION = '4.0.0'
+    MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 2
 
     def __init__(self):
         self.__first_time = None
@@ -589,11 +590,11 @@ class Config(with_metaclass(Singleton)):
         return self.__dict['use_private_dns'] is True
 
     def validate_aws_credentials(self):
-        sts = AwsValidation(
-            aws_access_key_id=self.__dict.get('aws_access_key'),
-            aws_secret_access_key=self.__dict.get('aws_secret_key'),
+        validation = AWSValidation(
+            aws_access_key_id=self.__dict['aws_access_key'],
+            aws_secret_access_key=self.__dict['aws_secret_key'],
         )
-        self.__dict['aws_credentials_valid'] = sts.validate_credentials()
+        self.__dict['aws_credentials_valid'] = validation.validate_credentials()
 
     def write_config(self):
         """
@@ -776,12 +777,11 @@ class Config(with_metaclass(Singleton)):
             default=self.__dict['use_aws']
         )
 
-        MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 2
         aws_credential_attempts = 0
         if self.__dict['use_aws'] is True:
-            while (
-                not self.__dict.get('aws_credentials_valid')
-            ) and (aws_credential_attempts <= MAXIMUM_AWS_CREDENTIAL_ATTEMPTS):
+            while not self.__dict['aws_credentials_valid'] and (
+                aws_credential_attempts <= self.MAXIMUM_AWS_CREDENTIAL_ATTEMPTS
+            ):
                 self.__dict['aws_access_key'] = CLI.colored_input(
                     'AWS Access Key', CLI.COLOR_QUESTION,
                     self.__dict['aws_access_key'])
@@ -794,18 +794,20 @@ class Config(with_metaclass(Singleton)):
 
                 aws_credential_attempts += 1
                 self.validate_aws_credentials()
-                attempts_remaining = (
-                    MAXIMUM_AWS_CREDENTIAL_ATTEMPTS - aws_credential_attempts
-                )
-                if (not self.__dict.get('aws_credentials_valid')) and (
-                    attempts_remaining >= 0
+                attempts_remaining = self.MAXIMUM_AWS_CREDENTIAL_ATTEMPTS - \
+                        aws_credential_attempts
+                if (
+                    not self.__dict['aws_credentials_valid']
+                    and attempts_remaining >= 0
                 ):
                     CLI.colored_print(
-                        f'Attempts remaining: {attempts_remaining}',
+                        'Attempts remaining for AWS validation: {}'.format(
+                            attempts_remaining
+                        ),
                         CLI.COLOR_INFO,
                     )
             else:
-                if not self.__dict.get('aws_credentials_valid'):
+                if not self.__dict['aws_credentials_valid']:
                     self.__dict['aws_skip_validation'] = CLI.yes_no_question(
                         'Would you like to skip validation?',
                         default=self.__dict['aws_skip_validation'],
