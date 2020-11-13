@@ -51,7 +51,7 @@ class Template:
                 'Do you want to continue?',
                 default=False
             )
-            if response:
+            if not response:
                 sys.exit(0)
 
         cls.__write_unique_id(environment_directory, dict_['unique_id'])
