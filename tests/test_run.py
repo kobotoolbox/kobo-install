@@ -1,12 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
-try:
-    from unittest.mock import patch, MagicMock
-    builtin_open = 'builtins.open'
-except ImportError:
-    from mock import patch, MagicMock
-    builtin_open = '__builtin__.open'
+from unittest.mock import patch, MagicMock
 
 from helpers.command import Command
 from .utils import (
