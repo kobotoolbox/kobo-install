@@ -4,10 +4,10 @@ from __future__ import unicode_literals
 import json
 try:
     from unittest.mock import patch, mock_open
-    builtin_open = "builtins.open"
+    builtin_open = 'builtins.open'
 except ImportError:
     from mock import patch, mock_open
-    builtin_open = "__builtin__.open"
+    builtin_open = '__builtin__.open'
 
 from helpers.config import Config
 from helpers.singleton import Singleton, with_metaclass
@@ -15,28 +15,49 @@ from helpers.singleton import Singleton, with_metaclass
 
 def read_config(overrides=None):
 
-    config_dict = dict(Config.get_config_template())
-    config_dict["kobodocker_path"] = "/tmp"
+    config_dict = dict(Config.get_template())
+    config_dict['kobodocker_path'] = '/tmp'
     if overrides is not None:
         config_dict.update(overrides)
-    with patch(builtin_open, mock_open(read_data=json.dumps(config_dict))) as mock_file:
-        config_object = Config()
-        config_object.read_config()
-        assert config_object.get_config().get("kobodocker_path") == config_dict.get("kobodocker_path")
 
-    return config_object
+    str_config = json.dumps(config_dict)
+    # `Config()` constructor calls `read_config()` internally
+    # We need to mock `open()` twice.
+    # - Once to read kobo-install config file (i.e. `.run.conf`)
+    # - Once to read value of `unique_id` (i.e. `/tmp/.uniqid`)
+    with patch(builtin_open, spec=open) as mock_file:
+        mock_file.side_effect = iter([
+            mock_open(read_data=str_config).return_value,
+            mock_open(read_data='').return_value,
+        ])
+        config = Config()
+
+    # We call `read_config()` another time to be sure to reset the config
+    # before each test. Thanks to `mock_open`, `Config.get_dict()` always
+    # returns `config_dict`.
+    with patch(builtin_open, spec=open) as mock_file:
+        mock_file.side_effect = iter([
+            mock_open(read_data=str_config).return_value,
+            mock_open(read_data='').return_value,
+        ])
+        config.read_config()
+
+    dict_ = config.get_dict()
+    assert config_dict['kobodocker_path'] == dict_['kobodocker_path']
+
+    return config
 
 
-def reset_config(config_object):
+def reset_config(config):
 
-    config_dict = dict(Config.get_config_template())
-    config_dict["kobodocker_path"] = "/tmp"
-    config_object.__config = config_dict
+    dict_ = dict(Config.get_template())
+    dict_['kobodocker_path'] = '/tmp'
+    config.__dict = dict_
 
 
 def write_trigger_upsert_db_users(*args):
     content = args[1]
-    with open("/tmp/upsert_db_users", "w") as f:
+    with open('/tmp/upsert_db_users', 'w') as f:
         f.write(content)
 
 
@@ -49,7 +70,8 @@ class MockCommand:
     @classmethod
     def run_command(cls, command, cwd=None, polling=False):
         if 'docker-compose' != command[0]:
-            raise Exception('Command: `{}` is not implemented!'.format(command[0]))
+            message = 'Command: `{}` is not implemented!'.format(command[0])
+            raise Exception(message)
 
         mock_docker = MockDocker()
         return mock_docker.compose(command, cwd)
@@ -57,7 +79,10 @@ class MockCommand:
 
 class MockDocker(with_metaclass(Singleton)):
 
-    PRIMARY_BACKEND_CONTAINERS = ['primary_postgres', 'mongo', 'redis_main', 'redis_cache']
+    PRIMARY_BACKEND_CONTAINERS = ['primary_postgres',
+                                  'mongo',
+                                  'redis_main',
+                                  'redis_cache']
     SECONDARY_BACKEND_CONTAINERS = ['secondary_postgres']
     FRONTEND_CONTAINERS = ['nginx', 'kobocat', 'kpi', 'enketo_express']
     MAINTENANCE_CONTAINERS = ['maintenance', 'kobocat', 'kpi', 'enketo_express']
@@ -74,7 +99,9 @@ class MockDocker(with_metaclass(Singleton)):
         letsencrypt = cwd == config_object.get_letsencrypt_repo_path()
 
         if command[-2] == 'config':
-            return "\n".join([c for c in self.FRONTEND_CONTAINERS if c != 'nginx'])
+            return '\n'.join([c
+                              for c in self.FRONTEND_CONTAINERS
+                              if c != 'nginx'])
         if command[-2] == 'up':
             if letsencrypt:
                 self.__containers += self.LETSENCRYPT
@@ -108,3 +135,10 @@ class MockDocker(with_metaclass(Singleton)):
                 pass
 
         return True
+
+
+class MockUpgrading:
+
+    @staticmethod
+    def migrate_single_to_two_databases(config):
+        pass

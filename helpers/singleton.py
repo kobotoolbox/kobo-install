@@ -5,7 +5,10 @@ from __future__ import print_function
 # Copy this method from `six` library to avoid import
 # Remove it when dropping Python2 support
 def with_metaclass(meta, *bases):
-    """Create a base class with a metaclass."""
+    """
+    Create a base class with a metaclass.
+    """
+
     # This requires a bit of explanation: the basic idea is to make a dummy
     # metaclass for one level of class instantiation that replaces itself with
     # the actual metaclass.
