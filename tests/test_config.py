@@ -18,6 +18,7 @@ from helpers.config import Config
 from .utils import (
     read_config,
     write_trigger_upsert_db_users,
+    MockAWSValidation
 )
 
 CHOICE_YES = '1'
@@ -155,6 +156,97 @@ def test_use_https():
         assert config.local_install
         assert not config.is_secure
 
+@patch('helpers.aws_validation.AWSValidation.validate_credentials',
+       new=MockAWSValidation.validate_credentials)
+def test_aws_validation():
+    config = read_config()
+
+    assert not config._Config__dict['use_aws']
+    assert not config._Config__dict['aws_credentials_valid']
+
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        mock_colored_input.side_effect = iter([CHOICE_NO])
+        assert not config._Config__dict['use_aws']
+        assert not config._Config__dict['aws_credentials_valid']
+
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        try:
+            mock_colored_input.side_effect = iter(
+                [CHOICE_YES, '', '', '', CHOICE_YES, '', '', '', '', '', '']
+            )
+            config._Config__questions_aws()
+        except SystemExit:
+            pass
+        assert not config._Config__dict['aws_credentials_valid']
+
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        mock_colored_input.side_effect = iter([CHOICE_YES,'', '', '', CHOICE_NO])
+        config._Config__questions_aws()
+        assert not config._Config__dict['aws_credentials_valid']
+
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        mock_colored_input.side_effect = iter(
+            [
+                CHOICE_YES,
+                'test_access_key',
+                'test_secret_key',
+                'test_bucket_name',
+                CHOICE_NO,
+            ]
+        )
+        config._Config__questions_aws()
+        assert not config._Config__dict['aws_credentials_valid']
+
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        config._Config__dict['aws_credentials_valid'] = False
+        mock_colored_input.side_effect = iter(
+            [
+                CHOICE_YES,
+                'test_access_key',
+                'test_secret_key',
+                'test_bucket_name',
+                CHOICE_YES,
+            ]
+        )
+        config._Config__questions_aws()
+        assert config._Config__dict['aws_credentials_valid']
+
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        config._Config__dict['aws_credentials_valid'] = False
+        mock_colored_input.side_effect = iter(
+            [
+                CHOICE_YES,
+                '',
+                '',
+                '',
+                CHOICE_YES,
+                'test_access_key',
+                'test_secret_key',
+                'test_bucket_name',
+            ]
+        )
+        config._Config__questions_aws()
+        assert config._Config__dict['aws_credentials_valid']
+
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        config._Config__dict['aws_credentials_valid'] = False
+        mock_colored_input.side_effect = iter(
+            [
+                CHOICE_YES,
+                '',
+                '',
+                '',
+                CHOICE_YES,
+                '',
+                '',
+                '',
+                'test_access_key',
+                'test_secret_key',
+                'test_bucket_name',
+            ]
+        )
+        config._Config__questions_aws()
+        assert config._Config__dict['aws_credentials_valid']
 
 @patch('helpers.config.Config._Config__clone_repo',
        MagicMock(return_value=True))

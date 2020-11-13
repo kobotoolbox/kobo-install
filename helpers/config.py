@@ -227,8 +227,6 @@ class Config(with_metaclass(Singleton)):
                 if self.frontend_questions:
                     self.__questions_secret_keys()
                     self.__questions_aws()
-                    self.__questions_aws_configuration()
-                    self.__questions_aws_validate_credentials()
                     self.__questions_google()
                     self.__questions_raven()
                     self.__questions_uwsgi()
@@ -777,6 +775,8 @@ class Config(with_metaclass(Singleton)):
             'Do you want to use AWS S3 storage?',
             default=self.__dict['use_aws']
         )
+        self.__questions_aws_configuration()
+        self.__questions_aws_validate_credentials()
 
     def __questions_aws_configuration(self):
 

@@ -22,7 +22,7 @@ class AWSValidation:
     REQUEST_PARAMETERS = 'Action=GetCallerIdentity&Version=2011-06-15'
     CANONICAL_URI = '/'
     SIGNED_HEADERS = 'host;x-amz-date'
-    PAYLOAD_HASH = hashlib.sha256(''.encode('utf-8')).hexdigest()
+    PAYLOAD_HASH = hashlib.sha256(''.encode()).hexdigest()
     ALGORITHM = 'AWS4-HMAC-SHA256'
 
     def __init__(self, aws_access_key_id, aws_secret_access_key):
@@ -31,11 +31,11 @@ class AWSValidation:
 
     @staticmethod
     def _sign(key, msg):
-        return hmac.new(key, msg.encode('utf-8'), hashlib.sha256).digest()
+        return hmac.new(key, msg.encode(), hashlib.sha256).digest()
 
     @classmethod
     def _get_signature_key(cls, key, date_stamp, region_name, service_name):
-        k_date = cls._sign(('AWS4' + key).encode('utf-8'), date_stamp)
+        k_date = cls._sign(('AWS4' + key).encode(), date_stamp)
         k_region = cls._sign(k_date, region_name)
         k_service = cls._sign(k_region, service_name)
         return cls._sign(k_service, 'aws4_request')
@@ -71,7 +71,7 @@ class AWSValidation:
                 self.ALGORITHM,
                 amzdate,
                 credential_scope,
-                hashlib.sha256(canonical_request.encode('utf-8')).hexdigest(),
+                hashlib.sha256(canonical_request.encode()).hexdigest(),
             ]
         )
 
@@ -80,7 +80,7 @@ class AWSValidation:
         )
 
         signature = hmac.new(
-            signing_key, string_to_sign.encode('utf-8'), hashlib.sha256
+            signing_key, string_to_sign.encode(), hashlib.sha256
         ).hexdigest()
 
         authorization_header = (
@@ -110,5 +110,4 @@ class AWSValidation:
                     return False
         except HTTPError as e:
             return False
-
 

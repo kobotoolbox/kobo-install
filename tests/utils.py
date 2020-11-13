@@ -142,3 +142,15 @@ class MockUpgrading:
     @staticmethod
     def migrate_single_to_two_databases(config):
         pass
+
+
+class MockAWSValidation:
+
+    def validate_credentials(self):
+        if (
+            self.access_key == 'test_access_key'
+            and self.secret_key == 'test_secret_key'
+        ):
+            return True
+        else:
+            return False
