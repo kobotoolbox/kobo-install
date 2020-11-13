@@ -135,7 +135,7 @@ class Command:
         nginx_port = dict_['exposed_nginx_docker_port']
 
         main_url = '{}://{}.{}{}'.format(
-            'https' if dict_['https'] is True else 'http',
+            'https' if dict_['https'] else 'http',
             dict_['kpi_subdomain'],
             dict_['public_domain_name'],
             ':{}'.format(nginx_port) if (
@@ -149,7 +149,7 @@ class Command:
         success = False
         hostname = '{}.{}'.format(dict_['kpi_subdomain'],
                                   dict_['public_domain_name'])
-        https = dict_['https'] is True
+        https = dict_['https']
         nginx_port = int(Config.DEFAULT_NGINX_HTTPS_PORT) \
             if https else int(dict_['exposed_nginx_docker_port'])
         already_retried = False
@@ -167,11 +167,11 @@ class Command:
                         CLI.COLOR_INFO)
                     question = 'Wait for another {} seconds?'.format(timeout)
                     response = CLI.yes_no_question(question)
-                    if response is True:
+                    if response:
                         start = int(time.time())
                         continue
                     else:
-                        if already_retried is False:
+                        if not already_retried:
                             already_retried = True
                             CLI.colored_print(
                                 '\nSometimes front-end containers cannot '
@@ -180,7 +180,7 @@ class Command:
                                 'fixes it.\n', CLI.COLOR_INFO)
                             question = 'Would you like to try?'
                             response = CLI.yes_no_question(question)
-                            if response is True:
+                            if response:
                                 start = int(time.time())
                                 cls.restart_frontend()
                                 continue
@@ -337,18 +337,21 @@ class Command:
 
         # Start the back-end containers
         if not frontend_only and config.backend:
-                backend_role = dict_['backend_server_role']
 
-                backend_command = ['docker-compose',
-                                   '-f',
-                                   'docker-compose.backend.{}.yml'.format(
-                                       backend_role),
-                                   '-f',
-                                   'docker-compose.backend.{}.override.yml'.format(
-                                       backend_role),
-                                   '-p', config.get_prefix('backend'),
-                                   'up', '-d']
-                CLI.run_command(backend_command, dict_['kobodocker_path'])
+            backend_role = dict_['backend_server_role']
+
+            backend_command = [
+                'docker-compose',
+                '-f',
+                'docker-compose.backend.{}.yml'.format(backend_role),
+                '-f',
+                'docker-compose.backend.{}.override.yml'.format(backend_role),
+                '-p',
+                config.get_prefix('backend'),
+                'up',
+                '-d'
+            ]
+            CLI.run_command(backend_command, dict_['kobodocker_path'])
 
         # Start the front-end containers
         if config.frontend:

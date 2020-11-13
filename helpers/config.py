@@ -54,7 +54,7 @@ class Config(with_metaclass(Singleton)):
         Returns:
             bool
         """
-        return self.__dict['advanced'] is True
+        return self.__dict['advanced']
 
     def auto_detect_network(self):
         """
@@ -80,7 +80,7 @@ class Config(with_metaclass(Singleton)):
         Returns:
             bool
         """
-        return self.__dict['use_aws'] is True
+        return self.__dict['use_aws']
 
     @property
     def backend(self):
@@ -415,7 +415,7 @@ class Config(with_metaclass(Singleton)):
             'redis_main_port': '6379',
             'redis_password': Config.generate_password(),
             'review_host': True,
-            'server_role': '',
+            'server_role': 'frontend',
             'smtp_host': '',
             'smtp_password': '',
             'smtp_port': '25',
@@ -579,16 +579,15 @@ class Config(with_metaclass(Singleton)):
 
     @property
     def staging_mode(self):
-        return self.__dict['staging_mode'] is True
+        return self.__dict['staging_mode']
 
     @property
     def use_letsencrypt(self):
-        return self.local_install is False and \
-               self.__dict['use_letsencrypt'] is True
+        return not self.local_install and self.__dict['use_letsencrypt']
 
     @property
     def use_private_dns(self):
-        return self.__dict['use_private_dns'] is True
+        return self.__dict['use_private_dns']
 
     def validate_aws_credentials(self):
         validation = AWSValidation(
@@ -857,8 +856,7 @@ class Config(with_metaclass(Singleton)):
 
         if self.__dict['aws_backup_bucket_name'] != '':
 
-            backup_from_primary = self.__dict[
-                                      'backup_from_primary'] is True
+            backup_from_primary = self.__dict['backup_from_primary']
 
             CLI.colored_print('How many yearly backups to keep?',
                               CLI.COLOR_QUESTION)
@@ -954,7 +952,7 @@ class Config(with_metaclass(Singleton)):
                                 'archiving of PostgreSQL backups?',
                                 default=self.__dict['use_wal_e']
                             )
-                            if self.__dict['use_wal_e'] is True:
+                            if self.__dict['use_wal_e']:
                                 self.__dict['backup_from_primary'] = True
                         else:
                             # WAL-E cannot run on secondary
@@ -1001,8 +999,7 @@ class Config(with_metaclass(Singleton)):
                             else:
                                 self.__dict['backup_from_primary'] = True
 
-                        backup_from_primary = \
-                            self.__dict['backup_from_primary'] is True
+                        backup_from_primary = self.__dict['backup_from_primary']
 
                         if (not self.multi_servers or
                                 (self.primary_backend and backup_from_primary)
@@ -1080,11 +1077,13 @@ class Config(with_metaclass(Singleton)):
                 )
                 CLI.framed_print(message, color=CLI.COLOR_INFO)
 
+                kc_path = self.__dict['kc_path']
                 self.__dict['kc_path'] = CLI.colored_input(
                     'KoBoCat files location?', CLI.COLOR_QUESTION,
                     self.__dict['kc_path'])
-
                 self.__clone_repo(self.__dict['kc_path'], 'kobocat')
+
+                kpi_path = self.__dict['kpi_path']
                 self.__dict['kpi_path'] = CLI.colored_input(
                     'KPI files location?', CLI.COLOR_QUESTION,
                     self.__dict['kpi_path'])
@@ -1092,22 +1091,26 @@ class Config(with_metaclass(Singleton)):
 
                 # Create an unique id to build fresh image
                 # when starting containers
-                if (self.__dict.get('kc_dev_build_id', '') == '' or
-                        self.__dict.get('kc_path') != self.__dict.get(
-                            'kc_path')):
-                    self.__dict[
-                        'kc_dev_build_id'] = '{prefix}{timestamp}'.format(
+                if (
+                    not self.__dict['kc_dev_build_id'] or
+                    self.__dict['kc_path'] != kc_path
+                ):
+                    build_id = '{prefix}{timestamp}'.format(
                         prefix=self.get_prefix('frontend'),
                         timestamp=str(int(time.time()))
                     )
+                    self.__dict['kc_dev_build_id'] = build_id
 
-                if (self.__dict['kpi_dev_build_id'] == '' or
-                        self.__dict['kpi_path'] != self.__dict['kpi_path']):
-                    self.__dict[
-                        'kpi_dev_build_id'] = '{prefix}{timestamp}'.format(
+                if (
+                    not self.__dict['kpi_dev_build_id'] == '' or
+                    self.__dict['kpi_path'] != kpi_path
+                ):
+                    build_id = '{prefix}{timestamp}'.format(
                         prefix=self.get_prefix('frontend'),
                         timestamp=str(int(time.time()))
                     )
+                    self.__dict['kpi_dev_build_id'] = build_id
+
                 if self.dev_mode:
                     self.__dict['debug'] = CLI.yes_no_question(
                         'Enable DEBUG?',
@@ -1187,7 +1190,7 @@ class Config(with_metaclass(Singleton)):
     def __questions_maintenance(self):
         if self.first_time:
             message = (
-                'You must run setup first: `python run.py --setup` '
+                'You must run setup first: `python3 run.py --setup` '
             )
             CLI.framed_print(message, color=CLI.COLOR_INFO)
             sys.exit(1)
@@ -1265,12 +1268,13 @@ class Config(with_metaclass(Singleton)):
                 to_lower=False,
                 error_msg='Too short. 8 characters minimum.')
 
-            if (self.__dict.get('mongo_secured') is not True or
-                mongo_user_username != self.__dict['mongo_user_username'] or
-                mongo_user_password != self.__dict['mongo_user_password'] or
-                mongo_root_username != self.__dict['mongo_root_username'] or
-                mongo_root_password != self.__dict['mongo_root_password']) and \
-                    not self.first_time:
+            if (
+                not self.__dict.get('mongo_secured')
+                or mongo_user_username != self.__dict['mongo_user_username']
+                or mongo_user_password != self.__dict['mongo_user_password']
+                or mongo_root_username != self.__dict['mongo_root_username']
+                or mongo_root_password != self.__dict['mongo_root_password']
+            ) and not self.first_time:
 
                 # Because chances are high we cannot communicate with DB
                 # (e.g ports not exposed, containers down), we delegate the task
@@ -1284,8 +1288,10 @@ class Config(with_metaclass(Singleton)):
                 # Its format should be: `<user><TAB><database>`
                 content = ''
 
-                if (mongo_user_username != self.__dict['mongo_user_username'] or
-                    mongo_root_username != self.__dict['mongo_root_username']):
+                if (
+                    mongo_user_username != self.__dict['mongo_user_username']
+                    or mongo_root_username != self.__dict['mongo_root_username']
+                ):
 
                     message = (
                         'WARNING!\n\n'
@@ -1432,7 +1438,7 @@ class Config(with_metaclass(Singleton)):
                 'Do you want to tweak PostgreSQL settings?',
                 default=self.__dict['postgres_settings']
             )
-            if self.__dict['postgres_settings'] is True:
+            if self.__dict['postgres_settings']:
 
                 CLI.colored_print('Launching pgconfig.org API container...',
                                   CLI.COLOR_INFO)
@@ -1597,7 +1603,7 @@ class Config(with_metaclass(Singleton)):
             default=self.__dict['customized_ports']
         )
 
-        if self.__dict['customized_ports'] is False:
+        if not self.__dict['customized_ports']:
             reset_ports()
             return
 
@@ -1935,7 +1941,7 @@ class Config(with_metaclass(Singleton)):
                 'been started before. Please use the web interface to change '
                 'passwords for existing users.\n'
                 'If you have forgotten your password:\n'
-                '1. Enter the KPI container with `./run.py -cf exec kpi '
+                '1. Enter the KPI container with `python3 run.py -cf exec kpi '
                 'bash`;\n'
                 '2. Create a new super user with `./manage.py '
                 'createsuperuser`;\n'
@@ -1953,7 +1959,7 @@ class Config(with_metaclass(Singleton)):
                 default=self.__dict['uwsgi_settings']
             )
 
-            if self.__dict['uwsgi_settings'] is True:
+            if self.__dict['uwsgi_settings']:
                 CLI.colored_print('Number of uWSGi workers to start?',
                                   CLI.COLOR_QUESTION)
                 self.__dict['uwsgi_workers_start'] = CLI.get_response(
