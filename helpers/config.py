@@ -227,6 +227,7 @@ class Config(with_metaclass(Singleton)):
                 if self.frontend_questions:
                     self.__questions_secret_keys()
                     self.__questions_aws()
+                    self.__questions_aws_validate_credentials()
                     self.__questions_google()
                     self.__questions_raven()
                     self.__questions_uwsgi()
@@ -317,7 +318,7 @@ class Config(with_metaclass(Singleton)):
             'aws_postgres_backup_minimum_size': '50',
             'aws_redis_backup_minimum_size': '5',
             'aws_secret_key': '',
-            'aws_skip_validation': False,
+            'aws_validate_credentials': True,
             'backend_server_role': 'primary',
             'backup_from_primary': True,
             'block_common_http_ports': True,
@@ -772,26 +773,43 @@ class Config(with_metaclass(Singleton)):
         Asks if user wants to see AWS option
         and asks for credentials if needed.
         """
-        self.__dict['use_aws'] = CLI.yes_no_question(
-            'Do you want to use AWS S3 storage?',
-            default=self.__dict['use_aws']
-        )
+        if not self.__dict['use_aws']:
+            self.__dict['use_aws'] = CLI.yes_no_question(
+                'Do you want to use AWS S3 storage?',
+                default=self.__dict['use_aws']
+            )
+        if self.__dict['use_aws']:
+            self.__dict['aws_access_key'] = CLI.colored_input(
+                'AWS Access Key', CLI.COLOR_QUESTION,
+                self.__dict['aws_access_key'])
+            self.__dict['aws_secret_key'] = CLI.colored_input(
+                'AWS Secret Key', CLI.COLOR_QUESTION,
+                self.__dict['aws_secret_key'])
+            self.__dict['aws_bucket_name'] = CLI.colored_input(
+                'AWS Bucket name', CLI.COLOR_QUESTION,
+                self.__dict['aws_bucket_name'])
+        else:
+            self.__dict['aws_access_key'] = ''
+            self.__dict['aws_secret_key'] = ''
+            self.__dict['aws_bucket_name'] = ''
 
+    def __questions_aws_validate_credentials(self):
+        """
+        Prompting user whether they would like to validate their entered AWS
+        credentials or continue without validation.
+        """
         aws_credential_attempts = 0
-        if self.__dict['use_aws'] is True:
+
+        if self.__dict['use_aws']:
+            self.__dict['aws_validate_credentials'] = CLI.yes_no_question(
+                'Would you like to validate your AWS credentials?',
+                default=self.__dict['aws_validate_credentials'],
+            )
+
+        if self.__dict['use_aws'] and self.__dict['aws_validate_credentials']:
             while not self.__dict['aws_credentials_valid'] and (
                 aws_credential_attempts <= self.MAXIMUM_AWS_CREDENTIAL_ATTEMPTS
             ):
-                self.__dict['aws_access_key'] = CLI.colored_input(
-                    'AWS Access Key', CLI.COLOR_QUESTION,
-                    self.__dict['aws_access_key'])
-                self.__dict['aws_secret_key'] = CLI.colored_input(
-                    'AWS Secret Key', CLI.COLOR_QUESTION,
-                    self.__dict['aws_secret_key'])
-                self.__dict['aws_bucket_name'] = CLI.colored_input(
-                    'AWS Bucket name', CLI.COLOR_QUESTION,
-                    self.__dict['aws_bucket_name'])
-
                 aws_credential_attempts += 1
                 self.validate_aws_credentials()
                 attempts_remaining = self.MAXIMUM_AWS_CREDENTIAL_ATTEMPTS - \
@@ -801,30 +819,23 @@ class Config(with_metaclass(Singleton)):
                     and attempts_remaining >= 0
                 ):
                     CLI.colored_print(
+                        'Invalid credentials, please try again.\n'
                         'Attempts remaining for AWS validation: {}'.format(
                             attempts_remaining
                         ),
                         CLI.COLOR_INFO,
                     )
+                    self.__questions_aws()
             else:
                 if not self.__dict['aws_credentials_valid']:
-                    self.__dict['aws_skip_validation'] = CLI.yes_no_question(
-                        'Would you like to skip validation?',
-                        default=self.__dict['aws_skip_validation'],
+                    CLI.colored_print(
+                        'Please restart configuration', CLI.COLOR_ERROR
                     )
-                    if not self.__dict['aws_skip_validation']:
-                        CLI.colored_print(
-                            'Please restart configuration', CLI.COLOR_ERROR
-                        )
-                        sys.exit(1)
+                    sys.exit(1)
                 else:
                     CLI.colored_print(
-                        'AWS credentials verified', CLI.COLOR_INFO
+                        'AWS credentials validated', CLI.COLOR_INFO
                     )
-        else:
-            self.__dict['aws_access_key'] = ''
-            self.__dict['aws_secret_key'] = ''
-            self.__dict['aws_bucket_name'] = ''
 
     def __questions_aws_backup_settings(self):
 
