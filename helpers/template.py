@@ -37,9 +37,10 @@ class Template:
 
         environment_directory = config.get_env_files_path()
         unique_id = cls.__read_unique_id(environment_directory)
-        if force is not True and \
-                unique_id is not None and \
-                str(dict_.get('unique_id', '')) != str(unique_id):
+        if (
+            not force and unique_id
+            and str(dict_.get('unique_id', '')) != str(unique_id)
+        ):
             message = (
                 'WARNING!\n\n'
                 'Existing environment files are detected. Files will be '
@@ -50,7 +51,7 @@ class Template:
                 'Do you want to continue?',
                 default=False
             )
-            if response is False:
+            if response:
                 sys.exit(0)
 
         cls.__write_unique_id(environment_directory, dict_['unique_id'])
@@ -237,14 +238,13 @@ class Template:
             'MONGO_PORT': dict_['mongo_port'],
             'REDIS_MAIN_PORT': dict_['redis_main_port'],
             'REDIS_CACHE_PORT': dict_['redis_cache_port'],
-            'USE_BACKUP': '' if dict_[
-                'use_backup'] is True else '#',
+            'USE_BACKUP': '' if dict_['use_backup'] else '#',
             'USE_WAL_E': _get_value('use_wal_e'),
             'USE_AWS_BACKUP': '' if (config.aws and
                                      dict_['aws_backup_bucket_name'] != '' and
-                                     dict_['use_backup'] is True) else '#',
+                                     dict_['use_backup']) else '#',
             'USE_MEDIA_BACKUP': '' if (not config.aws and
-                                       dict_['use_backup'] is True) else '#',
+                                       dict_['use_backup']) else '#',
             'KOBOCAT_MEDIA_BACKUP_SCHEDULE': dict_[
                 'kobocat_media_backup_schedule'],
             'MONGO_BACKUP_SCHEDULE': dict_['mongo_backup_schedule'],
