@@ -834,7 +834,7 @@ class Config(with_metaclass(Singleton)):
                     sys.exit(1)
                 else:
                     CLI.colored_print(
-                        'AWS credentials validated', CLI.COLOR_INFO
+                        'AWS credentials validated', CLI.COLOR_SUCCESS
                     )
 
     def __questions_aws_backup_settings(self):
