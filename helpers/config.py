@@ -40,7 +40,7 @@ class Config(with_metaclass(Singleton)):
     DEFAULT_NGINX_HTTPS_PORT = '443'
     KOBO_DOCKER_BRANCH = '2.020.45'
     KOBO_INSTALL_VERSION = '4.0.0'
-    MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 2
+    MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
 
     def __init__(self):
         self.__first_time = None
@@ -773,11 +773,13 @@ class Config(with_metaclass(Singleton)):
         Asks if user wants to see AWS option
         and asks for credentials if needed.
         """
-        if not self.__dict['use_aws']:
-            self.__dict['use_aws'] = CLI.yes_no_question(
-                'Do you want to use AWS S3 storage?',
-                default=self.__dict['use_aws']
-            )
+        self.__dict['use_aws'] = CLI.yes_no_question(
+            'Do you want to use AWS S3 storage?',
+            default=self.__dict['use_aws']
+        )
+        self.__questions_aws_configuration()
+
+    def __questions_aws_configuration(self):
         if self.__dict['use_aws']:
             self.__dict['aws_access_key'] = CLI.colored_input(
                 'AWS Access Key', CLI.COLOR_QUESTION,
@@ -798,6 +800,8 @@ class Config(with_metaclass(Singleton)):
         Prompting user whether they would like to validate their entered AWS
         credentials or continue without validation.
         """
+        # Resetting validation when setup is rerun
+        self.__dict['aws_credentials_valid'] = False
         aws_credential_attempts = 0
 
         if self.__dict['use_aws']:
@@ -807,25 +811,32 @@ class Config(with_metaclass(Singleton)):
             )
 
         if self.__dict['use_aws'] and self.__dict['aws_validate_credentials']:
-            while not self.__dict['aws_credentials_valid'] and (
-                aws_credential_attempts <= self.MAXIMUM_AWS_CREDENTIAL_ATTEMPTS
+            while (
+                not self.__dict['aws_credentials_valid']
+                and aws_credential_attempts
+                <= self.MAXIMUM_AWS_CREDENTIAL_ATTEMPTS
             ):
                 aws_credential_attempts += 1
                 self.validate_aws_credentials()
-                attempts_remaining = self.MAXIMUM_AWS_CREDENTIAL_ATTEMPTS - \
-                        aws_credential_attempts
+                attempts_remaining = (
+                    self.MAXIMUM_AWS_CREDENTIAL_ATTEMPTS
+                    - aws_credential_attempts
+                )
                 if (
                     not self.__dict['aws_credentials_valid']
-                    and attempts_remaining >= 0
+                    and attempts_remaining > 0
                 ):
                     CLI.colored_print(
-                        'Invalid credentials, please try again.\n'
+                        'Invalid credentials, please try again.',
+                        CLI.COLOR_WARNING,
+                    )
+                    CLI.colored_print(
                         'Attempts remaining for AWS validation: {}'.format(
                             attempts_remaining
                         ),
                         CLI.COLOR_INFO,
                     )
-                    self.__questions_aws()
+                    self.__questions_aws_configuration()
             else:
                 if not self.__dict['aws_credentials_valid']:
                     CLI.colored_print(
@@ -834,7 +845,8 @@ class Config(with_metaclass(Singleton)):
                     sys.exit(1)
                 else:
                     CLI.colored_print(
-                        'AWS credentials validated', CLI.COLOR_SUCCESS
+                        'AWS credentials successfully validated',
+                        CLI.COLOR_SUCCESS
                     )
 
     def __questions_aws_backup_settings(self):
