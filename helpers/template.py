@@ -23,39 +23,38 @@ class Template:
     UNIQUE_ID_FILE = '.uniqid'
 
     @classmethod
-    def render(cls, config_object, force=False):
+    def render(cls, config, force=False):
+        """
+        Write configuration files based on `config`
 
-        config = config_object.get_config()
-        template_variables = cls.__get_template_variables(config_object)
+        Args:
+            config (helpers.config.Config)
+            force (bool)
+        """
 
-        environment_directory = config_object.get_env_files_path()
+        dict_ = config.get_dict()
+        template_variables = cls.__get_template_variables(config)
+
+        environment_directory = config.get_env_files_path()
         unique_id = cls.__read_unique_id(environment_directory)
-        if force is not True and \
-                unique_id is not None and str(
-            config.get('unique_id', '')) != str(unique_id):
-            CLI.colored_print(
-                '╔═════════════════════════════════════════════════════════════════════╗',
-                CLI.COLOR_WARNING)
-            CLI.colored_print(
-                '║ WARNING!                                                            ║',
-                CLI.COLOR_WARNING)
-            CLI.colored_print(
-                '║ Existing environment files are detected. Files will be overwritten. ║',
-                CLI.COLOR_WARNING)
-            CLI.colored_print(
-                '╚═════════════════════════════════════════════════════════════════════╝',
-                CLI.COLOR_WARNING)
+        if (
+            not force and unique_id
+            and str(dict_.get('unique_id', '')) != str(unique_id)
+        ):
+            message = (
+                'WARNING!\n\n'
+                'Existing environment files are detected. Files will be '
+                'overwritten.'
+            )
+            CLI.framed_print(message)
+            response = CLI.yes_no_question(
+                'Do you want to continue?',
+                default=False
+            )
+            if not response:
+                sys.exit(0)
 
-            CLI.colored_print('Do you want to continue?', CLI.COLOR_SUCCESS)
-            CLI.colored_print('\t1) Yes')
-            CLI.colored_print('\t2) No')
-
-            if CLI.get_response(
-                    [Config.TRUE, Config.FALSE],
-                    Config.FALSE) == Config.FALSE:
-                sys.exit()
-
-        cls.__write_unique_id(environment_directory, config.get('unique_id'))
+        cls.__write_unique_id(environment_directory, dict_['unique_id'])
 
         base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
         templates_path_parent = os.path.join(base_dir, 'templates')
@@ -77,19 +76,19 @@ class Template:
         # kobo-docker
         templates_path = os.path.join(templates_path_parent, 'kobo-docker')
         for root, dirnames, filenames in os.walk(templates_path):
-            destination_directory = config.get('kobodocker_path')
+            destination_directory = dict_['kobodocker_path']
             cls.__write_templates(template_variables,
                                   root,
                                   destination_directory,
                                   filenames)
 
         # nginx-certbox
-        if config_object.use_letsencrypt:
+        if config.use_letsencrypt:
             templates_path = os.path.join(templates_path_parent,
                                           Config.LETSENCRYPT_DOCKER_DIR, '')
             for root, dirnames, filenames in os.walk(templates_path):
                 destination_directory = cls.__create_directory(
-                    config_object.get_letsencrypt_repo_path(),
+                    config.get_letsencrypt_repo_path(),
                     root,
                     templates_path)
                 cls.__write_templates(template_variables,
@@ -98,10 +97,10 @@ class Template:
                                       filenames)
 
     @classmethod
-    def render_maintenance(cls, config_object):
+    def render_maintenance(cls, config):
 
-        config = config_object.get_config()
-        template_variables = cls.__get_template_variables(config_object)
+        dict_ = config.get_dict()
+        template_variables = cls.__get_template_variables(config)
 
         base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
         templates_path_parent = os.path.join(base_dir, 'templates')
@@ -111,7 +110,7 @@ class Template:
         for root, dirnames, filenames in os.walk(templates_path):
             filenames = [filename
                          for filename in filenames if 'maintenance' in filename]
-            destination_directory = config.get('kobodocker_path')
+            destination_directory = dict_['kobodocker_path']
             cls.__write_templates(template_variables,
                                   root,
                                   destination_directory,
@@ -141,64 +140,68 @@ class Template:
         return destination_directory
 
     @staticmethod
-    def __get_template_variables(config_object):
+    def __get_template_variables(config):
+        """
+        Write configuration files based on `config`
 
-        config = config_object.get_config()
+        Args:
+            config (helpers.config.Config)
+        """
+        dict_ = config.get_dict()
 
         def _get_value(property_, true_value='', false_value='#',
-                       comparison_value=Config.TRUE):
+                       comparison_value=True):
             return true_value \
-                if config.get(property_) == comparison_value \
+                if dict_[property_] == comparison_value \
                 else false_value
 
-        if config_object.proxy:
-            nginx_port = config.get('nginx_proxy_port')
+        if config.proxy:
+            nginx_port = dict_['nginx_proxy_port']
         else:
-            nginx_port = config.get('exposed_nginx_docker_port')
+            nginx_port = dict_['exposed_nginx_docker_port']
 
         return {
             'PROTOCOL': _get_value('https', 'https', 'http'),
             'USE_HTTPS': _get_value('https'),
             'USE_AWS': _get_value('use_aws'),
-            'AWS_ACCESS_KEY_ID': config.get('aws_access_key', ''),
-            'AWS_SECRET_ACCESS_KEY': config.get('aws_secret_key', ''),
-            'AWS_BUCKET_NAME': config.get('aws_bucket_name', ''),
-            'GOOGLE_UA': config.get('google_ua', ''),
-            'GOOGLE_API_KEY': config.get('google_api_key', ''),
-            'INTERNAL_DOMAIN_NAME': config.get('internal_domain_name', ''),
-            'PRIVATE_DOMAIN_NAME': config.get('private_domain_name', ''),
-            'PUBLIC_DOMAIN_NAME': config.get('public_domain_name', ''),
-            'KOBOFORM_SUBDOMAIN': config.get('kpi_subdomain', ''),
-            'KOBOCAT_SUBDOMAIN': config.get('kc_subdomain', ''),
-            'ENKETO_SUBDOMAIN': config.get('ee_subdomain', ''),
-            'KOBO_SUPERUSER_USERNAME': config.get('super_user_username', ''),
-            'KOBO_SUPERUSER_PASSWORD': config.get('super_user_password', ''),
-            'ENKETO_API_KEY': config.get('enketo_api_token'),
-            'DJANGO_SECRET_KEY': config.get('django_secret_key'),
-            'ENKETO_ENCRYPTION_KEY': config.get('enketo_encryption_key'),
-            'ENKETO_LESS_SECURE_ENCRYPTION_KEY': config.get(
-                'enketo_less_secure_encryption_key'),
-            'KOBOCAT_RAVEN_DSN': config.get('kobocat_raven', ''),
-            'KPI_RAVEN_DSN': config.get('kpi_raven', ''),
-            'KPI_RAVEN_JS_DSN': config.get('kpi_raven_js', ''),
-            'KC_POSTGRES_DB': config.get('kc_postgres_db', ''),
-            'KPI_POSTGRES_DB': config.get('kpi_postgres_db', ''),
-            'POSTGRES_USER': config.get('postgres_user', ''),
-            'POSTGRES_PASSWORD': config.get('postgres_password', ''),
+            'AWS_ACCESS_KEY_ID': dict_['aws_access_key'],
+            'AWS_SECRET_ACCESS_KEY': dict_['aws_secret_key'],
+            'AWS_BUCKET_NAME': dict_['aws_bucket_name'],
+            'GOOGLE_UA': dict_['google_ua'],
+            'GOOGLE_API_KEY': dict_['google_api_key'],
+            'INTERNAL_DOMAIN_NAME': dict_['internal_domain_name'],
+            'PRIVATE_DOMAIN_NAME': dict_['private_domain_name'],
+            'PUBLIC_DOMAIN_NAME': dict_['public_domain_name'],
+            'KOBOFORM_SUBDOMAIN': dict_['kpi_subdomain'],
+            'KOBOCAT_SUBDOMAIN': dict_['kc_subdomain'],
+            'ENKETO_SUBDOMAIN': dict_['ee_subdomain'],
+            'KOBO_SUPERUSER_USERNAME': dict_['super_user_username'],
+            'KOBO_SUPERUSER_PASSWORD': dict_['super_user_password'],
+            'ENKETO_API_KEY': dict_['enketo_api_token'],
+            'DJANGO_SECRET_KEY': dict_['django_secret_key'],
+            'ENKETO_ENCRYPTION_KEY': dict_['enketo_encryption_key'],
+            'ENKETO_LESS_SECURE_ENCRYPTION_KEY': dict_[
+                'enketo_less_secure_encryption_key'],
+            'KOBOCAT_RAVEN_DSN': dict_['kobocat_raven'],
+            'KPI_RAVEN_DSN': dict_['kpi_raven'],
+            'KPI_RAVEN_JS_DSN': dict_['kpi_raven_js'],
+            'KC_POSTGRES_DB': dict_['kc_postgres_db'],
+            'KPI_POSTGRES_DB': dict_['kpi_postgres_db'],
+            'POSTGRES_USER': dict_['postgres_user'],
+            'POSTGRES_PASSWORD': dict_['postgres_password'],
             'POSTGRES_PASSWORD_URL_ENCODED': quote_plus(
-                config.get('postgres_password', '')),
-            'DEBUG': config.get('debug', False) == Config.TRUE,
-            'SMTP_HOST': config.get('smtp_host', ''),
-            'SMTP_PORT': config.get('smtp_port', ''),
-            'SMTP_USER': config.get('smtp_user', ''),
-            'SMTP_PASSWORD': config.get('smtp_password', ''),
-            'SMTP_USE_TLS': config.get('smtp_use_tls',
-                                       Config.TRUE) == Config.TRUE,
-            'DEFAULT_FROM_EMAIL': config.get('default_from_email', ''),
-            'PRIMARY_BACKEND_IP': config.get('primary_backend_ip'),
-            'LOCAL_INTERFACE_IP': config.get('local_interface_ip'),
-            'KC_PATH': config.get('kc_path', ''),
-            'KPI_PATH': config.get('kpi_path', ''),
+                dict_['postgres_password']),
+            'DEBUG': dict_['debug'],
+            'SMTP_HOST': dict_['smtp_host'],
+            'SMTP_PORT': dict_['smtp_port'],
+            'SMTP_USER': dict_['smtp_user'],
+            'SMTP_PASSWORD': dict_['smtp_password'],
+            'SMTP_USE_TLS': dict_['smtp_use_tls'],
+            'DEFAULT_FROM_EMAIL': dict_['default_from_email'],
+            'PRIMARY_BACKEND_IP': dict_['primary_backend_ip'],
+            'LOCAL_INTERFACE_IP': dict_['local_interface_ip'],
+            'KC_PATH': dict_['kc_path'],
+            'KPI_PATH': dict_['kpi_path'],
             'USE_KPI_DEV_MODE': _get_value('kpi_path',
                                            true_value='#',
                                            false_value='',
@@ -207,96 +210,92 @@ class Template:
                                           true_value='#',
                                           false_value='',
                                           comparison_value=''),
-            'KC_DEV_BUILD_ID': config.get('kc_dev_build_id', ''),
-            'KPI_DEV_BUILD_ID': config.get('kpi_dev_build_id', ''),
-            'NGINX_PUBLIC_PORT': config.get('exposed_nginx_docker_port',
-                                            Config.DEFAULT_NGINX_PORT),
+            'KC_DEV_BUILD_ID': dict_['kc_dev_build_id'],
+            'KPI_DEV_BUILD_ID': dict_['kpi_dev_build_id'],
+            'NGINX_PUBLIC_PORT': dict_['exposed_nginx_docker_port'],
             'NGINX_EXPOSED_PORT': nginx_port,
-            'UWSGI_WORKERS_MAX': config.get('uwsgi_workers_max'),
-            'UWSGI_WORKERS_START': config.get('uwsgi_workers_start'),
-            'UWSGI_MAX_REQUESTS': config.get('uwsgi_max_requests'),
+            'UWSGI_WORKERS_MAX': dict_['uwsgi_workers_max'],
+            'UWSGI_WORKERS_START': dict_['uwsgi_workers_start'],
+            'UWSGI_MAX_REQUESTS': dict_['uwsgi_max_requests'],
             'UWSGI_SOFT_LIMIT': int(
-                config.get('uwsgi_soft_limit')) * 1024 * 1024,
-            'UWSGI_HARAKIRI': config.get('uwsgi_harakiri'),
-            'UWSGI_WORKER_RELOAD_MERCY': config.get(
-                'uwsgi_worker_reload_mercy'),
-            'UWSGI_PASS_TIMEOUT': int(config.get('uwsgi_harakiri')) + 10,
-            'POSTGRES_REPLICATION_PASSWORD': config.get(
-                'postgres_replication_password'),
-            'WSGI_SERVER': 'runserver_plus' if config_object.dev_mode else 'uWSGI',
-            'USE_X_FORWARDED_HOST': '' if config_object.dev_mode else '#',
+                dict_['uwsgi_soft_limit']) * 1024 * 1024,
+            'UWSGI_HARAKIRI': dict_['uwsgi_harakiri'],
+            'UWSGI_WORKER_RELOAD_MERCY': dict_[
+                'uwsgi_worker_reload_mercy'],
+            'UWSGI_PASS_TIMEOUT': int(dict_['uwsgi_harakiri']) + 10,
+            'POSTGRES_REPLICATION_PASSWORD': dict_[
+                'postgres_replication_password'],
+            'WSGI_SERVER': 'runserver_plus' if config.dev_mode else 'uWSGI',
+            'USE_X_FORWARDED_HOST': '' if config.dev_mode else '#',
             'OVERRIDE_POSTGRES_SETTINGS': _get_value('postgres_settings'),
-            'POSTGRES_APP_PROFILE': config.get('postgres_profile', ''),
-            'POSTGRES_RAM': config.get('postgres_ram', ''),
-            'POSTGRES_SETTINGS': config.get('postgres_settings_content', ''),
+            'POSTGRES_APP_PROFILE': dict_['postgres_profile'],
+            'POSTGRES_RAM': dict_['postgres_ram'],
+            'POSTGRES_SETTINGS': dict_['postgres_settings_content'],
             'POSTGRES_BACKUP_FROM_SECONDARY': _get_value(
                 'backup_from_primary',
-                comparison_value=Config.FALSE),
-            'POSTGRES_PORT': config.get('postgresql_port', '5432'),
-            'MONGO_PORT': config.get('mongo_port', '27017'),
-            'REDIS_MAIN_PORT': config.get('redis_main_port', '6739'),
-            'REDIS_CACHE_PORT': config.get('redis_cache_port', '6380'),
-            'USE_BACKUP': '' if config.get(
-                'use_backup') == Config.TRUE else '#',
+                comparison_value=False),
+            'POSTGRES_PORT': dict_['postgresql_port'],
+            'MONGO_PORT': dict_['mongo_port'],
+            'REDIS_MAIN_PORT': dict_['redis_main_port'],
+            'REDIS_CACHE_PORT': dict_['redis_cache_port'],
+            'USE_BACKUP': '' if dict_['use_backup'] else '#',
             'USE_WAL_E': _get_value('use_wal_e'),
-            'USE_AWS_BACKUP': '' if config_object.aws and
-                                    config.get('use_backup') == Config.TRUE and
-                                    config.get(
-                                        'aws_backup_bucket_name') != '' else '#',
-            'USE_MEDIA_BACKUP': '' if (not config_object.aws and
-                                       config.get('use_backup') == Config.TRUE) else '#',
-            'KOBOCAT_MEDIA_BACKUP_SCHEDULE': config.get(
-                'kobocat_media_backup_schedule'),
-            'MONGO_BACKUP_SCHEDULE': config.get('mongo_backup_schedule'),
-            'POSTGRES_BACKUP_SCHEDULE': config.get('postgres_backup_schedule'),
-            'REDIS_BACKUP_SCHEDULE': config.get('redis_backup_schedule'),
-            'AWS_BACKUP_BUCKET_NAME': config.get('aws_backup_bucket_name'),
-            'AWS_BACKUP_YEARLY_RETENTION': config.get(
-                'aws_backup_yearly_retention'),
-            'AWS_BACKUP_MONTHLY_RETENTION': config.get(
-                'aws_backup_monthly_retention'),
-            'AWS_BACKUP_WEEKLY_RETENTION': config.get(
-                'aws_backup_weekly_retention'),
-            'AWS_BACKUP_DAILY_RETENTION': config.get(
-                'aws_backup_daily_retention'),
-            'AWS_MONGO_BACKUP_MINIMUM_SIZE': config.get(
-                'aws_mongo_backup_minimum_size'),
-            'AWS_POSTGRES_BACKUP_MINIMUM_SIZE': config.get(
-                'aws_postgres_backup_minimum_size'),
-            'AWS_REDIS_BACKUP_MINIMUM_SIZE': config.get(
-                'aws_redis_backup_minimum_size'),
-            'AWS_BACKUP_UPLOAD_CHUNK_SIZE': config.get(
-                'aws_backup_upload_chunk_size'),
+            'USE_AWS_BACKUP': '' if (config.aws and
+                                     dict_['aws_backup_bucket_name'] != '' and
+                                     dict_['use_backup']) else '#',
+            'USE_MEDIA_BACKUP': '' if (not config.aws and
+                                       dict_['use_backup']) else '#',
+            'KOBOCAT_MEDIA_BACKUP_SCHEDULE': dict_[
+                'kobocat_media_backup_schedule'],
+            'MONGO_BACKUP_SCHEDULE': dict_['mongo_backup_schedule'],
+            'POSTGRES_BACKUP_SCHEDULE': dict_['postgres_backup_schedule'],
+            'REDIS_BACKUP_SCHEDULE': dict_['redis_backup_schedule'],
+            'AWS_BACKUP_BUCKET_NAME': dict_['aws_backup_bucket_name'],
+            'AWS_BACKUP_YEARLY_RETENTION': dict_[
+                'aws_backup_yearly_retention'],
+            'AWS_BACKUP_MONTHLY_RETENTION': dict_[
+                'aws_backup_monthly_retention'],
+            'AWS_BACKUP_WEEKLY_RETENTION': dict_[
+                'aws_backup_weekly_retention'],
+            'AWS_BACKUP_DAILY_RETENTION': dict_[
+                'aws_backup_daily_retention'],
+            'AWS_MONGO_BACKUP_MINIMUM_SIZE': dict_[
+                'aws_mongo_backup_minimum_size'],
+            'AWS_POSTGRES_BACKUP_MINIMUM_SIZE': dict_[
+                'aws_postgres_backup_minimum_size'],
+            'AWS_REDIS_BACKUP_MINIMUM_SIZE': dict_[
+                'aws_redis_backup_minimum_size'],
+            'AWS_BACKUP_UPLOAD_CHUNK_SIZE': dict_[
+                'aws_backup_upload_chunk_size'],
             'AWS_BACKUP_BUCKET_DELETION_RULE_ENABLED': _get_value(
                 'aws_backup_bucket_deletion_rule_enabled', 'True', 'False'),
-            'LETSENCRYPT_EMAIL': config.get('letsencrypt_email'),
-            'MAINTENANCE_ETA': config.get('maintenance_eta', ''),
-            'MAINTENANCE_DATE_ISO': config.get('maintenance_date_iso', ''),
-            'MAINTENANCE_DATE_STR': config.get('maintenance_date_str', ''),
-            'MAINTENANCE_EMAIL': config.get('maintenance_email', ''),
-            'USE_NPM_FROM_HOST': '' if (config_object.dev_mode and
-                                        config.get(
-                                            'npm_container') == Config.FALSE) else '#',
-            'DOCKER_PREFIX': config_object.get_prefix('backend'),
+            'LETSENCRYPT_EMAIL': dict_['letsencrypt_email'],
+            'MAINTENANCE_ETA': dict_['maintenance_eta'],
+            'MAINTENANCE_DATE_ISO': dict_['maintenance_date_iso'],
+            'MAINTENANCE_DATE_STR': dict_['maintenance_date_str'],
+            'MAINTENANCE_EMAIL': dict_['maintenance_email'],
+            'USE_NPM_FROM_HOST': '' if (config.dev_mode and
+                                        not dict_['npm_container']) else '#',
+            'DOCKER_PREFIX': config.get_prefix('backend'),
             'USE_BACKEND_NETWORK': _get_value('expose_backend_ports',
-                                              comparison_value=Config.FALSE),
+                                              comparison_value=False),
             'EXPOSE_BACKEND_PORTS': _get_value('expose_backend_ports'),
             'USE_FAKE_DNS': _get_value('local_installation'),
             'ADD_BACKEND_EXTRA_HOSTS': '' if (
-                        config_object.expose_backend_ports and
-                        not config_object.use_private_dns) else '#',
-            'USE_EXTRA_HOSTS': '' if (config_object.local_install or
-                                      config_object.expose_backend_ports and
-                                      not config_object.use_private_dns) else '#',
-            'MONGO_ROOT_USERNAME': config.get('mongo_root_username'),
-            'MONGO_ROOT_PASSWORD': config.get('mongo_root_password'),
-            'MONGO_USER_USERNAME': config.get('mongo_user_username'),
-            'MONGO_USER_PASSWORD': config.get('mongo_user_password'),
-            'REDIS_PASSWORD': config.get('redis_password'),
+                        config.expose_backend_ports and
+                        not config.use_private_dns) else '#',
+            'USE_EXTRA_HOSTS': '' if (config.local_install or
+                                      config.expose_backend_ports and
+                                      not config.use_private_dns) else '#',
+            'MONGO_ROOT_USERNAME': dict_['mongo_root_username'],
+            'MONGO_ROOT_PASSWORD': dict_['mongo_root_password'],
+            'MONGO_USER_USERNAME': dict_['mongo_user_username'],
+            'MONGO_USER_PASSWORD': dict_['mongo_user_password'],
+            'REDIS_PASSWORD': dict_['redis_password'],
             'REDIS_PASSWORD_URL_ENCODED': quote_plus(
-                config.get('redis_password')),
+                dict_['redis_password']),
             'REDIS_PASSWORD_JS_ENCODED': json.dumps(
-                config.get('redis_password')),
+                dict_['redis_password']),
         }
 
     @staticmethod

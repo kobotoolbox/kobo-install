@@ -11,7 +11,6 @@ except:
     from urllib.request import urlopen
 
 import platform
-import re
 import socket
 import struct
 import sys
@@ -24,31 +23,38 @@ class Network:
     STATUS_OK_200 = 200
 
     @staticmethod
-    def get_local_interfaces(all=False):
+    def get_local_interfaces(all_=False):
         """
-            Returns a dictionary of name:ip key value pairs.
-            Linux Only!
-            Source: https://gist.github.com/bubthegreat/24c0c43ad159d8dfed1a5d3f6ca99f9b
+        Returns a dictionary of name:ip key value pairs.
+        Linux Only!
+        Source: https://gist.github.com/bubthegreat/24c0c43ad159d8dfed1a5d3f6ca99f9b
 
-        :param all: bool If False, filter virtual interfaces such VMWare, Docker etc...
-        :return: dict
+        Args:
+            all_ (bool): If False, filter virtual interfaces such VMWare,
+                        Docker etc...
+        Returns:
+            dict
         """
         ip_dict = {}
         excluded_interfaces = ('lo', 'docker', 'br-', 'veth', 'vmnet')
 
         if platform.system() == 'Linux':
-            # Max possible bytes for interface result.  Will truncate if more than 4096 characters to describe interfaces.
+            # Max possible bytes for interface result.
+            # Will truncate if more than 4096 characters to describe interfaces.
             MAX_BYTES = 4096
 
-            # We're going to make a blank byte array to operate on.  This is our fill char.
+            # We're going to make a blank byte array to operate on.
+            # This is our fill char.
             FILL_CHAR = b'\0'
 
-            # Command defined in ioctl.h for the system operation for get iface list
-            # Defined at https://code.woboq.org/qt5/include/bits/ioctls.h.html under
-            # /* Socket configuration controls. */ section.
+            # Command defined in ioctl.h for the system operation for get iface
+            # list.
+            # Defined at https://code.woboq.org/qt5/include/bits/ioctls.h.html
+            # under /* Socket configuration controls. */ section.
             SIOCGIFCONF = 0x8912
 
-            # Make a dgram socket to use as our file descriptor that we'll operate on.
+            # Make a dgram socket to use as our file descriptor that we'll
+            # operate on.
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
             # Make a byte array with our fill character.
@@ -61,24 +67,33 @@ class Network:
             mutable_byte_buffer = struct.pack('iL', MAX_BYTES, names_address)
 
             # mutate our mutable_byte_buffer with the results of get_iface_list.
-            # NOTE: mutated_byte_buffer is just a reference to mutable_byte_buffer - for the sake of clarity we've defined them as
-            # separate variables, however they are the same address space - that's how fcntl.ioctl() works since the mutate_flag=True
+            # NOTE: mutated_byte_buffer is just a reference to
+            # mutable_byte_buffer - for the sake of clarity we've defined
+            # them as separate variables, however they are the same address
+            # space - that's how fcntl.ioctl() works since the mutate_flag=True
             # by default.
-            mutated_byte_buffer = fcntl.ioctl(sock.fileno(), SIOCGIFCONF, mutable_byte_buffer)
+            mutated_byte_buffer = fcntl.ioctl(sock.fileno(),
+                                              SIOCGIFCONF,
+                                              mutable_byte_buffer)
 
-            # Get our max_bytes of our mutated byte buffer that points to the names variable address space.
-            max_bytes_out, names_address_out = struct.unpack('iL', mutated_byte_buffer)
+            # Get our max_bytes of our mutated byte buffer
+            # that points to the names variable address space.
+            max_bytes_out, names_address_out = struct.unpack(
+                'iL',
+                mutated_byte_buffer)
 
-            # Convert names to a bytes array - keep in mind we've mutated the names array, so now our bytes out should represent
-            # the bytes results of the get iface list ioctl command.
+            # Convert names to a bytes array - keep in mind we've mutated the
+            # names array, so now our bytes out should represent the bytes
+            # results of the get iface list ioctl command.
             namestr = names.tostring()
 
             namestr[:max_bytes_out]
 
             bytes_out = namestr[:max_bytes_out]
 
-            # Each entry is 40 bytes long.  The first 16 bytes are the name string.
-            # the 20-24th bytes are IP address octet strings in byte form - one for each byte.
+            # Each entry is 40 bytes long. The first 16 bytes are the
+            # name string. The 20-24th bytes are IP address octet strings in
+            # byte form - one for each byte.
             # Don't know what 17-19 are, or bytes 25:40.
 
             for i in range(0, max_bytes_out, 40):
@@ -91,20 +106,24 @@ class Network:
                         full_addr.append(str(netaddr))
                     elif isinstance(netaddr, str):
                         full_addr.append(str(ord(netaddr)))
-                if not name.startswith(excluded_interfaces) or all:
+                if not name.startswith(excluded_interfaces) or all_:
                     ip_dict[name] = '.'.join(full_addr)
         else:
             try:
                 import netifaces
             except ImportError:
-                CLI.colored_print('You must install netinfaces first! Please type `pip install netifaces --user`', CLI.COLOR_ERROR)
+                CLI.colored_print('You must install netinfaces first! Please '
+                                  'type `pip install netifaces --user`',
+                                  CLI.COLOR_ERROR)
                 sys.exit(1)
 
             for interface in netifaces.interfaces():
-                if not interface.startswith(excluded_interfaces) or all:
+                if not interface.startswith(excluded_interfaces) or all_:
                     ifaddresses = netifaces.ifaddresses(interface)
-                    if ifaddresses.get(netifaces.AF_INET) and ifaddresses.get(netifaces.AF_INET)[0].get('addr'):
-                        ip_dict[interface] = ifaddresses.get(netifaces.AF_INET)[0].get('addr')
+                    if ifaddresses.get(netifaces.AF_INET) and \
+                            ifaddresses.get(netifaces.AF_INET)[0].get('addr'):
+                        interfaces = ifaddresses.get(netifaces.AF_INET)
+                        ip_dict[interface] = interfaces[0].get('addr')
 
         return ip_dict
 

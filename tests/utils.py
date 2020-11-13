@@ -15,27 +15,44 @@ from helpers.singleton import Singleton, with_metaclass
 
 def read_config(overrides=None):
 
-    config_dict = dict(Config.get_config_template())
+    config_dict = dict(Config.get_template())
     config_dict['kobodocker_path'] = '/tmp'
     if overrides is not None:
         config_dict.update(overrides)
 
     str_config = json.dumps(config_dict)
-    with patch(builtin_open, mock_open(read_data=str_config)) as mock_file:
-        config_object = Config()
-        config_object.read_config()
-        config_ = config_object.get_config()
-        assert config_.get('kobodocker_path') \
-               == config_dict.get('kobodocker_path')
+    # `Config()` constructor calls `read_config()` internally
+    # We need to mock `open()` twice.
+    # - Once to read kobo-install config file (i.e. `.run.conf`)
+    # - Once to read value of `unique_id` (i.e. `/tmp/.uniqid`)
+    with patch(builtin_open, spec=open) as mock_file:
+        mock_file.side_effect = iter([
+            mock_open(read_data=str_config).return_value,
+            mock_open(read_data='').return_value,
+        ])
+        config = Config()
 
-    return config_object
+    # We call `read_config()` another time to be sure to reset the config
+    # before each test. Thanks to `mock_open`, `Config.get_dict()` always
+    # returns `config_dict`.
+    with patch(builtin_open, spec=open) as mock_file:
+        mock_file.side_effect = iter([
+            mock_open(read_data=str_config).return_value,
+            mock_open(read_data='').return_value,
+        ])
+        config.read_config()
+
+    dict_ = config.get_dict()
+    assert config_dict['kobodocker_path'] == dict_['kobodocker_path']
+
+    return config
 
 
-def reset_config(config_object):
+def reset_config(config):
 
-    config_dict = dict(Config.get_config_template())
-    config_dict['kobodocker_path'] = '/tmp'
-    config_object.__config = config_dict
+    dict_ = dict(Config.get_template())
+    dict_['kobodocker_path'] = '/tmp'
+    config.__dict = dict_
 
 
 def write_trigger_upsert_db_users(*args):
@@ -118,3 +135,10 @@ class MockDocker(with_metaclass(Singleton)):
                 pass
 
         return True
+
+
+class MockUpgrading:
+
+    @staticmethod
+    def migrate_single_to_two_databases(config):
+        pass
