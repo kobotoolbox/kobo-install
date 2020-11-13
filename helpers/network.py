@@ -120,10 +120,18 @@ class Network:
             for interface in netifaces.interfaces():
                 if not interface.startswith(excluded_interfaces) or all_:
                     ifaddresses = netifaces.ifaddresses(interface)
-                    if ifaddresses.get(netifaces.AF_INET) and \
-                            ifaddresses.get(netifaces.AF_INET)[0].get('addr'):
-                        interfaces = ifaddresses.get(netifaces.AF_INET)
-                        ip_dict[interface] = interfaces[0].get('addr')
+                    if (
+                        ifaddresses.get(netifaces.AF_INET)
+                        and ifaddresses.get(netifaces.AF_INET)[0].get('addr')
+                    ):
+                        addresses = ifaddresses.get(netifaces.AF_INET)
+                        ip_dict[interface] = addresses[0].get('addr')
+                        for i in range(1, len(addresses)):
+                            virtual_interface = '{interface}:{idx}'.format(
+                                interface=interface,
+                                idx=i
+                            )
+                            ip_dict[virtual_interface] = addresses[i]['addr']
 
         return ip_dict
 
