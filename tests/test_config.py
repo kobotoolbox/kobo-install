@@ -168,7 +168,7 @@ def test_aws_credentials_invalid_with_no_configuration():
     config = _aws_validation_setup()
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
-        mock_colored_input.side_effect = iter([CHOICE_NO])
+        mock_colored_input.side_effect = CHOICE_NO
         assert not config._Config__dict['use_aws']
         assert not config._Config__dict['aws_credentials_valid']
 
