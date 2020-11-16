@@ -11,6 +11,7 @@ import time
 from datetime import datetime
 from random import choice
 
+from helpers.aws_validation import AWSValidation
 from helpers.cli import CLI
 from helpers.network import Network
 from helpers.singleton import Singleton
@@ -30,7 +31,8 @@ class Config(metaclass=Singleton):
     DEFAULT_NGINX_PORT = '80'
     DEFAULT_NGINX_HTTPS_PORT = '443'
     KOBO_DOCKER_BRANCH = '2.020.45'
-    KOBO_INSTALL_VERSION = '4.1.0'
+    KOBO_INSTALL_VERSION = '4.2.0'
+    MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
 
     def __init__(self):
         self.__first_time = None
@@ -302,10 +304,12 @@ class Config(metaclass=Singleton):
             'aws_backup_weekly_retention': '4',
             'aws_backup_yearly_retention': '2',
             'aws_bucket_name': '',
+            'aws_credentials_valid': False,
             'aws_mongo_backup_minimum_size': '50',
             'aws_postgres_backup_minimum_size': '50',
             'aws_redis_backup_minimum_size': '5',
             'aws_secret_key': '',
+            'aws_validate_credentials': True,
             'backend_server_role': 'primary',
             'backup_from_primary': True,
             'block_common_http_ports': True,
@@ -576,6 +580,13 @@ class Config(metaclass=Singleton):
     def use_private_dns(self):
         return self.__dict['use_private_dns']
 
+    def validate_aws_credentials(self):
+        validation = AWSValidation(
+            aws_access_key_id=self.__dict['aws_access_key'],
+            aws_secret_access_key=self.__dict['aws_secret_key'],
+        )
+        self.__dict['aws_credentials_valid'] = validation.validate_credentials()
+
     def write_config(self):
         """
         Writes config to file `Config.CONFIG_FILE`.
@@ -756,6 +767,11 @@ class Config(metaclass=Singleton):
             'Do you want to use AWS S3 storage?',
             default=self.__dict['use_aws']
         )
+        self.__questions_aws_configuration()
+        self.__questions_aws_validate_credentials()
+
+    def __questions_aws_configuration(self):
+
         if self.__dict['use_aws']:
             self.__dict['aws_access_key'] = CLI.colored_input(
                 'AWS Access Key', CLI.COLOR_QUESTION,
@@ -770,6 +786,60 @@ class Config(metaclass=Singleton):
             self.__dict['aws_access_key'] = ''
             self.__dict['aws_secret_key'] = ''
             self.__dict['aws_bucket_name'] = ''
+
+    def __questions_aws_validate_credentials(self):
+        """
+        Prompting user whether they would like to validate their entered AWS
+        credentials or continue without validation.
+        """
+        # Resetting validation when setup is rerun
+        self.__dict['aws_credentials_valid'] = False
+        aws_credential_attempts = 0
+
+        if self.__dict['use_aws']:
+            self.__dict['aws_validate_credentials'] = CLI.yes_no_question(
+                'Would you like to validate your AWS credentials?',
+                default=self.__dict['aws_validate_credentials'],
+            )
+
+        if self.__dict['use_aws'] and self.__dict['aws_validate_credentials']:
+            while (
+                not self.__dict['aws_credentials_valid']
+                and aws_credential_attempts
+                <= self.MAXIMUM_AWS_CREDENTIAL_ATTEMPTS
+            ):
+                aws_credential_attempts += 1
+                self.validate_aws_credentials()
+                attempts_remaining = (
+                    self.MAXIMUM_AWS_CREDENTIAL_ATTEMPTS
+                    - aws_credential_attempts
+                )
+                if (
+                    not self.__dict['aws_credentials_valid']
+                    and attempts_remaining > 0
+                ):
+                    CLI.colored_print(
+                        'Invalid credentials, please try again.',
+                        CLI.COLOR_WARNING,
+                    )
+                    CLI.colored_print(
+                        'Attempts remaining for AWS validation: {}'.format(
+                            attempts_remaining
+                        ),
+                        CLI.COLOR_INFO,
+                    )
+                    self.__questions_aws_configuration()
+            else:
+                if not self.__dict['aws_credentials_valid']:
+                    CLI.colored_print(
+                        'Please restart configuration', CLI.COLOR_ERROR
+                    )
+                    sys.exit(1)
+                else:
+                    CLI.colored_print(
+                        'AWS credentials successfully validated',
+                        CLI.COLOR_SUCCESS
+                    )
 
     def __questions_aws_backup_settings(self):
 
