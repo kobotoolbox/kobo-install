@@ -318,11 +318,11 @@ class Config(metaclass=Singleton):
             'debug': False,
             'default_from_email': 'support@kobo.local',
             'dev_mode': False,
-            'django_secret_key': binascii.hexlify(os.urandom(50)).decode('utf-8'),
+            'django_secret_key': binascii.hexlify(os.urandom(50)).decode(),
             'docker_prefix': '',
             'ee_subdomain': 'ee',
-            'enketo_api_token': binascii.hexlify(os.urandom(60)).decode('utf-8'),
-            'enketo_encryption_key': binascii.hexlify(os.urandom(60)).decode('utf-8'),
+            'enketo_api_token': binascii.hexlify(os.urandom(60)).decode(),
+            'enketo_encryption_key': binascii.hexlify(os.urandom(60)).decode(),
             # default value from enketo. Because it was not customizable before
             # we want to keep the same value when users upgrade.
             'enketo_less_secure_encryption_key': 'this $3cr3t key is crackable',
