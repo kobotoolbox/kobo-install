@@ -91,7 +91,7 @@ class Network:
 
             for i in range(0, max_bytes_out, 40):
                 name = namestr[i: i + 16].split(FILL_CHAR, 1)[0]
-                name = name.decode('utf-8')
+                name = name.decode()
                 ip_bytes = namestr[i + 20:i + 24]
                 full_addr = []
                 for netaddr in ip_bytes:
