@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function, unicode_literals, division
-
 import binascii
 import json
 import os
@@ -15,19 +13,13 @@ from random import choice
 
 from helpers.cli import CLI
 from helpers.network import Network
-from helpers.singleton import Singleton, with_metaclass
+from helpers.singleton import Singleton
 from helpers.upgrading import Upgrading
-
-# Python retro compatibility
-try:
-    FileNotFoundError
-except NameError:
-    FileNotFoundError = IOError
 
 
 # Use this class as a singleton to get the same configuration
 # for each instantiation.
-class Config(with_metaclass(Singleton)):
+class Config(metaclass=Singleton):
 
     CONFIG_FILE = '.run.conf'
     UNIQUE_ID_FILE = '.uniqid'
@@ -38,7 +30,7 @@ class Config(with_metaclass(Singleton)):
     DEFAULT_NGINX_PORT = '80'
     DEFAULT_NGINX_HTTPS_PORT = '443'
     KOBO_DOCKER_BRANCH = '2.020.45'
-    KOBO_INSTALL_VERSION = '4.0.0'
+    KOBO_INSTALL_VERSION = '4.1.0'
 
     def __init__(self):
         self.__first_time = None
@@ -322,11 +314,11 @@ class Config(with_metaclass(Singleton)):
             'debug': False,
             'default_from_email': 'support@kobo.local',
             'dev_mode': False,
-            'django_secret_key': binascii.hexlify(os.urandom(50)).decode('utf-8'),
+            'django_secret_key': binascii.hexlify(os.urandom(50)).decode(),
             'docker_prefix': '',
             'ee_subdomain': 'ee',
-            'enketo_api_token': binascii.hexlify(os.urandom(60)).decode('utf-8'),
-            'enketo_encryption_key': binascii.hexlify(os.urandom(60)).decode('utf-8'),
+            'enketo_api_token': binascii.hexlify(os.urandom(60)).decode(),
+            'enketo_encryption_key': binascii.hexlify(os.urandom(60)).decode(),
             # default value from enketo. Because it was not customizable before
             # we want to keep the same value when users upgrade.
             'enketo_less_secure_encryption_key': 'this $3cr3t key is crackable',

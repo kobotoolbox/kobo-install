@@ -1,17 +1,11 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, absolute_import
-
 import os
 import pytest
 import random
 import shutil
 import tempfile
 import time
-
-try:
-    from unittest.mock import patch, MagicMock
-except ImportError:
-    from mock import patch, MagicMock
+from unittest.mock import patch, MagicMock
 
 from helpers.cli import CLI
 from helpers.config import Config

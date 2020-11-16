@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from __future__ import print_function, unicode_literals
-
 import platform
 import sys
 
 from helpers.cli import CLI
+if sys.version_info[0] == 2:
+    message = (
+        'Python 2.7 has reached the end of its life on '
+        'January 1st, 2020. Please upgrade your Python as Python 2.7 is '
+        'not maintained anymore.'
+    )
+    CLI.framed_print(message, color=CLI.COLOR_ERROR)
+    sys.exit(1)
+
 from helpers.command import Command
 from helpers.config import Config
 from helpers.setup import Setup
@@ -14,15 +21,6 @@ from helpers.updater import Updater
 
 
 def run(force_setup=False):
-
-    if sys.version_info[0] == 2:
-        message = (
-            'DEPRECATION: Python 2.7 has reached the end of its life on '
-            'January 1st, 2020. Please upgrade your Python as Python 2.7 is '
-            'not maintained anymore.\n\n'
-            'A future version of KoBoInstall will drop support for it.'
-        )
-        CLI.framed_print(message)
 
     if not platform.system() in ['Linux', 'Darwin']:
         CLI.colored_print('Not compatible with this OS', CLI.COLOR_ERROR)
