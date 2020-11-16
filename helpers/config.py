@@ -11,11 +11,11 @@ import time
 from datetime import datetime
 from random import choice
 
+from helpers.aws_validation import AWSValidation
 from helpers.cli import CLI
 from helpers.network import Network
 from helpers.singleton import Singleton
 from helpers.upgrading import Upgrading
-from helpers.aws_validation import AWSValidation
 
 
 # Use this class as a singleton to get the same configuration
