@@ -175,7 +175,7 @@ class Command:
                             CLI.colored_print(
                                 '\nSometimes front-end containers cannot '
                                 'communicate with back-end containers.\n'
-                                'Restarting the frontend containers usually '
+                                'Restarting the front-end containers usually '
                                 'fixes it.\n', CLI.COLOR_INFO)
                             question = 'Would you like to try?'
                             response = CLI.yes_no_question(question)
@@ -304,7 +304,7 @@ class Command:
 
         cls.stop(output=False, frontend_only=frontend_only)
         if frontend_only:
-            CLI.colored_print('Launching frontend containers', CLI.COLOR_INFO)
+            CLI.colored_print('Launching front-end containers', CLI.COLOR_INFO)
         else:
             CLI.colored_print('Launching environment', CLI.COLOR_INFO)
 
@@ -392,7 +392,7 @@ class Command:
                 cls.info()
             else:
                 CLI.colored_print(
-                    ('{} backend server is starting up and should be '
+                    ('{} back-end server is starting up and should be '
                      'up & running soon!\nPlease look at docker logs for '
                      'further information: `python3 run.py -cb logs -f`'.format(
                         dict_['backend_server_role'])),
@@ -418,7 +418,7 @@ class Command:
             CLI.run_command(maintenance_down_command,
                             dict_['kobodocker_path'])
 
-            # Shut down frontend containers
+            # Shut down front-end containers
             frontend_command = ['docker-compose',
                                 '-f', 'docker-compose.frontend.yml',
                                 '-f', 'docker-compose.frontend.override.yml',

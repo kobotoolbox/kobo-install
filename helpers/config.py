@@ -67,7 +67,7 @@ class Config(metaclass=Singleton):
     @property
     def aws(self):
         """
-        Checks whether questions are backend only
+        Checks whether questions are back end only
 
         Returns:
             bool
@@ -157,7 +157,7 @@ class Config(metaclass=Singleton):
     @property
     def backend_questions(self):
         """
-        Checks whether questions are backend only
+        Checks whether questions are back end only
 
         Returns:
             bool
@@ -250,7 +250,7 @@ class Config(metaclass=Singleton):
     @property
     def frontend(self):
         """
-        Checks whether setup is running on a frontend server
+        Checks whether setup is running on a front-end server
 
         Returns:
             dict: all values from user's responses needed to create
@@ -262,7 +262,7 @@ class Config(metaclass=Singleton):
     @property
     def frontend_questions(self):
         """
-        Checks whether questions are frontend only
+        Checks whether questions are front-end only
 
         Returns:
             bool
@@ -470,7 +470,7 @@ class Config(metaclass=Singleton):
     @property
     def primary_backend(self):
         """
-        Checks whether setup is running on a primary backend server
+        Checks whether setup is running on a primary back-end server
 
         Returns:
             bool
@@ -482,7 +482,8 @@ class Config(metaclass=Singleton):
     @property
     def multi_servers(self):
         """
-        Checks whether installation is for separate frontend and backend servers
+        Checks whether installation is for separate front-end and back-end
+        servers
 
         Returns:
             bool
@@ -556,7 +557,7 @@ class Config(metaclass=Singleton):
     @property
     def secondary_backend(self):
         """
-        Checks whether setup is running on a secondary backend server
+        Checks whether setup is running on a secondary back-end server
 
         Returns:
             bool
@@ -1110,7 +1111,7 @@ class Config(metaclass=Singleton):
                         default=self.__dict['debug']
                     )
 
-                    # Frontend development
+                    # Front-end development
                     self.__dict['npm_container'] = CLI.yes_no_question(
                         'How do you want to run `npm`?',
                         default=self.__dict['npm_container'],
@@ -1224,7 +1225,7 @@ class Config(metaclass=Singleton):
     def __questions_mongo(self):
         """
         Ask for MongoDB credentials only when server is for:
-        - primary backend
+        - primary back end
         - single server installation
         """
         if self.primary_backend or not self.multi_servers:
@@ -1313,10 +1314,10 @@ class Config(metaclass=Singleton):
     def __questions_multi_servers(self):
         """
         Asks if installation is for only one server
-        or different frontend and backend servers.
+        or different front-end and back-end servers.
         """
         self.__dict['multi'] = CLI.yes_no_question(
-            'Do you want to use separate servers for frontend and backend?',
+            'Do you want to use separate servers for front end and back end?',
             default=self.__dict['multi']
         )
 
@@ -1572,7 +1573,7 @@ class Config(metaclass=Singleton):
 
         if not self.multi_servers:
             self.__dict['expose_backend_ports'] = CLI.yes_no_question(
-                'Do you want to expose backend container ports '
+                'Do you want to expose back-end container ports '
                 '(`PostgreSQL`, `MongoDB`, `redis`)?',
                 default=self.__dict['expose_backend_ports']
             )
@@ -1585,8 +1586,8 @@ class Config(metaclass=Singleton):
 
         message = (
             'WARNING!\n\n'
-            'When exposing backend container ports, it is STRONGLY '
-            'recommended to use a firewall to grant access to frontend '
+            'When exposing back-end container ports, it is STRONGLY '
+            'recommended to use a firewall to grant access to front-end '
             'containers only.'
         )
         CLI.framed_print(message)
@@ -1619,7 +1620,7 @@ class Config(metaclass=Singleton):
     def __questions_private_routes(self):
         """
         Asks if configuration uses a DNS for private domain names
-        for communication between frontend and backend.
+        for communication between front end and back end.
         Otherwise, it will create entries in `extra_hosts` in composer
         file based on the provided ip.
         """
@@ -1628,7 +1629,7 @@ class Config(metaclass=Singleton):
             default=self.__dict['use_private_dns']
         )
         if self.__dict['use_private_dns'] is False:
-            CLI.colored_print('IP address (IPv4) of primary backend server?',
+            CLI.colored_print('IP address (IPv4) of primary back-end server?',
                               CLI.COLOR_QUESTION)
             self.__dict['primary_backend_ip'] = CLI.get_response(
                 r'~\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}',
@@ -1697,7 +1698,7 @@ class Config(metaclass=Singleton):
     def __questions_redis(self):
         """
         Ask for redis password only when server is for:
-        - primary backend
+        - primary back end
         - single server installation
         """
         if self.primary_backend or not self.multi_servers:
@@ -1836,7 +1837,7 @@ class Config(metaclass=Singleton):
 
         if self.__dict['server_role'] == 'backend':
             CLI.colored_print(
-                'Which role do you want to assign to this backend server?',
+                'Which role do you want to assign to this back-end server?',
                 CLI.COLOR_QUESTION)
             CLI.colored_print('\t1) primary')
             CLI.colored_print('\t2) secondary')
@@ -1844,7 +1845,7 @@ class Config(metaclass=Singleton):
                 ['primary', 'secondary'],
                 self.__dict['backend_server_role'])
         else:
-            # It may be useless to force backend role when using multi servers.
+            # It may be useless to force back-end role when using multi servers.
             self.__dict['backend_server_role'] = 'primary'
 
     def __questions_secret_keys(self):
