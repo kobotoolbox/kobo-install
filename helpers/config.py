@@ -1584,13 +1584,14 @@ class Config(metaclass=Singleton):
             reset_ports()
             return
 
-        message = (
-            'WARNING!\n\n'
-            'When exposing back-end container ports, it is STRONGLY '
-            'recommended to use a firewall to grant access to front-end '
-            'containers only.'
-        )
-        CLI.framed_print(message)
+        if self.backend:
+            message = (
+                'WARNING!\n\n'
+                'When exposing back-end container ports, it is STRONGLY '
+                'recommended to use a firewall to grant access to front-end '
+                'containers only.'
+            )
+            CLI.framed_print(message)
 
         self.__dict['customized_ports'] = CLI.yes_no_question(
             'Do you want to customize service ports?',
