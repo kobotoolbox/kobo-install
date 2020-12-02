@@ -54,9 +54,9 @@ class Setup:
         # When `cron` is True, we want to bypass question and just recreate
         # YML and environment files from new templates
         if cron is True:
-            current_dict = config.get_template()
-            current_dict.update(config.get_dict())
+            current_dict = config.get_upgraded_dict()
             config.set_config(current_dict)
+            config.write_config()
             Template.render(config, force=True)
             sys.exit(0)
 
