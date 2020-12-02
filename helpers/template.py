@@ -140,6 +140,7 @@ class Template:
         Args:
             config (helpers.config.Config)
         """
+
         dict_ = config.get_dict()
 
         def _get_value(property_, true_value='', false_value='#',
