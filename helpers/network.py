@@ -78,7 +78,7 @@ class Network:
             # Convert names to a bytes array - keep in mind we've mutated the
             # names array, so now our bytes out should represent the bytes
             # results of the get iface list ioctl command.
-            namestr = names.tostring()
+            namestr = names.tobytes()
 
             namestr[:max_bytes_out]
 
