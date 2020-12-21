@@ -1955,13 +1955,13 @@ class Config(metaclass=Singleton):
             )
 
             if self.__dict['uwsgi_settings']:
-                CLI.colored_print('Number of uWSGi workers to start?',
+                CLI.colored_print('Number of uWSGI workers to start?',
                                   CLI.COLOR_QUESTION)
                 self.__dict['uwsgi_workers_start'] = CLI.get_response(
                     r'~^\d+$',
                     self.__dict['uwsgi_workers_start'])
 
-                CLI.colored_print('Maximum uWSGi workers?', CLI.COLOR_QUESTION)
+                CLI.colored_print('Maximum uWSGI workers?', CLI.COLOR_QUESTION)
                 self.__dict['uwsgi_workers_max'] = CLI.get_response(
                     r'~^\d+$',
                     self.__dict['uwsgi_workers_max'])
@@ -1972,7 +1972,8 @@ class Config(metaclass=Singleton):
                     r'~^\d+$',
                     self.__dict['uwsgi_max_requests'])
 
-                CLI.colored_print('Maximum memory per workers in MB?',
+                CLI.colored_print('Stop spawning workers if uWSGI memory use ',
+                                  'exceeds this many MB: ',
                                   CLI.COLOR_QUESTION)
                 self.__dict['uwsgi_soft_limit'] = CLI.get_response(
                     r'~^\d+$',
