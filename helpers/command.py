@@ -382,9 +382,11 @@ class Command:
                                 config.get_letsencrypt_repo_path())
 
         if dict_['maintenance_enabled']:
-                CLI.colored_print('Maintenance mode is enabled. To resume '
-                                  'normal operation, use `--stop-maintenance`',
-                                  CLI.COLOR_INFO)
+            CLI.colored_print(
+                'Maintenance mode is enabled. To resume '
+                'normal operation, use `--stop-maintenance`',
+                CLI.COLOR_INFO,
+            )
         elif not frontend_only:
             if not config.multi_servers or config.frontend:
                 CLI.colored_print('Waiting for environment to be ready. '

@@ -123,6 +123,8 @@ class Setup:
             start_sentence = '### (BEGIN) KoBoToolbox local routes'
             end_sentence = '### (END) KoBoToolbox local routes'
 
+            _, tmp_file_path = tempfile.mkstemp()
+
             with open('/etc/hosts', 'r') as f:
                 tmp_host = f.read()
 
@@ -155,7 +157,7 @@ class Setup:
                 end_sentence=end_sentence
             )
 
-            with open('/tmp/etchosts', 'w') as f:
+            with open(tmp_file_path, 'w') as f:
                 f.write(tmp_host)
 
             message = (
@@ -176,9 +178,15 @@ class Setup:
             config = Config()
             config.write_config()
 
-            cmd = 'sudo mv /etc/hosts /etc/hosts.old ' \
-                  '&& sudo mv /tmp/etchosts /etc/hosts'
+            cmd = (
+                'sudo cp /etc/hosts /etc/hosts.old '
+                '&& sudo cp {tmp_file_path} /etc/hosts'
+            ).format(tmp_file_path=tmp_file_path)
+
             return_value = os.system(cmd)
+
+            os.unlink(tmp_file_path)
+
             if return_value != 0:
                 sys.exit(1)
 
