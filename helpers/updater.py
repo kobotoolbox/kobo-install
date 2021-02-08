@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function, unicode_literals
-
 import os
 import sys
 
@@ -23,7 +21,8 @@ class Updater:
         if update_self:
             # Update kobo-install first
             Setup.update_koboinstall(version)
-            CLI.colored_print("KoBoInstall has been updated", CLI.COLOR_SUCCESS)
+            CLI.colored_print('kobo-install has been updated',
+                              CLI.COLOR_SUCCESS)
 
             # Reload this script to use `version`.
             # NB:`argv[0]` does not automatically get set to the executable
@@ -34,5 +33,5 @@ class Updater:
 
         # Update kobo-docker
         Setup.update_kobodocker()
-        CLI.colored_print("KoBoToolbox has been updated", CLI.COLOR_SUCCESS)
+        CLI.colored_print('kobo-docker has been updated', CLI.COLOR_SUCCESS)
         Setup.post_update(cron)

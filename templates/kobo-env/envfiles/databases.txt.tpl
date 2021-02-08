@@ -42,6 +42,9 @@ KOBO_POSTGRES_PRIMARY_ENDPOINT=primary.postgres.${PRIVATE_DOMAIN_NAME}
 # Default Postgres backup schedule is weekly at 02:00 AM UTC on Sunday.
 ${USE_BACKUP}POSTGRES_BACKUP_SCHEDULE=${POSTGRES_BACKUP_SCHEDULE}
 
+# WAL-E archiving and backup support
+${USE_WAL_E}USE_WAL_E=1
+
 #--------------------------------------------------------------------------------
 # REDIS
 #--------------------------------------------------------------------------------
