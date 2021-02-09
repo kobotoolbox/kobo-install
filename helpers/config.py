@@ -1069,6 +1069,7 @@ class Config(metaclass=Singleton):
                     default=self.__dict['staging_mode']
                 )
                 self.__dict['dev_mode'] = False
+                self.__dict['use_celery'] = True
 
             if self.dev_mode or self.staging_mode:
                 message = (
@@ -1192,6 +1193,8 @@ class Config(metaclass=Singleton):
             CLI.framed_print(message, color=CLI.COLOR_WARNING)
             # Reset previous choices, in case server role is not the same.
             self.__reset(local_install=True, private_dns=True)
+        else:
+            self.__reset(dev=True)
 
     def __questions_maintenance(self):
         if self.first_time:
@@ -2038,6 +2041,7 @@ class Config(metaclass=Singleton):
             self.__dict['kc_path'] = ''
             self.__dict['kpi_path'] = ''
             self.__dict['debug'] = False
+            self.__dict['use_celery'] = True
             if reset_nginx_port:
                 self.__dict[
                     'exposed_nginx_docker_port'] = Config.DEFAULT_NGINX_PORT
