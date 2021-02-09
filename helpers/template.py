@@ -290,6 +290,8 @@ class Template:
                 dict_['redis_password']),
             'REDIS_PASSWORD_JS_ENCODED': json.dumps(
                 dict_['redis_password']),
+            'USE_DEV_MODE': _get_value('dev_mode'),
+            'USE_CELERY': _get_value('use_celery', comparison_value=False),
             'ENKETO_ALLOW_PRIVATE_IP_ADDRESS': _get_value(
                 'local_installation',
                 true_value='true',

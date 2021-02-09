@@ -418,6 +418,7 @@ class Config(metaclass=Singleton):
             'two_databases': True,
             'use_aws': False,
             'use_backup': False,
+            'use_celery': True,
             'use_letsencrypt': True,
             'use_private_dns': False,
             'use_wal_e': False,
@@ -1056,6 +1057,12 @@ class Config(metaclass=Singleton):
                     default=self.__dict['dev_mode']
                 )
                 self.__dict['staging_mode'] = False
+                if self.dev_mode:
+                    self.__dict['use_celery'] = CLI.yes_no_question(
+                        'Use Celery for background tasks?',
+                        default=self.__dict['use_celery']
+                    )
+
             else:
                 self.__dict['staging_mode'] = CLI.yes_no_question(
                     'Use staging mode?',
