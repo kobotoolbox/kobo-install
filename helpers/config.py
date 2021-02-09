@@ -1047,7 +1047,7 @@ class Config(metaclass=Singleton):
         if self.frontend_questions:
 
             if self.local_install:
-                # NGinX different port
+                # NGINX different port
                 CLI.colored_print('Web server port?', CLI.COLOR_QUESTION)
                 self.__dict['exposed_nginx_docker_port'] = CLI.get_response(
                     r'~^\d+$', self.__dict['exposed_nginx_docker_port'])
@@ -1178,6 +1178,11 @@ class Config(metaclass=Singleton):
             ]
         )
         if self.local_install:
+            message = (
+                'WARNING!\n\n'
+                'SSRF protection is disabled with local installation'
+            )
+            CLI.framed_print(message, color=CLI.COLOR_WARNING)
             # Reset previous choices, in case server role is not the same.
             self.__reset(local_install=True, private_dns=True)
 
