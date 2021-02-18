@@ -1029,11 +1029,9 @@ class Config(metaclass=Singleton):
                         # Back to default value
                         self.__dict['backup_from_primary'] = True
             else:
-                # Back to default value
-                self.__dict['backup_from_primary'] = True
+                self.__reset(no_backups=True)
         else:
-            self.__dict['use_backup'] = False
-            self.__dict['backup_from_primary'] = True  # Back to default value
+            self.__reset(no_backups=True)
 
     def __questions_dev_mode(self):
         """
@@ -2043,6 +2041,7 @@ class Config(metaclass=Singleton):
         http = kwargs.get('http', False)
         fake_dns = kwargs.get('fake_dns', False)
         nginx_default = kwargs.get('nginx_default', False)
+        no_backups = kwargs.get('no_backups', False)
 
         if production or all_:
             self.__dict['dev_mode'] = False
@@ -2064,6 +2063,11 @@ class Config(metaclass=Singleton):
             self.__dict['proxy'] = False
             self.__dict['nginx_proxy_port'] = Config.DEFAULT_NGINX_PORT
             self.__dict['use_letsencrypt'] = False
+
+        if no_backups or all_:
+            self.__dict['backup_from_primary'] = True
+            self.__dict['use_backup'] = False
+            self.__dict['use_wal_e'] = False
 
     def __secure_mongo(self):
         """
