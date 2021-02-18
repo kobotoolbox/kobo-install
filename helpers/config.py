@@ -197,7 +197,7 @@ class Config(metaclass=Singleton):
                         if self.frontend or self.secondary_backend:
                             self.__questions_private_routes()
                     else:
-                        self.__reset(private_dns=True)
+                        self.__reset(fake_dns=True)
 
                 if self.frontend_questions:
                     self.__questions_public_routes()
@@ -1130,7 +1130,7 @@ class Config(metaclass=Singleton):
                     )
             else:
                 # Force reset paths
-                self.__reset(dev=True, reset_nginx_port=self.staging_mode)
+                self.__reset(production=True, nginx_default=self.staging_mode)
 
     def __questions_docker_prefix(self):
         """
@@ -1177,6 +1177,8 @@ class Config(metaclass=Singleton):
         """
         Asks for installation type
         """
+        previous_installation_type = self.__dict['local_installation']
+
         self.__dict['local_installation'] = CLI.yes_no_question(
             'What kind of installation do you need?',
             default=self.__dict['local_installation'],
@@ -1191,10 +1193,14 @@ class Config(metaclass=Singleton):
                 'SSRF protection is disabled with local installation'
             )
             CLI.framed_print(message, color=CLI.COLOR_WARNING)
+
+        if previous_installation_type != self.__dict['local_installation']:
             # Reset previous choices, in case server role is not the same.
-            self.__reset(local_install=True, private_dns=True)
-        else:
-            self.__reset(dev=True)
+            self.__reset(
+                production=not self.local_install,
+                http=self.local_install,
+                fake_dns=self.local_install,
+            )
 
     def __questions_maintenance(self):
         if self.first_time:
@@ -2026,30 +2032,33 @@ class Config(metaclass=Singleton):
         It can be useful, if user changes the type of installation on
         the same server
 
-        Returns:
-            bool
+        Kwargs:
+            production (bool): If `True`, reset config to production mode
+            http (bool): If `True`, only set values related to http/https config
+            fake_dns (bool): If `True`, reset config to fake dns on docker-compose files  # noqa
+            nginx_default (bool): If `True`, reset NGINX exposed port to default
         """
-        all = True if not kwargs else False
-        dev_mode = kwargs.get('dev', False)
-        local_install = kwargs.get('local_install', False)
-        private_dns = kwargs.get('private_dns', False)
-        reset_nginx_port = kwargs.get('reset_nginx_port', False)
+        all_ = True if not kwargs else False
+        production = kwargs.get('production', False)
+        http = kwargs.get('http', False)
+        fake_dns = kwargs.get('fake_dns', False)
+        nginx_default = kwargs.get('nginx_default', False)
 
-        if dev_mode or all:
+        if production or all_:
             self.__dict['dev_mode'] = False
             self.__dict['staging_mode'] = False
             self.__dict['kc_path'] = ''
             self.__dict['kpi_path'] = ''
             self.__dict['debug'] = False
             self.__dict['use_celery'] = True
-            if reset_nginx_port:
+            if nginx_default:
                 self.__dict[
                     'exposed_nginx_docker_port'] = Config.DEFAULT_NGINX_PORT
 
-        if private_dns or all:
+        if fake_dns or all_:
             self.__dict['use_private_dns'] = False
 
-        if local_install or all:
+        if http or all_:
             self.__dict['multi'] = False
             self.__dict['https'] = False
             self.__dict['proxy'] = False
