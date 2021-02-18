@@ -31,7 +31,7 @@ class Config(metaclass=Singleton):
     DEFAULT_NGINX_PORT = '80'
     DEFAULT_NGINX_HTTPS_PORT = '443'
     KOBO_DOCKER_BRANCH = 'support-kobocat-2.0'
-    KOBO_INSTALL_VERSION = '4.4.2'
+    KOBO_INSTALL_VERSION = '5.0.0-dev'
     MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
 
     def __init__(self):
