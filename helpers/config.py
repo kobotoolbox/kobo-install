@@ -1991,7 +1991,7 @@ class Config(metaclass=Singleton):
                     r'~^\d+$',
                     self.__dict['uwsgi_max_requests'])
 
-                CLI.colored_print('Stop spawning workers if uWSGI memory use ',
+                CLI.colored_print('Stop spawning workers if uWSGI memory use '
                                   'exceeds this many MB: ',
                                   CLI.COLOR_QUESTION)
                 self.__dict['uwsgi_soft_limit'] = CLI.get_response(
