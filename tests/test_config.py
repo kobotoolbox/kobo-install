@@ -86,6 +86,7 @@ def test_dev_mode():
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
         mock_colored_input.side_effect = iter(['8080',
                                                CHOICE_YES,
+                                               CHOICE_NO,
                                                kc_repo_path,
                                                kpi_repo_path,
                                                CHOICE_YES,
@@ -100,6 +101,7 @@ def test_dev_mode():
         assert dict_['kpi_path'] == kpi_repo_path and \
                dict_['kc_path'] == kc_repo_path
         assert dict_['npm_container'] is False
+        assert dict_['use_celery'] is False
 
     shutil.rmtree(kc_repo_path)
     shutil.rmtree(kpi_repo_path)

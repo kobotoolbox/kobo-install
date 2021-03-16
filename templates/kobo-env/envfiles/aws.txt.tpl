@@ -11,7 +11,7 @@ ${USE_AWS}AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 
 # To use S3, the specified buckets must already exist and the owner of your `AWS_ACCESS_KEY_ID` must have the appropriate S3 permissions.
 
-${USE_AWS}KOBOCAT_DEFAULT_FILE_STORAGE=storages.backends.s3boto.S3BotoStorage
+${USE_AWS}KOBOCAT_DEFAULT_FILE_STORAGE=storages.backends.s3boto3.S3Boto3Storage
 ${USE_AWS}KOBOCAT_AWS_STORAGE_BUCKET_NAME=${AWS_BUCKET_NAME}
 
 ${USE_AWS}KPI_DEFAULT_FILE_STORAGE=storages.backends.s3boto3.S3Boto3Storage
