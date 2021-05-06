@@ -12,4 +12,4 @@ KPI_MONGO_NAME=formhub
 KPI_MONGO_USER=${MONGO_USER_USERNAME}
 KPI_MONGO_PASS=${MONGO_USER_PASSWORD}
 
-DJANGO_LANGUAGE_CODES=en ar cs de_De es fr hi hu it km ku ku_IQ nl pl pt ru sw tr zh-hans
+DJANGO_LANGUAGE_CODES=en ar cs de es fr hi hu it km ku nl pl pt ru sw tr zh-hans
