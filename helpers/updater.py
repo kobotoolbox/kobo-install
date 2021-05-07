@@ -14,7 +14,7 @@ class Updater:
     NO_UPDATE_SELF_OPTION = '--no-update-self'
 
     @classmethod
-    def run(cls, version='stable', cron=False, update_self=True):
+    def run(cls, version='master', cron=False, update_self=True):
         # Validate kobo-docker already exists and is valid
         Setup.validate_already_run()
 
