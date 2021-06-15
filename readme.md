@@ -15,8 +15,7 @@ before using this repository. **If you do not, `kobo-install` will not be able t
 
 ## Versions
 
-Branch `master` is the recommended branch to use `kobo-install` on your production environment.
-Just run `git checkout master` before your first run.
+Branch `master` is the recommended branch to use `kobo-install` on your production environment. Just run `git checkout master` before your first run.
 
 Branch `beta` is a pre-release of the next version. It contains new features and bug fixes.
 
@@ -26,46 +25,46 @@ Other branches are for development purposes.
 
 `$kobo-install> python3 run.py`
 
-First time the command is executed, setup will be launched.
+First time the command is executed, setup will be launched.  
 Subsequent executions will launch docker containers directly.
 
-Rebuild configuration:
+Rebuild configuration:  
 `$kobo-install> python3 run.py --setup`
 
-Get info:
+Get info:  
 `$kobo-install> python3 run.py --info`
 
-Get docker logs:
+Get docker logs:  
 `$kobo-install> python3 run.py --logs`
 
-Update KoBoToolbox:
+Update KoBoToolbox:  
 `$kobo-install> python3 run.py --update [branch or tag]`
 
-By default, fetch latest version of `master` branch
+By default, fetch the latest version of `master` branch
 
 
-Stop KoBoToolbox:
+Stop KoBoToolbox:  
 `$kobo-install> python3 run.py --stop`
 
-Get help:
+Get help:  
 `$kobo-install> python3 run.py --help`
 
-Get version:
+Get version:  
 `$kobo-install> python3 run.py --version`
 
-Build kpi and kobocat (dev mode):
+Build kpi and kobocat (dev mode):  
 `$kobo-install> python3 run.py --build`
 
-Run docker commands on front-end containers:
+Run docker commands on front-end containers:  
 `$kobo-install> python run.py --compose-frontend [docker-compose arguments]`
 
-Run docker commands on back-end containers:
+Run docker commands on back-end containers:  
 `$kobo-install> python run.py --compose-backend [docker-compose arguments]`
 
-Start maintenance mode:
+Start maintenance mode:  
 `$kobo-install> python run.py --maintenance`
 
-Stop maintenance mode:
+Stop maintenance mode:  
 `$kobo-install> python run.py --stop-maintenance`
 
 ## Build the configuration
@@ -167,8 +166,8 @@ User can choose between 2 types of installations:
 
 ## Tests
 
-Tests can be run with `tox`.
-Be sure it's install before running the tests
+Tests can be run with `tox`.  
+Be sure it is installed before running the tests.
 
 ```
 $kobo-install> sudo apt install python3-pip
