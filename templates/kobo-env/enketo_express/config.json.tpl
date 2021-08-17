@@ -5,6 +5,12 @@
         "server url": "",
         "api key": "${ENKETO_API_KEY}"
     },
+    "ip filtering": {
+        "allowPrivateIPAddress": ${ENKETO_ALLOW_PRIVATE_IP_ADDRESS},
+        "allowMetaIPAddress": false,
+        "allowIPAddressList": [],
+        "denyAddressList": []
+    },
     "encryption key": "${ENKETO_ENCRYPTION_KEY}",
     "less secure encryption key": "${ENKETO_LESS_SECURE_ENCRYPTION_KEY}",
     "support": {
