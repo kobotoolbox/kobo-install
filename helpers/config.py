@@ -288,6 +288,16 @@ class Config(metaclass=Singleton):
     def get_dict(self):
         return self.__dict
 
+    def get_service_names(self):
+        service_list_command = ['docker-compose',
+                                '-f', 'docker-compose.frontend.yml',
+                                '-f', 'docker-compose.frontend.override.yml',
+                                'config', '--services']
+
+        services = CLI.run_command(service_list_command,
+                                   self.__dict['kobodocker_path'])
+        return services.strip().split('\n')
+
     @classmethod
     def get_template(cls):
 
@@ -431,16 +441,6 @@ class Config(metaclass=Singleton):
             'uwsgi_workers_start': '1',
         }
         # Keep properties sorted alphabetically
-
-    def get_service_names(self):
-        service_list_command = ['docker-compose',
-                                '-f', 'docker-compose.frontend.yml',
-                                '-f', 'docker-compose.frontend.override.yml',
-                                'config', '--services']
-
-        services = CLI.run_command(service_list_command,
-                                   self.__dict['kobodocker_path'])
-        return services.strip().split('\n')
 
     @property
     def is_secure(self):
