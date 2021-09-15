@@ -31,7 +31,7 @@ class Config(metaclass=Singleton):
     DEFAULT_NGINX_PORT = '80'
     DEFAULT_NGINX_HTTPS_PORT = '443'
     KOBO_DOCKER_BRANCH = '2.021.34a'
-    KOBO_INSTALL_VERSION = '5.0.0'
+    KOBO_INSTALL_VERSION = '5.0.1'
     MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
 
     def __init__(self):
@@ -1102,7 +1102,7 @@ class Config(metaclass=Singleton):
                     self.__dict['kc_dev_build_id'] = build_id
 
                 if (
-                    not self.__dict['kpi_dev_build_id'] == '' or
+                    not self.__dict['kpi_dev_build_id'] or
                     self.__dict['kpi_path'] != kpi_path
                 ):
                     build_id = '{prefix}{timestamp}'.format(
