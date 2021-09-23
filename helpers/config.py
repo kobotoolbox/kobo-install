@@ -30,8 +30,8 @@ class Config(metaclass=Singleton):
     DEFAULT_PROXY_PORT = '8080'
     DEFAULT_NGINX_PORT = '80'
     DEFAULT_NGINX_HTTPS_PORT = '443'
-    KOBO_DOCKER_BRANCH = '2.021.34a'
-    KOBO_INSTALL_VERSION = '5.0.1'
+    KOBO_DOCKER_BRANCH = '317-customize-redis-cache-maxmemory'
+    KOBO_INSTALL_VERSION = '5.1.0'
     MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
 
     def __init__(self):
@@ -293,6 +293,7 @@ class Config(metaclass=Singleton):
 
         primary_ip = Network.get_primary_ip()
 
+        # Keep properties sorted alphabetically
         return {
             'advanced': False,
             'aws_access_key': '',
@@ -402,10 +403,12 @@ class Config(metaclass=Singleton):
             'public_domain_name': 'kobo.local',
             'raven_settings': False,
             'redis_backup_schedule': '0 3 * * 0',
+            'redis_cache_max_memory': '',
             'redis_cache_port': '6380',
             'redis_main_port': '6379',
             'redis_password': Config.generate_password(),
             'review_host': True,
+            'run_redis_containers': True,
             'server_role': 'frontend',
             'smtp_host': '',
             'smtp_password': '',
@@ -430,7 +433,7 @@ class Config(metaclass=Singleton):
             'uwsgi_workers_max': '2',
             'uwsgi_workers_start': '1',
         }
-        # Keep properties sorted alphabetically
+
 
     def get_service_names(self):
         service_list_command = ['docker-compose',
@@ -1721,7 +1724,15 @@ class Config(metaclass=Singleton):
         - primary back end
         - single server installation
         """
-        if self.primary_backend or not self.multi_servers:
+        if self.multi_servers:
+            self.__dict['run_redis_containers'] = CLI.yes_no_question(
+                'Do you want to run the redis containers from this server?',
+                default=self.__dict['run_redis_containers']
+            )
+        else:
+            self.__dict['run_redis_containers'] = True
+
+        if self.__dict['run_redis_containers']:
             CLI.colored_print('Redis password?', CLI.COLOR_QUESTION)
             self.__dict['redis_password'] = CLI.get_response(
                 r'~^.{8,}|$',
@@ -1742,6 +1753,14 @@ class Config(metaclass=Singleton):
                 )
                 if response is False:
                     self.__questions_redis()
+
+            CLI.colored_print('Max memory for redis cache container (in MB)?',
+                              CLI.COLOR_QUESTION)
+            CLI.colored_print('Leave empty for no limits',
+                              CLI.COLOR_INFO)
+            self.__dict['redis_cache_max_memory'] = CLI.get_response(
+                r'~^(\d+|-)?$',
+                self.__dict['redis_cache_max_memory'])
 
     def __questions_reverse_proxy(self):
 
