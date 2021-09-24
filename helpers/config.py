@@ -444,13 +444,12 @@ class Config(metaclass=Singleton):
             'uwsgi_workers_start': '1',
         }
 
-
     @property
     def is_secure(self):
         return self.__dict['https'] is True
 
     def init_letsencrypt(self):
-        if self.use_letsencrypt:
+        if self.frontend and self.use_letsencrypt:
             reverse_proxy_path = self.get_letsencrypt_repo_path()
             reverse_proxy_command = [
                 '/bin/bash',
