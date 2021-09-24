@@ -12,10 +12,17 @@ services:
       ${ADD_BACKEND_EXTRA_HOSTS}- primary.postgres.${PRIVATE_DOMAIN_NAME}:${PRIMARY_BACKEND_IP}
 
   ${RUN_REDIS_CONTAINERS}redis_main:
-    ${RUN_REDIS_CONTAINERS}ports:
-    ${RUN_REDIS_CONTAINERS}  - ${REDIS_MAIN_PORT}:6379
+  ${RUN_REDIS_CONTAINERS}  extends:
+  ${RUN_REDIS_CONTAINERS}    file: docker-compose.backend.template.yml
+  ${RUN_REDIS_CONTAINERS}    service: redis_main
+  ${RUN_REDIS_CONTAINERS}  ports:
+  ${RUN_REDIS_CONTAINERS}    - ${REDIS_MAIN_PORT}:6379
 
   ${RUN_REDIS_CONTAINERS}redis_cache:
-    ${RUN_REDIS_CONTAINERS}ports:
-    ${RUN_REDIS_CONTAINERS}  - ${REDIS_CACHE_PORT}:6380
-    ${RUN_REDIS_CONTAINERS}${USE_REDIS_CACHE_MAX_MEMORY}mem_limit: ${REDIS_CACHE_MAX_MEMORY}M
+  ${RUN_REDIS_CONTAINERS}  extends:
+  ${RUN_REDIS_CONTAINERS}    file: docker-compose.backend.template.yml
+  ${RUN_REDIS_CONTAINERS}    service: redis_cache
+  ${RUN_REDIS_CONTAINERS}  ports:
+  ${RUN_REDIS_CONTAINERS}    - ${REDIS_CACHE_PORT}:6380
+  ${RUN_REDIS_CONTAINERS}  ${USE_REDIS_CACHE_MAX_MEMORY}mem_limit: ${REDIS_CACHE_MAX_MEMORY}M
+
