@@ -1595,7 +1595,7 @@ class Config(metaclass=Singleton):
         if not self.multi_servers:
             self.__dict['expose_backend_ports'] = CLI.yes_no_question(
                 'Do you want to expose back-end container ports '
-                '(`PostgreSQL`, `MongoDB`, `redis`)?',
+                '(`PostgreSQL`, `MongoDB`, `Redis`)?',
                 default=self.__dict['expose_backend_ports']
             )
         else:
@@ -1719,13 +1719,13 @@ class Config(metaclass=Singleton):
 
     def __questions_redis(self):
         """
-        Ask for redis password only when server is for:
+        Ask for Redis password only when server is for:
         - primary back end
         - single server installation
         """
         if self.multi_servers:
             self.__dict['run_redis_containers'] = CLI.yes_no_question(
-                'Do you want to run the redis containers from this server?',
+                'Do you want to run the Redis containers from this server?',
                 default=self.__dict['run_redis_containers']
             )
         else:
@@ -1753,7 +1753,7 @@ class Config(metaclass=Singleton):
                 if response is False:
                     self.__questions_redis()
 
-            CLI.colored_print('Max memory for redis cache container (in MB)?',
+            CLI.colored_print('Max memory (MB) for Redis cache container?',
                               CLI.COLOR_QUESTION)
             CLI.colored_print('Leave empty for no limits',
                               CLI.COLOR_INFO)
