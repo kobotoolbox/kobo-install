@@ -87,7 +87,7 @@ class Setup:
             dict_ = config.get_dict()
 
         # fetch new tags and prune
-        git_command = ['git', 'fetch', '-p']
+        git_command = ['git', 'fetch', '--prune', '--tags']
         CLI.run_command(git_command, cwd=dict_['kobodocker_path'])
 
         # checkout branch
@@ -101,7 +101,7 @@ class Setup:
     @staticmethod
     def update_koboinstall(version):
         # fetch new tags and prune
-        git_fetch_prune_command = ['git', 'fetch', '-p']
+        git_fetch_prune_command = ['git', 'fetch', '--prune', '--tags']
         CLI.run_command(git_fetch_prune_command)
 
         # checkout branch
