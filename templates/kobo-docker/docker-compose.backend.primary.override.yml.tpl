@@ -1,4 +1,4 @@
-# For public, HTTPS servers.
+# Override for primary back-end server
 version: '2.2'
 
 services:
@@ -23,18 +23,28 @@ services:
     ${USE_BACKEND_NETWORK}    aliases:
     ${USE_BACKEND_NETWORK}      - mongo.${PRIVATE_DOMAIN_NAME}
 
-  redis_main:
-    ${EXPOSE_BACKEND_PORTS}ports:
-    ${EXPOSE_BACKEND_PORTS}  - ${REDIS_MAIN_PORT}:6379
-    ${USE_BACKEND_NETWORK}networks:
-    ${USE_BACKEND_NETWORK}  kobo-be-network:
-    ${USE_BACKEND_NETWORK}    aliases:
-    ${USE_BACKEND_NETWORK}      - redis-main.${PRIVATE_DOMAIN_NAME}
+  ${RUN_REDIS_CONTAINERS}redis_main:
+  ${RUN_REDIS_CONTAINERS}  extends:
+  ${RUN_REDIS_CONTAINERS}    file: docker-compose.backend.template.yml
+  ${RUN_REDIS_CONTAINERS}    service: redis_main
+  ${RUN_REDIS_CONTAINERS}  ${EXPOSE_BACKEND_PORTS}ports:
+  ${RUN_REDIS_CONTAINERS}  ${EXPOSE_BACKEND_PORTS}  - ${REDIS_MAIN_PORT}:6379
+  ${RUN_REDIS_CONTAINERS}  ${USE_BACKEND_NETWORK}networks:
+  ${RUN_REDIS_CONTAINERS}  ${USE_BACKEND_NETWORK}  kobo-be-network:
+  ${RUN_REDIS_CONTAINERS}  ${USE_BACKEND_NETWORK}    aliases:
+  ${RUN_REDIS_CONTAINERS}  ${USE_BACKEND_NETWORK}      - redis-main.${PRIVATE_DOMAIN_NAME}
 
-  redis_cache:
-    ${EXPOSE_BACKEND_PORTS}ports:
-    ${EXPOSE_BACKEND_PORTS}  - ${REDIS_CACHE_PORT}:6380
-    ${USE_BACKEND_NETWORK}networks:
-    ${USE_BACKEND_NETWORK}  kobo-be-network:
-    ${USE_BACKEND_NETWORK}    aliases:
-    ${USE_BACKEND_NETWORK}      - redis-cache.${PRIVATE_DOMAIN_NAME}
+  ${RUN_REDIS_CONTAINERS}redis_cache:
+  ${RUN_REDIS_CONTAINERS}  extends:
+  ${RUN_REDIS_CONTAINERS}    file: docker-compose.backend.template.yml
+  ${RUN_REDIS_CONTAINERS}    service: redis_cache
+  ${RUN_REDIS_CONTAINERS}  ${EXPOSE_BACKEND_PORTS}ports:
+  ${RUN_REDIS_CONTAINERS}  ${EXPOSE_BACKEND_PORTS}  - ${REDIS_CACHE_PORT}:6380
+  ${RUN_REDIS_CONTAINERS}  ${USE_BACKEND_NETWORK}networks:
+  ${RUN_REDIS_CONTAINERS}  ${USE_BACKEND_NETWORK}  kobo-be-network:
+  ${RUN_REDIS_CONTAINERS}  ${USE_BACKEND_NETWORK}    aliases:
+  ${RUN_REDIS_CONTAINERS}  ${USE_BACKEND_NETWORK}      - redis-cache.${PRIVATE_DOMAIN_NAME}
+
+${USE_BACKEND_NETWORK}networks:
+${USE_BACKEND_NETWORK}  kobo-be-network:
+${USE_BACKEND_NETWORK}    driver: bridge
