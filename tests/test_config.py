@@ -116,8 +116,8 @@ def test_dev_mode():
 
 def test_server_roles_questions():
     config = read_config()
-    assert config.frontend_questions
-    assert config.backend_questions
+    assert config.frontend
+    assert config.backend
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
         mock_colored_input.side_effect = iter(
@@ -126,12 +126,12 @@ def test_server_roles_questions():
         config._Config__questions_multi_servers()
 
         config._Config__questions_roles()
-        assert config.frontend_questions
-        assert not config.backend_questions
+        assert config.frontend
+        assert not config.backend
 
         config._Config__questions_roles()
-        assert not config.frontend_questions
-        assert config.backend_questions
+        assert not config.frontend
+        assert config.backend
         assert config.secondary_backend
 
 

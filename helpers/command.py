@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+import os
 import sys
 import time
 import subprocess
@@ -109,6 +109,8 @@ class Command:
                    '-f', 'docker-compose.frontend.yml',
                    '-f', 'docker-compose.frontend.override.yml',
                    '-p', config.get_prefix('frontend')]
+
+        cls.__validate_custom_yml(config, command)
         command.extend(args)
         subprocess.call(command, cwd=dict_['kobodocker_path'])
 
@@ -123,6 +125,7 @@ class Command:
             '-f', 'docker-compose.backend.{}.override.yml'.format(backend_role),
             '-p', config.get_prefix('backend')
         ]
+        cls.__validate_custom_yml(config, command)
         command.extend(args)
         subprocess.call(command, cwd=dict_['kobodocker_path'])
 
@@ -225,31 +228,27 @@ class Command:
         if config.primary_backend or config.secondary_backend:
             backend_role = dict_['backend_server_role']
 
-            backend_command = ['docker-compose',
-                               '-f',
-                               'docker-compose.backend.{}.yml'.format(
-                                   backend_role),
-                               '-f',
-                               'docker-compose.backend.{}.override.yml'.format(
-                                   backend_role),
-                               '-p',
-                               config.get_prefix('backend'),
-                               'logs',
-                               '-f'
-                               ]
-            CLI.run_command(backend_command,
-                            dict_['kobodocker_path'],
-                            True)
+            backend_command = [
+                'docker-compose',
+                '-f', 'docker-compose.backend.{}.yml'.format(backend_role),
+                '-f', 'docker-compose.backend.{}.override.yml'.format(backend_role),
+                '-p', config.get_prefix('backend'),
+                'logs', '-f',
+            ]
+            cls.__validate_custom_yml(config, backend_command)
+            CLI.run_command(backend_command, dict_['kobodocker_path'], True)
 
         if config.frontend:
-            frontend_command = ['docker-compose',
-                                '-f', 'docker-compose.frontend.yml',
-                                '-f', 'docker-compose.frontend.override.yml',
-                                '-p', config.get_prefix('frontend'),
-                                'logs', '-f']
-            CLI.run_command(frontend_command,
-                            dict_['kobodocker_path'],
-                            True)
+            frontend_command = [
+                'docker-compose',
+                '-f', 'docker-compose.frontend.yml',
+                '-f', 'docker-compose.frontend.override.yml',
+                '-p', config.get_prefix('frontend'),
+                'logs', '-f',
+            ]
+
+            cls.__validate_custom_yml(config, frontend_command)
+            CLI.run_command(frontend_command, dict_['kobodocker_path'], True)
 
     @classmethod
     def configure_maintenance(cls):
@@ -270,12 +269,15 @@ class Command:
         config = Config()
         dict_ = config.get_dict()
 
-        nginx_stop_command = ['docker-compose',
-                              '-f', 'docker-compose.frontend.yml',
-                              '-f', 'docker-compose.frontend.override.yml',
-                              '-p', config.get_prefix('frontend'),
-                              'stop', 'nginx']
+        nginx_stop_command = [
+            'docker-compose',
+            '-f', 'docker-compose.frontend.yml',
+            '-f', 'docker-compose.frontend.override.yml',
+            '-p', config.get_prefix('frontend'),
+            'stop', 'nginx',
+        ]
 
+        cls.__validate_custom_yml(config, nginx_stop_command)
         CLI.run_command(nginx_stop_command, dict_['kobodocker_path'])
 
     @classmethod
@@ -283,11 +285,13 @@ class Command:
         config = Config()
         dict_ = config.get_dict()
 
-        frontend_command = ['docker-compose',
-                            '-f', 'docker-compose.maintenance.yml',
-                            '-f', 'docker-compose.maintenance.override.yml',
-                            '-p', config.get_prefix('maintenance'),
-                            'up', '-d']
+        frontend_command = [
+            'docker-compose',
+            '-f', 'docker-compose.maintenance.yml',
+            '-f', 'docker-compose.maintenance.override.yml',
+            '-p', config.get_prefix('maintenance'),
+            'up', '-d',
+        ]
 
         CLI.run_command(frontend_command, dict_['kobodocker_path'])
         CLI.colored_print('Maintenance mode has been started',
@@ -341,15 +345,13 @@ class Command:
 
             backend_command = [
                 'docker-compose',
-                '-f',
-                'docker-compose.backend.{}.yml'.format(backend_role),
-                '-f',
-                'docker-compose.backend.{}.override.yml'.format(backend_role),
-                '-p',
-                config.get_prefix('backend'),
-                'up',
-                '-d'
+                '-f', 'docker-compose.backend.{}.yml'.format(backend_role),
+                '-f', 'docker-compose.backend.{}.override.yml'.format(backend_role),
+                '-p', config.get_prefix('backend'),
+                'up', '-d'
             ]
+
+            cls.__validate_custom_yml(config, backend_command)
             CLI.run_command(backend_command, dict_['kobodocker_path'])
 
         # Start the front-end containers
@@ -359,11 +361,13 @@ class Command:
             # separate databases for KPI and KoBoCAT
             Upgrading.migrate_single_to_two_databases(config)
 
-            frontend_command = ['docker-compose',
-                                '-f', 'docker-compose.frontend.yml',
-                                '-f', 'docker-compose.frontend.override.yml',
-                                '-p', config.get_prefix('frontend'),
-                                'up', '-d']
+            frontend_command = [
+                'docker-compose',
+                '-f', 'docker-compose.frontend.yml',
+                '-f', 'docker-compose.frontend.override.yml',
+                '-p', config.get_prefix('frontend'),
+                'up', '-d',
+            ]
 
             if dict_['maintenance_enabled']:
                 cls.start_maintenance()
@@ -372,12 +376,12 @@ class Command:
                     s for s in config.get_service_names() if s != 'nginx'
                 ])
 
+            cls.__validate_custom_yml(config, frontend_command)
             CLI.run_command(frontend_command, dict_['kobodocker_path'])
 
             # Start reverse proxy if user uses it.
             if config.use_letsencrypt:
-                proxy_command = ['docker-compose',
-                                 'up', '-d']
+                proxy_command = ['docker-compose', 'up', '-d']
                 CLI.run_command(proxy_command,
                                 config.get_letsencrypt_repo_path())
 
@@ -421,32 +425,35 @@ class Command:
                             dict_['kobodocker_path'])
 
             # Shut down front-end containers
-            frontend_command = ['docker-compose',
-                                '-f', 'docker-compose.frontend.yml',
-                                '-f', 'docker-compose.frontend.override.yml',
-                                '-p', config.get_prefix('frontend'),
-                                'down']
+            frontend_command = [
+                'docker-compose',
+                '-f', 'docker-compose.frontend.yml',
+                '-f', 'docker-compose.frontend.override.yml',
+                '-p', config.get_prefix('frontend'),
+                'down',
+            ]
+            cls.__validate_custom_yml(config, frontend_command)
             CLI.run_command(frontend_command, dict_['kobodocker_path'])
 
             # Stop reverse proxy if user uses it.
             if config.use_letsencrypt:
-                proxy_command = ['docker-compose',
-                                 'down']
-                CLI.run_command(proxy_command,
-                                config.get_letsencrypt_repo_path())
+                proxy_command = ['docker-compose', 'down']
+                CLI.run_command(
+                    proxy_command, config.get_letsencrypt_repo_path()
+                )
 
         if not frontend_only and config.backend:
             backend_role = dict_['backend_server_role']
 
             backend_command = [
                 'docker-compose',
-                '-f',
-                'docker-compose.backend.{}.yml'.format(backend_role),
-                '-f',
-                'docker-compose.backend.{}.override.yml'.format(backend_role),
+                '-f', 'docker-compose.backend.{}.yml'.format(backend_role),
+                '-f', 'docker-compose.backend.{}.override.yml'.format(backend_role),
                 '-p', config.get_prefix('backend'),
                 'down'
             ]
+
+            cls.__validate_custom_yml(config, backend_command)
             CLI.run_command(backend_command, dict_['kobodocker_path'])
 
         if output:
@@ -467,17 +474,22 @@ class Command:
                 '-f', 'docker-compose.maintenance.yml',
                 '-f', 'docker-compose.maintenance.override.yml',
                 '-p', config.get_prefix('maintenance'),
-                'down']
+                'down'
+            ]
 
-            CLI.run_command(maintenance_down_command,
-                            dict_['kobodocker_path'])
+            CLI.run_command(maintenance_down_command, dict_['kobodocker_path'])
 
             # Create and start NGINX container
-            frontend_command = ['docker-compose',
-                                '-f', 'docker-compose.frontend.yml',
-                                '-f', 'docker-compose.frontend.override.yml',
-                                '-p', config.get_prefix('frontend'),
-                                'up', '-d', 'nginx']
+            frontend_command = [
+                'docker-compose',
+                '-f', 'docker-compose.frontend.yml',
+                '-f', 'docker-compose.frontend.override.yml',
+                '-p', config.get_prefix('frontend'),
+                'up', '-d',
+                'nginx',
+            ]
+
+            cls.__validate_custom_yml(config, frontend_command)
             CLI.run_command(frontend_command, dict_['kobodocker_path'])
 
             CLI.colored_print('Maintenance mode has been stopped',
@@ -495,3 +507,64 @@ class Command:
             Config.KOBO_INSTALL_VERSION,
             stdout.strip()[0:7],
         ), CLI.COLOR_SUCCESS)
+
+    @staticmethod
+    def __validate_custom_yml(config, command):
+        """
+        Validate whether docker-compose must start the containers with a
+        custom YML file in addition to the default. If the file does not yet exist,
+        kobo-install is paused until the user creates it and resumes the setup manually.
+
+        If user has chosen to use a custom YML file, it is injected into `command`
+        before being executed.
+        """
+        dict_ = config.get_dict()
+        frontend_command = True
+        # Detect if it's a front-end command or back-end command
+        for part in command:
+            if 'backend' in part:
+                frontend_command = False
+                break
+
+        if frontend_command and dict_['use_frontend_custom_yml']:
+            custom_file = '{}/docker-compose.frontend.custom.yml'.format(
+                dict_['kobodocker_path']
+            )
+
+            does_custom_file_exist = os.path.exists(custom_file)
+            while not does_custom_file_exist:
+                message = (
+                    'Please create your custom configuration in\n'
+                    '`{custom_file}`.'
+                ).format(custom_file=custom_file)
+                CLI.framed_print(message, color=CLI.COLOR_INFO, columns=90)
+                input('Press any key when it is done...')
+                does_custom_file_exist = os.path.exists(custom_file)
+
+            # Add custom file to docker-compose command
+            command.insert(5, '-f')
+            command.insert(6, 'docker-compose.frontend.custom.yml')
+
+        if not frontend_command and dict_['use_backend_custom_yml']:
+            backend_server_role = dict_['backend_server_role']
+            custom_file = '{}/docker-compose.backend.{}.custom.yml'.format(
+                dict_['kobodocker_path'],
+                backend_server_role
+            )
+
+            does_custom_file_exist = os.path.exists(custom_file)
+            while not does_custom_file_exist:
+                message = (
+                    'Please create your custom configuration in\n'
+                    '`{custom_file}`.'
+                ).format(custom_file=custom_file)
+                CLI.framed_print(message, color=CLI.COLOR_INFO, columns=90)
+                input('Press any key when it is done...')
+                does_custom_file_exist = os.path.exists(custom_file)
+
+
+            # Add custom file to docker-compose command
+            command.insert(5, '-f')
+            command.insert(
+                6, 'docker-compose.backend.{}.custom.yml'.format(backend_server_role)
+            )
