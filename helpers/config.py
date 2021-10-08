@@ -31,7 +31,7 @@ class Config(metaclass=Singleton):
     DEFAULT_NGINX_PORT = '80'
     DEFAULT_NGINX_HTTPS_PORT = '443'
     KOBO_DOCKER_BRANCH = 'beta'
-    KOBO_INSTALL_VERSION = '6.1.0'
+    KOBO_INSTALL_VERSION = '6.2.0'
     MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
 
     def __init__(self):
@@ -76,8 +76,7 @@ class Config(metaclass=Singleton):
 
     @property
     def backend(self):
-        return not self.multi_servers or self.primary_backend or \
-               self.secondary_backend
+        return not self.multi_servers or not self.frontend
 
     @property
     def block_common_http_ports(self):
@@ -154,16 +153,6 @@ class Config(metaclass=Singleton):
 
         return upgraded_dict
 
-    @property
-    def backend_questions(self):
-        """
-        Checks whether questions are back end only
-
-        Returns:
-            bool
-        """
-        return not self.multi_servers or not self.frontend
-
     def build(self):
         """
         Build configuration based on user's answers
@@ -199,12 +188,12 @@ class Config(metaclass=Singleton):
                     else:
                         self.__reset(fake_dns=True)
 
-                if self.frontend_questions:
+                if self.frontend:
                     self.__questions_public_routes()
                     self.__questions_https()
                     self.__questions_reverse_proxy()
 
-            if self.frontend_questions:
+            if self.frontend:
                 self.__questions_smtp()
                 self.__questions_super_user_credentials()
 
@@ -216,12 +205,15 @@ class Config(metaclass=Singleton):
                 self.__questions_redis()
                 self.__questions_ports()
 
-                if self.frontend_questions:
+                if self.frontend:
                     self.__questions_secret_keys()
                     self.__questions_aws()
                     self.__questions_google()
                     self.__questions_raven()
                     self.__questions_uwsgi()
+
+                self.__questions_custom_yml()
+
             else:
                 self.__secure_mongo()
 
@@ -256,18 +248,9 @@ class Config(metaclass=Singleton):
             dict: all values from user's responses needed to create
             configuration files
         """
-        return not self.multi_servers or \
-            self.__dict['server_role'] == 'frontend'
-
-    @property
-    def frontend_questions(self):
-        """
-        Checks whether questions are front-end only
-
-        Returns:
-            bool
-        """
-        return not self.multi_servers or self.frontend
+        return (
+            not self.multi_servers or self.__dict['server_role'] == 'frontend'
+        )
 
     @classmethod
     def generate_password(cls):
@@ -431,7 +414,9 @@ class Config(metaclass=Singleton):
             'two_databases': True,
             'use_aws': False,
             'use_backup': False,
+            'use_backend_custom_yml': False,
             'use_celery': True,
+            'use_frontend_custom_yml': False,
             'use_letsencrypt': True,
             'use_private_dns': False,
             'use_wal_e': False,
@@ -927,7 +912,7 @@ class Config(metaclass=Singleton):
         """
         Asks all questions about backups.
         """
-        if self.backend_questions or (self.frontend_questions and not self.aws):
+        if self.backend or (self.frontend and not self.aws):
 
             self.__dict['use_backup'] = CLI.yes_no_question(
                 'Do you want to activate backups?',
@@ -936,7 +921,7 @@ class Config(metaclass=Singleton):
 
             if self.__dict['use_backup']:
                 if self.advanced_options:
-                    if self.backend_questions and not self.frontend_questions:
+                    if self.backend and not self.frontend:
                         self.__questions_aws()
 
                     # Prompting user whether they want to use WAL-E for
@@ -972,7 +957,7 @@ class Config(metaclass=Singleton):
                     )
                     CLI.framed_print(message, color=CLI.COLOR_INFO)
 
-                    if self.frontend_questions and not self.aws:
+                    if self.frontend and not self.aws:
                         CLI.colored_print('KoBoCat media backup schedule?',
                                           CLI.COLOR_QUESTION)
                         self.__dict[
@@ -980,7 +965,7 @@ class Config(metaclass=Singleton):
                             '~{}'.format(schedule_regex_pattern),
                             self.__dict['kobocat_media_backup_schedule'])
 
-                    if self.backend_questions:
+                    if self.backend:
                         if self.__dict['use_wal_e'] is True:
                             self.__dict['backup_from_primary'] = True
                         else:
@@ -1035,6 +1020,22 @@ class Config(metaclass=Singleton):
         else:
             self.__reset(no_backups=True)
 
+    def __questions_custom_yml(self):
+
+        if self.frontend:
+            self.__dict['use_frontend_custom_yml'] = CLI.yes_no_question(
+                'Do you want to add additional settings to the front-end '
+                'docker containers?',
+                default=self.__dict['use_frontend_custom_yml'],
+            )
+
+        if self.backend:
+            self.__dict['use_backend_custom_yml'] = CLI.yes_no_question(
+                'Do you want to add additional settings to the backend-end '
+                'docker containers?',
+                default=self.__dict['use_backend_custom_yml']
+            )
+
     def __questions_dev_mode(self):
         """
         Asks for developer/staging mode.
@@ -1045,7 +1046,7 @@ class Config(metaclass=Singleton):
         Reset to default in case of No
         """
 
-        if self.frontend_questions:
+        if self.frontend:
 
             if self.local_install:
                 # NGINX different port
@@ -1447,7 +1448,7 @@ class Config(metaclass=Singleton):
 
             self.__write_upsert_db_users_trigger_file(content, 'postgres')
 
-        if self.backend_questions:
+        if self.backend:
             # Postgres settings
             self.__dict['postgres_settings'] = CLI.yes_no_question(
                 'Do you want to tweak PostgreSQL settings?',
