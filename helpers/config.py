@@ -78,6 +78,76 @@ class Config(metaclass=Singleton):
     def backend(self):
         return not self.multi_servers or not self.frontend
 
+    def build(self):
+        """
+        Build configuration based on user's answers
+
+        Returns:
+            dict: all values from user's responses needed to create
+            configuration files
+        """
+        if not Network.get_primary_ip():
+            message = (
+                'No valid networks detected. Can not continue!\n'
+                'Please connect to a network and re-run the command.'
+            )
+            CLI.framed_print(message, color=CLI.COLOR_ERROR)
+            sys.exit(1)
+        else:
+
+            self.__welcome()
+            self.__dict = self.get_upgraded_dict()
+
+            self.__create_directory()
+            self.__questions_advanced_options()
+            self.__questions_installation_type()
+            self.__detect_network()
+
+            if not self.local_install:
+                if self.advanced_options:
+                    self.__questions_multi_servers()
+                    if self.multi_servers:
+                        self.__questions_roles()
+                        if self.frontend or self.secondary_backend:
+                            self.__questions_private_routes()
+                    else:
+                        self.__reset(fake_dns=True)
+
+                if self.frontend:
+                    self.__questions_public_routes()
+                    self.__questions_https()
+                    self.__questions_reverse_proxy()
+
+            if self.frontend:
+                self.__questions_smtp()
+                self.__questions_super_user_credentials()
+
+            if self.advanced_options:
+                self.__questions_docker_prefix()
+                self.__questions_dev_mode()
+                self.__questions_postgres()
+                self.__questions_mongo()
+                self.__questions_redis()
+                self.__questions_ports()
+
+                if self.frontend:
+                    self.__questions_secret_keys()
+                    self.__questions_aws()
+                    self.__questions_google()
+                    self.__questions_raven()
+                    self.__questions_uwsgi()
+
+                self.__questions_custom_yml()
+
+            else:
+                self.__secure_mongo()
+
+            self.__questions_backup()
+
+            self.write_config()
+
+            return self.__dict
+
     @property
     def block_common_http_ports(self):
         return self.use_letsencrypt or self.__dict['block_common_http_ports']
@@ -152,76 +222,6 @@ class Config(metaclass=Singleton):
         upgraded_dict = Upgrading.use_booleans(upgraded_dict)
 
         return upgraded_dict
-
-    def build(self):
-        """
-        Build configuration based on user's answers
-
-        Returns:
-            dict: all values from user's responses needed to create
-            configuration files
-        """
-        if not Network.get_primary_ip():
-            message = (
-                'No valid networks detected. Can not continue!\n'
-                'Please connect to a network and re-run the command.'
-            )
-            CLI.framed_print(message, color=CLI.COLOR_ERROR)
-            sys.exit(1)
-        else:
-
-            self.__welcome()
-            self.__dict = self.get_upgraded_dict()
-
-            self.__create_directory()
-            self.__questions_advanced_options()
-            self.__questions_installation_type()
-            self.__detect_network()
-
-            if not self.local_install:
-                if self.advanced_options:
-                    self.__questions_multi_servers()
-                    if self.multi_servers:
-                        self.__questions_roles()
-                        if self.frontend or self.secondary_backend:
-                            self.__questions_private_routes()
-                    else:
-                        self.__reset(fake_dns=True)
-
-                if self.frontend:
-                    self.__questions_public_routes()
-                    self.__questions_https()
-                    self.__questions_reverse_proxy()
-
-            if self.frontend:
-                self.__questions_smtp()
-                self.__questions_super_user_credentials()
-
-            if self.advanced_options:
-                self.__questions_docker_prefix()
-                self.__questions_dev_mode()
-                self.__questions_postgres()
-                self.__questions_mongo()
-                self.__questions_redis()
-                self.__questions_ports()
-
-                if self.frontend:
-                    self.__questions_secret_keys()
-                    self.__questions_aws()
-                    self.__questions_google()
-                    self.__questions_raven()
-                    self.__questions_uwsgi()
-
-                self.__questions_custom_yml()
-
-            else:
-                self.__secure_mongo()
-
-            self.__questions_backup()
-
-            self.write_config()
-
-            return self.__dict
 
     @property
     def dev_mode(self):
