@@ -511,13 +511,12 @@ class Command:
     @staticmethod
     def __validate_custom_yml(config, command):
         """
-        Validate whether docker-compose must starts the containers with a user's
-        custom YML file in addition to already existing ones and especially if
-        this file already exists. If it does not, kobo-install is paused until
-        the user resumes it manually.
+        Validate whether docker-compose must start the containers with a
+        custom YML file in addition to the default. If the file does not yet exist,
+        kobo-install is paused until the user creates it and resumes the setup manually.
 
-        If user has chosen to use a custom YML file, it is injected in `command`
-        before being sent to shell.
+        If user has chosen to use a custom YML file, it is injected into `command`
+        before being executed.
         """
         dict_ = config.get_dict()
         frontend_command = True
@@ -531,13 +530,16 @@ class Command:
             custom_file = '{}/docker-compose.frontend.custom.yml'.format(
                 dict_['kobodocker_path']
             )
-            if not os.path.exists(custom_file):
+
+            does_custom_file_exist = os.path.exists(custom_file)
+            while not does_custom_file_exist:
                 message = (
                     'Please create your custom configuration in\n'
                     '`{custom_file}`.'
                 ).format(custom_file=custom_file)
-                CLI.framed_print(message, color=CLI.COLOR_INFO, columns=75)
+                CLI.framed_print(message, color=CLI.COLOR_INFO, columns=90)
                 input('Press any key when it is done...')
+                does_custom_file_exist = os.path.exists(custom_file)
 
             # Add custom file to docker-compose command
             command.insert(5, '-f')
@@ -549,13 +551,17 @@ class Command:
                 dict_['kobodocker_path'],
                 backend_server_role
             )
-            if not os.path.exists(custom_file):
+
+            does_custom_file_exist = os.path.exists(custom_file)
+            while not does_custom_file_exist:
                 message = (
                     'Please create your custom configuration in\n'
                     '`{custom_file}`.'
                 ).format(custom_file=custom_file)
-                CLI.framed_print(message, color=CLI.COLOR_INFO, columns=75)
+                CLI.framed_print(message, color=CLI.COLOR_INFO, columns=90)
                 input('Press any key when it is done...')
+                does_custom_file_exist = os.path.exists(custom_file)
+
 
             # Add custom file to docker-compose command
             command.insert(5, '-f')
