@@ -562,7 +562,6 @@ class Command:
                 input('Press any key when it is done...')
                 does_custom_file_exist = os.path.exists(custom_file)
 
-
             # Add custom file to docker-compose command
             command.insert(5, '-f')
             command.insert(
