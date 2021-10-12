@@ -145,9 +145,11 @@ class Template:
 
         def _get_value(property_, true_value='', false_value='#',
                        comparison_value=True):
-            return true_value \
-                if dict_[property_] == comparison_value \
+            return (
+                true_value
+                if dict_[property_] == comparison_value
                 else false_value
+            )
 
         if config.proxy:
             nginx_port = dict_['nginx_proxy_port']
@@ -232,6 +234,7 @@ class Template:
             'MONGO_PORT': dict_['mongo_port'],
             'REDIS_MAIN_PORT': dict_['redis_main_port'],
             'REDIS_CACHE_PORT': dict_['redis_cache_port'],
+            'REDIS_CACHE_MAX_MEMORY': dict_['redis_cache_max_memory'],
             'USE_BACKUP': '' if dict_['use_backup'] else '#',
             'USE_WAL_E': _get_value('use_wal_e'),
             'USE_AWS_BACKUP': '' if (config.aws and
@@ -296,7 +299,14 @@ class Template:
                 'local_installation',
                 true_value='true',
                 false_value='false'
-            )
+            ),
+            'RUN_REDIS_CONTAINERS': _get_value('run_redis_containers'),
+            'USE_REDIS_CACHE_MAX_MEMORY': _get_value(
+                'redis_cache_max_memory',
+                true_value='#',
+                false_value='',
+                comparison_value='',
+            ),
         }
 
     @staticmethod

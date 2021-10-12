@@ -30,8 +30,8 @@ class Config(metaclass=Singleton):
     DEFAULT_PROXY_PORT = '8080'
     DEFAULT_NGINX_PORT = '80'
     DEFAULT_NGINX_HTTPS_PORT = '443'
-    KOBO_DOCKER_BRANCH = '2.021.34d'
-    KOBO_INSTALL_VERSION = '5.0.1'
+    KOBO_DOCKER_BRANCH = '2.021.41'
+    KOBO_INSTALL_VERSION = '6.2.0'
     MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
 
     def __init__(self):
@@ -76,8 +76,77 @@ class Config(metaclass=Singleton):
 
     @property
     def backend(self):
-        return not self.multi_servers or self.primary_backend or \
-               self.secondary_backend
+        return not self.multi_servers or not self.frontend
+
+    def build(self):
+        """
+        Build configuration based on user's answers
+
+        Returns:
+            dict: all values from user's responses needed to create
+            configuration files
+        """
+        if not Network.get_primary_ip():
+            message = (
+                'No valid networks detected. Can not continue!\n'
+                'Please connect to a network and re-run the command.'
+            )
+            CLI.framed_print(message, color=CLI.COLOR_ERROR)
+            sys.exit(1)
+        else:
+
+            self.__welcome()
+            self.__dict = self.get_upgraded_dict()
+
+            self.__create_directory()
+            self.__questions_advanced_options()
+            self.__questions_installation_type()
+            self.__detect_network()
+
+            if not self.local_install:
+                if self.advanced_options:
+                    self.__questions_multi_servers()
+                    if self.multi_servers:
+                        self.__questions_roles()
+                        if self.frontend or self.secondary_backend:
+                            self.__questions_private_routes()
+                    else:
+                        self.__reset(fake_dns=True)
+
+                if self.frontend:
+                    self.__questions_public_routes()
+                    self.__questions_https()
+                    self.__questions_reverse_proxy()
+
+            if self.frontend:
+                self.__questions_smtp()
+                self.__questions_super_user_credentials()
+
+            if self.advanced_options:
+                self.__questions_docker_prefix()
+                self.__questions_dev_mode()
+                self.__questions_postgres()
+                self.__questions_mongo()
+                self.__questions_redis()
+                self.__questions_ports()
+
+                if self.frontend:
+                    self.__questions_secret_keys()
+                    self.__questions_aws()
+                    self.__questions_google()
+                    self.__questions_raven()
+                    self.__questions_uwsgi()
+
+                self.__questions_custom_yml()
+
+            else:
+                self.__secure_mongo()
+
+            self.__questions_backup()
+
+            self.write_config()
+
+            return self.__dict
 
     @property
     def block_common_http_ports(self):
@@ -155,83 +224,6 @@ class Config(metaclass=Singleton):
         return upgraded_dict
 
     @property
-    def backend_questions(self):
-        """
-        Checks whether questions are back end only
-
-        Returns:
-            bool
-        """
-        return not self.multi_servers or not self.frontend
-
-    def build(self):
-        """
-        Build configuration based on user's answers
-
-        Returns:
-            dict: all values from user's responses needed to create
-            configuration files
-        """
-        if not Network.get_primary_ip():
-            message = (
-                'No valid networks detected. Can not continue!\n'
-                'Please connect to a network and re-run the command.'
-            )
-            CLI.framed_print(message, color=CLI.COLOR_ERROR)
-            sys.exit(1)
-        else:
-
-            self.__welcome()
-            self.__dict = self.get_upgraded_dict()
-
-            self.__create_directory()
-            self.__questions_advanced_options()
-            self.__questions_installation_type()
-            self.__detect_network()
-
-            if not self.local_install:
-                if self.advanced_options:
-                    self.__questions_multi_servers()
-                    if self.multi_servers:
-                        self.__questions_roles()
-                        if self.frontend or self.secondary_backend:
-                            self.__questions_private_routes()
-                    else:
-                        self.__reset(fake_dns=True)
-
-                if self.frontend_questions:
-                    self.__questions_public_routes()
-                    self.__questions_https()
-                    self.__questions_reverse_proxy()
-
-            if self.frontend_questions:
-                self.__questions_smtp()
-                self.__questions_super_user_credentials()
-
-            if self.advanced_options:
-                self.__questions_docker_prefix()
-                self.__questions_dev_mode()
-                self.__questions_postgres()
-                self.__questions_mongo()
-                self.__questions_redis()
-                self.__questions_ports()
-
-                if self.frontend_questions:
-                    self.__questions_secret_keys()
-                    self.__questions_aws()
-                    self.__questions_google()
-                    self.__questions_raven()
-                    self.__questions_uwsgi()
-            else:
-                self.__secure_mongo()
-
-            self.__questions_backup()
-
-            self.write_config()
-
-            return self.__dict
-
-    @property
     def dev_mode(self):
         return self.__dict['dev_mode'] is True
 
@@ -256,18 +248,9 @@ class Config(metaclass=Singleton):
             dict: all values from user's responses needed to create
             configuration files
         """
-        return not self.multi_servers or \
-            self.__dict['server_role'] == 'frontend'
-
-    @property
-    def frontend_questions(self):
-        """
-        Checks whether questions are front-end only
-
-        Returns:
-            bool
-        """
-        return not self.multi_servers or self.frontend
+        return (
+            not self.multi_servers or self.__dict['server_role'] == 'frontend'
+        )
 
     @classmethod
     def generate_password(cls):
@@ -288,11 +271,22 @@ class Config(metaclass=Singleton):
     def get_dict(self):
         return self.__dict
 
+    def get_service_names(self):
+        service_list_command = ['docker-compose',
+                                '-f', 'docker-compose.frontend.yml',
+                                '-f', 'docker-compose.frontend.override.yml',
+                                'config', '--services']
+
+        services = CLI.run_command(service_list_command,
+                                   self.__dict['kobodocker_path'])
+        return services.strip().split('\n')
+
     @classmethod
     def get_template(cls):
 
         primary_ip = Network.get_primary_ip()
 
+        # Keep properties sorted alphabetically
         return {
             'advanced': False,
             'aws_access_key': '',
@@ -402,10 +396,12 @@ class Config(metaclass=Singleton):
             'public_domain_name': 'kobo.local',
             'raven_settings': False,
             'redis_backup_schedule': '0 3 * * 0',
+            'redis_cache_max_memory': '',
             'redis_cache_port': '6380',
             'redis_main_port': '6379',
             'redis_password': Config.generate_password(),
             'review_host': True,
+            'run_redis_containers': True,
             'server_role': 'frontend',
             'smtp_host': '',
             'smtp_password': '',
@@ -418,7 +414,9 @@ class Config(metaclass=Singleton):
             'two_databases': True,
             'use_aws': False,
             'use_backup': False,
+            'use_backend_custom_yml': False,
             'use_celery': True,
+            'use_frontend_custom_yml': False,
             'use_letsencrypt': True,
             'use_private_dns': False,
             'use_wal_e': False,
@@ -430,24 +428,13 @@ class Config(metaclass=Singleton):
             'uwsgi_workers_max': '2',
             'uwsgi_workers_start': '1',
         }
-        # Keep properties sorted alphabetically
-
-    def get_service_names(self):
-        service_list_command = ['docker-compose',
-                                '-f', 'docker-compose.frontend.yml',
-                                '-f', 'docker-compose.frontend.override.yml',
-                                'config', '--services']
-
-        services = CLI.run_command(service_list_command,
-                                   self.__dict['kobodocker_path'])
-        return services.strip().split('\n')
 
     @property
     def is_secure(self):
         return self.__dict['https'] is True
 
     def init_letsencrypt(self):
-        if self.use_letsencrypt:
+        if self.frontend and self.use_letsencrypt:
             reverse_proxy_path = self.get_letsencrypt_repo_path()
             reverse_proxy_command = [
                 '/bin/bash',
@@ -925,7 +912,7 @@ class Config(metaclass=Singleton):
         """
         Asks all questions about backups.
         """
-        if self.backend_questions or (self.frontend_questions and not self.aws):
+        if self.backend or (self.frontend and not self.aws):
 
             self.__dict['use_backup'] = CLI.yes_no_question(
                 'Do you want to activate backups?',
@@ -934,7 +921,7 @@ class Config(metaclass=Singleton):
 
             if self.__dict['use_backup']:
                 if self.advanced_options:
-                    if self.backend_questions and not self.frontend_questions:
+                    if self.backend and not self.frontend:
                         self.__questions_aws()
 
                     # Prompting user whether they want to use WAL-E for
@@ -970,7 +957,7 @@ class Config(metaclass=Singleton):
                     )
                     CLI.framed_print(message, color=CLI.COLOR_INFO)
 
-                    if self.frontend_questions and not self.aws:
+                    if self.frontend and not self.aws:
                         CLI.colored_print('KoBoCat media backup schedule?',
                                           CLI.COLOR_QUESTION)
                         self.__dict[
@@ -978,7 +965,7 @@ class Config(metaclass=Singleton):
                             '~{}'.format(schedule_regex_pattern),
                             self.__dict['kobocat_media_backup_schedule'])
 
-                    if self.backend_questions:
+                    if self.backend:
                         if self.__dict['use_wal_e'] is True:
                             self.__dict['backup_from_primary'] = True
                         else:
@@ -1033,6 +1020,22 @@ class Config(metaclass=Singleton):
         else:
             self.__reset(no_backups=True)
 
+    def __questions_custom_yml(self):
+
+        if self.frontend:
+            self.__dict['use_frontend_custom_yml'] = CLI.yes_no_question(
+                'Do you want to add additional settings to the front-end '
+                'docker containers?',
+                default=self.__dict['use_frontend_custom_yml'],
+            )
+
+        if self.backend:
+            self.__dict['use_backend_custom_yml'] = CLI.yes_no_question(
+                'Do you want to add additional settings to the backend-end '
+                'docker containers?',
+                default=self.__dict['use_backend_custom_yml']
+            )
+
     def __questions_dev_mode(self):
         """
         Asks for developer/staging mode.
@@ -1043,7 +1046,7 @@ class Config(metaclass=Singleton):
         Reset to default in case of No
         """
 
-        if self.frontend_questions:
+        if self.frontend:
 
             if self.local_install:
                 # NGINX different port
@@ -1445,7 +1448,7 @@ class Config(metaclass=Singleton):
 
             self.__write_upsert_db_users_trigger_file(content, 'postgres')
 
-        if self.backend_questions:
+        if self.backend:
             # Postgres settings
             self.__dict['postgres_settings'] = CLI.yes_no_question(
                 'Do you want to tweak PostgreSQL settings?',
@@ -1593,7 +1596,7 @@ class Config(metaclass=Singleton):
         if not self.multi_servers:
             self.__dict['expose_backend_ports'] = CLI.yes_no_question(
                 'Do you want to expose back-end container ports '
-                '(`PostgreSQL`, `MongoDB`, `redis`)?',
+                '(`PostgreSQL`, `MongoDB`, `Redis`)?',
                 default=self.__dict['expose_backend_ports']
             )
         else:
@@ -1717,11 +1720,19 @@ class Config(metaclass=Singleton):
 
     def __questions_redis(self):
         """
-        Ask for redis password only when server is for:
+        Ask for Redis password only when server is for:
         - primary back end
         - single server installation
         """
-        if self.primary_backend or not self.multi_servers:
+        if self.multi_servers:
+            self.__dict['run_redis_containers'] = CLI.yes_no_question(
+                'Do you want to run the Redis containers from this server?',
+                default=self.__dict['run_redis_containers']
+            )
+        else:
+            self.__dict['run_redis_containers'] = True
+
+        if self.__dict['run_redis_containers']:
             CLI.colored_print('Redis password?', CLI.COLOR_QUESTION)
             self.__dict['redis_password'] = CLI.get_response(
                 r'~^.{8,}|$',
@@ -1742,6 +1753,14 @@ class Config(metaclass=Singleton):
                 )
                 if response is False:
                     self.__questions_redis()
+
+            CLI.colored_print('Max memory (MB) for Redis cache container?',
+                              CLI.COLOR_QUESTION)
+            CLI.colored_print('Leave empty for no limits',
+                              CLI.COLOR_INFO)
+            self.__dict['redis_cache_max_memory'] = CLI.get_response(
+                r'~^(\d+|-)?$',
+                self.__dict['redis_cache_max_memory'])
 
     def __questions_reverse_proxy(self):
 
