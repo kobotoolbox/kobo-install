@@ -253,17 +253,18 @@ class Config(metaclass=Singleton):
         )
 
     @classmethod
-    def generate_password(cls):
+    def generate_password(cls, required_chars_count=20):
         """
-        Generate 12 characters long random password
+        Generate n characters long random password
 
         Returns:
             str
         """
-        characters = string.ascii_letters \
-                     + '!$%+-_^~@#{}[]()/\'\'`~,;:.<>' \
-                     + string.digits
-        required_chars_count = 12
+        characters = (
+            string.ascii_letters
+            + string.digits
+            + '!$+-_^~#`~'
+        )
 
         return ''.join(choice(characters)
                        for _ in range(required_chars_count))
