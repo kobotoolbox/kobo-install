@@ -950,3 +950,30 @@ def test_backup_schedules_from_secondary_backend_with_redis_and_no_postgres():
     assert config._Config__dict['redis_backup_schedule'] == '4 4 4 4 4'
     assert config._Config__dict['backup_from_primary'] is True
     assert config._Config__dict['run_redis_containers'] is True
+
+def test_activate_only_postgres_backup():
+    config = read_config()
+    # Force advanced options and single instance
+    config._Config__dict['advanced'] = True
+    config._Config__dict['multi'] = False
+    # Force `False` to validate it becomes `True` at the end
+    config._Config__dict['backup_from_primary'] = False
+
+    assert config._Config__dict['kobocat_media_backup_schedule'] == '0 0 * * 0'
+    assert config._Config__dict['mongo_backup_schedule'] == '0 1 * * 0'
+    assert config._Config__dict['postgres_backup_schedule'] == '0 2 * * 0'
+    assert config._Config__dict['redis_backup_schedule'] == '0 3 * * 0'
+
+    with patch('builtins.input') as mock_input:
+        mock_input.side_effect = iter([
+            CHOICE_YES,  # Activate backup
+            '-',  # Deactivate KoBoCAT media
+            '2 2 2 2 2',  # Modify PostgreSQL
+            '-',  # Deactivate Mongo
+            '-',  # Deactivate Redis
+        ])
+        config._Config__questions_backup()
+        assert config._Config__dict['kobocat_media_backup_schedule'] == ''
+        assert config._Config__dict['postgres_backup_schedule'] == '2 2 2 2 2'
+        assert config._Config__dict['mongo_backup_schedule'] == ''
+        assert config._Config__dict['redis_backup_schedule'] == ''
