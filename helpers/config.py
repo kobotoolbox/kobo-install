@@ -31,7 +31,7 @@ class Config(metaclass=Singleton):
     DEFAULT_NGINX_PORT = '80'
     DEFAULT_NGINX_HTTPS_PORT = '443'
     KOBO_DOCKER_BRANCH = '2.021.41a'
-    KOBO_INSTALL_VERSION = '6.3.0'
+    KOBO_INSTALL_VERSION = '6.3.1'
     MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
 
     def __init__(self):
@@ -253,17 +253,18 @@ class Config(metaclass=Singleton):
         )
 
     @classmethod
-    def generate_password(cls):
+    def generate_password(cls, required_chars_count=20):
         """
-        Generate 12 characters long random password
+        Generate n characters long random password
 
         Returns:
             str
         """
-        characters = string.ascii_letters \
-                     + '!$%+-_^~@#{}[]()/\'\'`~,;:.<>' \
-                     + string.digits
-        required_chars_count = 12
+        characters = (
+            string.ascii_letters
+            + string.digits
+            + '!$+-_^~#`~'
+        )
 
         return ''.join(choice(characters)
                        for _ in range(required_chars_count))
