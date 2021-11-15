@@ -996,8 +996,6 @@ class Config(metaclass=Singleton):
                             else:
                                 self.__dict['backup_from_primary'] = not backup_postgres
 
-                            print('Run PostgreSQL backup from this server?', backup_postgres)
-
                         if backup_postgres:
                             CLI.colored_print('PostgreSQL backup schedule?',
                                               CLI.COLOR_QUESTION)
