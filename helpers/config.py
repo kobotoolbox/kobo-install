@@ -1854,18 +1854,19 @@ class Config(metaclass=Singleton):
                     self.__dict[
                         'nginx_proxy_port'] = Config.DEFAULT_PROXY_PORT
 
-                CLI.colored_print('Internal port used by reverse proxy?',
-                                  CLI.COLOR_QUESTION)
-                while True:
-                    self.__dict['nginx_proxy_port'] = CLI.get_response(
-                        r'~^\d+$',
-                        self.__dict['nginx_proxy_port'])
-                    if self.__is_port_allowed(
-                            self.__dict['nginx_proxy_port']):
-                        break
-                    else:
-                        CLI.colored_print('Ports 80 and 443 are reserved!',
-                                          CLI.COLOR_ERROR)
+                if not self.use_letsencrypt:
+                    CLI.colored_print('Internal port used by reverse proxy?',
+                                      CLI.COLOR_QUESTION)
+                    while True:
+                        self.__dict['nginx_proxy_port'] = CLI.get_response(
+                            r'~^\d+$',
+                            self.__dict['nginx_proxy_port'])
+                        if self.__is_port_allowed(
+                                self.__dict['nginx_proxy_port']):
+                            break
+                        else:
+                            CLI.colored_print('Ports 80 and 443 are reserved!',
+                                              CLI.COLOR_ERROR)
             else:
                 self.__dict['block_common_http_ports'] = True
                 if not self.use_letsencrypt:

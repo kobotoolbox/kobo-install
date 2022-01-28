@@ -302,7 +302,7 @@ class Command:
         cls.start(frontend_only=True)
 
     @classmethod
-    def start(cls, frontend_only=False):
+    def start(cls, frontend_only=False, force_setup=False):
         config = Config()
         dict_ = config.get_dict()
 
@@ -381,9 +381,14 @@ class Command:
 
             # Start reverse proxy if user uses it.
             if config.use_letsencrypt:
-                proxy_command = ['docker-compose', 'up', '-d']
-                CLI.run_command(proxy_command,
-                                config.get_letsencrypt_repo_path())
+                if force_setup:
+                    # Let's Encrypt NGINX container need kobo-docker NGINX
+                    # container to be started first
+                    config.init_letsencrypt()
+                else:
+                    proxy_command = ['docker-compose', 'up', '-d']
+                    CLI.run_command(proxy_command,
+                                    config.get_letsencrypt_repo_path())
 
         if dict_['maintenance_enabled']:
             CLI.colored_print(

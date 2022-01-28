@@ -69,12 +69,11 @@ class Setup:
         if response is True:
             current_dict = config.build()
             Template.render(config)
-            config.init_letsencrypt()
             Setup.update_hosts(current_dict)
             question = 'Do you want to (re)start containers?'
             response = CLI.yes_no_question(question)
             if response is True:
-                Command.start()
+                Command.start(force_setup=True)
 
     @staticmethod
     def update_kobodocker(dict_=None):
