@@ -26,7 +26,7 @@ server {
     client_max_body_size 100M;
 
     location / {
-        proxy_pass  http://${LOCAL_INTERFACE_IP}:${NGINX_EXPOSED_PORT};
+        proxy_pass  http://nginx.internal;
         proxy_set_header    Host                $$http_host;
         proxy_set_header    X-Real-IP           $$remote_addr;
         proxy_set_header    X-Forwarded-For     $$proxy_add_x_forwarded_for;
