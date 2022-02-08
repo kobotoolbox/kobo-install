@@ -273,7 +273,8 @@ class Template:
             'MAINTENANCE_EMAIL': dict_['maintenance_email'],
             'USE_NPM_FROM_HOST': '' if (config.dev_mode and
                                         not dict_['npm_container']) else '#',
-            'DOCKER_PREFIX': config.get_prefix('backend'),
+            'DOCKER_NETWORK_BACKEND_PREFIX': config.get_prefix('backend'),
+            'DOCKER_NETWORK_FRONTEND_PREFIX': config.get_prefix('frontend'),
             'USE_BACKEND_NETWORK': _get_value('expose_backend_ports',
                                               comparison_value=False),
             'EXPOSE_BACKEND_PORTS': _get_value('expose_backend_ports'),
@@ -307,6 +308,7 @@ class Template:
                 false_value='',
                 comparison_value='',
             ),
+            'USE_LETSENSCRYPT': '#' if config.use_letsencrypt else '',
         }
 
     @staticmethod
