@@ -34,14 +34,13 @@ def run(force_setup=False):
             dict_ = config.build()
             Setup.clone_kobodocker(config)
             Template.render(config)
-            config.init_letsencrypt()
             Setup.update_hosts(dict_)
         else:
             if config.auto_detect_network():
                 Template.render(config)
                 Setup.update_hosts(dict_)
 
-        Command.start()
+        Command.start(force_setup=force_setup)
 
 
 if __name__ == '__main__':

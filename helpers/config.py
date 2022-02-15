@@ -31,7 +31,7 @@ class Config(metaclass=Singleton):
     DEFAULT_NGINX_PORT = '80'
     DEFAULT_NGINX_HTTPS_PORT = '443'
     KOBO_DOCKER_BRANCH = 'beta'
-    KOBO_INSTALL_VERSION = '6.4.0'
+    KOBO_INSTALL_VERSION = '6.6.0-beta'
     MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
 
     def __init__(self):
@@ -1854,18 +1854,19 @@ class Config(metaclass=Singleton):
                     self.__dict[
                         'nginx_proxy_port'] = Config.DEFAULT_PROXY_PORT
 
-                CLI.colored_print('Internal port used by reverse proxy?',
-                                  CLI.COLOR_QUESTION)
-                while True:
-                    self.__dict['nginx_proxy_port'] = CLI.get_response(
-                        r'~^\d+$',
-                        self.__dict['nginx_proxy_port'])
-                    if self.__is_port_allowed(
-                            self.__dict['nginx_proxy_port']):
-                        break
-                    else:
-                        CLI.colored_print('Ports 80 and 443 are reserved!',
-                                          CLI.COLOR_ERROR)
+                if not self.use_letsencrypt:
+                    CLI.colored_print('Internal port used by reverse proxy?',
+                                      CLI.COLOR_QUESTION)
+                    while True:
+                        self.__dict['nginx_proxy_port'] = CLI.get_response(
+                            r'~^\d+$',
+                            self.__dict['nginx_proxy_port'])
+                        if self.__is_port_allowed(
+                                self.__dict['nginx_proxy_port']):
+                            break
+                        else:
+                            CLI.colored_print('Ports 80 and 443 are reserved!',
+                                              CLI.COLOR_ERROR)
             else:
                 self.__dict['block_common_http_ports'] = True
                 if not self.use_letsencrypt:
