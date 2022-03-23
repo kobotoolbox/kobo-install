@@ -170,7 +170,7 @@ class Config(metaclass=Singleton):
         )))
 
         # if old location is detected, move it to new path.
-        if os.path.exists(old_path):
+        if os.path.exists(old_path) and not os.path.exists(current_path):
             shutil.move(old_path, current_path)
 
         return current_path
