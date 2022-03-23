@@ -6,7 +6,6 @@ import re
 import stat
 import sys
 from string import Template as PyTemplate
-from urllib.parse import quote_plus
 
 from helpers.cli import CLI
 from helpers.config import Config
@@ -185,8 +184,6 @@ class Template:
             'KPI_POSTGRES_DB': dict_['kpi_postgres_db'],
             'POSTGRES_USER': dict_['postgres_user'],
             'POSTGRES_PASSWORD': dict_['postgres_password'],
-            'POSTGRES_PASSWORD_URL_ENCODED': quote_plus(
-                dict_['postgres_password']),
             'DEBUG': dict_['debug'],
             'SMTP_HOST': dict_['smtp_host'],
             'SMTP_PORT': dict_['smtp_port'],
@@ -290,8 +287,6 @@ class Template:
             'MONGO_USER_USERNAME': dict_['mongo_user_username'],
             'MONGO_USER_PASSWORD': dict_['mongo_user_password'],
             'REDIS_PASSWORD': dict_['redis_password'],
-            'REDIS_PASSWORD_URL_ENCODED': quote_plus(
-                dict_['redis_password']),
             'REDIS_PASSWORD_JS_ENCODED': json.dumps(
                 dict_['redis_password']),
             'USE_DEV_MODE': _get_value('dev_mode'),
