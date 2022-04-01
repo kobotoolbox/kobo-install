@@ -600,12 +600,6 @@ class Config(metaclass=Singleton):
                     f'You should run `python run.py --setup` to change it.',
                     CLI.COLOR_WARNING
                 )
-                response = CLI.yes_no_question(
-                    'Do you want to continue?',
-                    default=False
-                )
-                if response is False:
-                    sys.exit(0)
 
     def write_config(self):
         """
