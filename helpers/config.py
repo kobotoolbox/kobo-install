@@ -34,6 +34,12 @@ class Config(metaclass=Singleton):
     KOBO_INSTALL_VERSION = '6.6.0-beta'
     KOBO_DOCKER_BRANCH = 'master'
     MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
+    SPECIAL_CHARACTERS = '!+-_~`'
+    ALLOWED_PASSWORD_CHARACTERS = (
+        string.ascii_letters
+        + string.digits
+        + SPECIAL_CHARACTERS
+    )
 
     def __init__(self):
         self.__first_time = None
@@ -261,14 +267,10 @@ class Config(metaclass=Singleton):
         Returns:
             str
         """
-        characters = (
-            string.ascii_letters
-            + string.digits
-            + '!$+-_^~#`~'
+        return ''.join(
+            choice(cls.ALLOWED_PASSWORD_CHARACTERS)
+            for _ in range(required_chars_count)
         )
-
-        return ''.join(choice(characters)
-                       for _ in range(required_chars_count))
 
     def get_dict(self):
         return self.__dict
@@ -580,6 +582,30 @@ class Config(metaclass=Singleton):
             aws_secret_access_key=self.__dict['aws_secret_key'],
         )
         self.__dict['aws_credentials_valid'] = validation.validate_credentials()
+
+    def validate_passwords(self):
+        passwords = {
+            'PostgreSQL': self.__dict['postgres_password'],
+            'PostgreSQL replication': self.__dict['postgres_replication_password'],
+            'MongoDB root’s': self.__dict['mongo_root_password'],
+            'MongoDB user’s': self.__dict['mongo_user_password'],
+            'Redis': self.__dict['redis_password'],
+        }
+        for label, password in passwords.items():
+            if not re.match(
+                rf'^[{self.ALLOWED_PASSWORD_CHARACTERS}]{{8,}}$', password
+            ):
+                CLI.colored_print(
+                    f'{label} password contains unsupported characters.\n'
+                    f'You should run `python run.py --setup` to change it.',
+                    CLI.COLOR_WARNING
+                )
+                response = CLI.yes_no_question(
+                    'Do you want to continue?',
+                    default=False
+                )
+                if response is False:
+                    sys.exit(0)
 
     def write_config(self):
         """
@@ -1280,10 +1306,15 @@ class Config(metaclass=Singleton):
 
             CLI.colored_print("MongoDB root's password?", CLI.COLOR_QUESTION)
             self.__dict['mongo_root_password'] = CLI.get_response(
-                r'~^.{8,}$',
+                rf'~^[{self.ALLOWED_PASSWORD_CHARACTERS}]{{8,}}$',
                 self.__dict['mongo_root_password'],
                 to_lower=False,
-                error_msg='Too short. 8 characters minimum.')
+                error_msg=(
+                    f'Invalid password. '
+                    f'Rules: 8 characters minimum, a-z, A-Z, 0-9, '
+                    f'{self.SPECIAL_CHARACTERS}'
+                )
+            )
 
             CLI.colored_print("MongoDB user's username?",
                               CLI.COLOR_QUESTION)
@@ -1294,10 +1325,15 @@ class Config(metaclass=Singleton):
 
             CLI.colored_print("MongoDB user's password?", CLI.COLOR_QUESTION)
             self.__dict['mongo_user_password'] = CLI.get_response(
-                r'~^.{8,}$',
+                rf'~^[{self.ALLOWED_PASSWORD_CHARACTERS}]{{8,}}$',
                 self.__dict['mongo_user_password'],
                 to_lower=False,
-                error_msg='Too short. 8 characters minimum.')
+                error_msg=(
+                    f'Invalid password. '
+                    f'Rules: 8 characters minimum, a-z, A-Z, 0-9, '
+                    f'{self.SPECIAL_CHARACTERS}'
+                )
+            )
 
             if (
                 not self.__dict.get('mongo_secured')
@@ -1422,10 +1458,15 @@ class Config(metaclass=Singleton):
 
         CLI.colored_print("PostgreSQL user's password?", CLI.COLOR_QUESTION)
         self.__dict['postgres_password'] = CLI.get_response(
-            r'~^.{8,}$',
+            rf'~^[{self.ALLOWED_PASSWORD_CHARACTERS}]{{8,}}$',
             self.__dict['postgres_password'],
             to_lower=False,
-            error_msg='Too short. 8 characters minimum.')
+            error_msg=(
+                f'Invalid password. '
+                f'Rules: 8 characters minimum, a-z, A-Z, 0-9, '
+                f'{self.SPECIAL_CHARACTERS}'
+            )
+        )
 
         if (postgres_user != self.__dict['postgres_user'] or
             postgres_password != self.__dict['postgres_password']) and \
@@ -1750,10 +1791,15 @@ class Config(metaclass=Singleton):
         if self.__dict['run_redis_containers']:
             CLI.colored_print('Redis password?', CLI.COLOR_QUESTION)
             self.__dict['redis_password'] = CLI.get_response(
-                r'~^.{8,}|$',
+                rf'~^[{self.ALLOWED_PASSWORD_CHARACTERS}]{{8,}}|$',
                 self.__dict['redis_password'],
                 to_lower=False,
-                error_msg='Too short. 8 characters minimum.')
+                error_msg=(
+                    f'Invalid password. '
+                    f'Rules: 8 characters minimum, a-z, A-Z, 0-9, '
+                    f'{self.SPECIAL_CHARACTERS}'
+                )
+            )
 
             if not self.__dict['redis_password']:
                 message = (

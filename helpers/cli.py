@@ -97,12 +97,15 @@ class CLI:
             try:
                 response = cls.colored_input('', cls.COLOR_QUESTION, default)
 
-                if (response.lower() in map(lambda x: x.lower(), validators) or
-                        validators is None or
-                        (isinstance(validators, str) and
-                         validators.startswith('~') and
-                         re.match(validators[1:], response)
-                        )):
+                if (
+                    response.lower() in map(lambda x: x.lower(), validators)
+                    or validators is None
+                    or (
+                        isinstance(validators, str)
+                        and validators.startswith('~')
+                        and re.match(validators[1:], response)
+                    )
+                ):
                     break
                 else:
                     cls.colored_print(error_msg,
