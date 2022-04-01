@@ -34,7 +34,7 @@ class Config(metaclass=Singleton):
     KOBO_INSTALL_VERSION = '6.6.0-beta'
     KOBO_DOCKER_BRANCH = 'master'
     MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
-    SPECIAL_CHARACTERS = '!+-_~`'
+    SPECIAL_CHARACTERS = '.!+_~`-'
     ALLOWED_PASSWORD_CHARACTERS = (
         string.ascii_letters
         + string.digits
