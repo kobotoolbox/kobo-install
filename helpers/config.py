@@ -34,11 +34,9 @@ class Config(metaclass=Singleton):
     KOBO_INSTALL_VERSION = '6.6.0-beta'
     KOBO_DOCKER_BRANCH = 'master'
     MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
-    SPECIAL_CHARACTERS = '.!+_~`-'
     ALLOWED_PASSWORD_CHARACTERS = (
         string.ascii_letters
         + string.digits
-        + SPECIAL_CHARACTERS
     )
 
     def __init__(self):
@@ -584,20 +582,55 @@ class Config(metaclass=Singleton):
         self.__dict['aws_credentials_valid'] = validation.validate_credentials()
 
     def validate_passwords(self):
+
+        default_pattern = rf'^[{self.ALLOWED_PASSWORD_CHARACTERS}]{{8,}}$'
+
         passwords = {
-            'PostgreSQL': self.__dict['postgres_password'],
-            'PostgreSQL replication': self.__dict['postgres_replication_password'],
-            'MongoDB root’s': self.__dict['mongo_root_password'],
-            'MongoDB user’s': self.__dict['mongo_user_password'],
-            'Redis': self.__dict['redis_password'],
+            'PostgreSQL': {
+                'password': self.__dict['postgres_password'],
+                'pattern': default_pattern,
+            },
+            'PostgreSQL replication': {
+                'password': self.__dict['postgres_replication_password'],
+                'pattern': default_pattern,
+            },
+            'MongoDB root’s': {
+                'password': self.__dict['mongo_root_password'],
+                'pattern': default_pattern
+            },
+            'MongoDB user’s': {
+                'password': self.__dict['mongo_user_password'],
+                'pattern': default_pattern
+            },
+            'Redis': {
+                'password': self.__dict['redis_password'],
+                # redis password can be empty
+                'pattern': rf'^[{self.ALLOWED_PASSWORD_CHARACTERS}]{{8,}}|$'
+            },
         }
-        for label, password in passwords.items():
-            if not re.match(
-                rf'^[{self.ALLOWED_PASSWORD_CHARACTERS}]{{8,}}$', password
-            ):
+        errors = []
+        for label, config_ in passwords.items():
+            if not re.match(config_['pattern'], config_['password']):
+                errors.append(label)
                 CLI.colored_print(
-                    f'{label} password contains unsupported characters.\n'
-                    f'You should run `python run.py --setup` to change it.',
+                    f'{label} password contains unsupported characters.',
+                    CLI.COLOR_WARNING
+                )
+        if errors:
+            pronoun = 'it' if len(errors) == 1 else 'them'
+            if not ('PostgreSQL replication' in errors and len(errors) == 1):
+                CLI.colored_print(
+                    f'You should run `python run.py --setup` to '
+                    f'change {pronoun}.',
+                    CLI.COLOR_ERROR
+                )
+            # PostgreSQL replication password is set in PostgreSQL on the first
+            # launch and nothing is run afterwards in subsequent starts to update
+            # it if it has changed.
+            if 'PostgreSQL replication' in errors:
+                CLI.colored_print(
+                    'PostgreSQL replication password must be changed manually\n'
+                    'in `kobo-install/.run.conf` and PostgreSQL itself.',
                     CLI.COLOR_WARNING
                 )
 
@@ -1304,9 +1337,8 @@ class Config(metaclass=Singleton):
                 self.__dict['mongo_root_password'],
                 to_lower=False,
                 error_msg=(
-                    f'Invalid password. '
-                    f'Rules: 8 characters minimum, a-z, A-Z, 0-9, '
-                    f'{self.SPECIAL_CHARACTERS}'
+                    'Invalid password. '
+                    'Rules: Alphanumeric characters only, 8 characters minimum'
                 )
             )
 
@@ -1323,9 +1355,8 @@ class Config(metaclass=Singleton):
                 self.__dict['mongo_user_password'],
                 to_lower=False,
                 error_msg=(
-                    f'Invalid password. '
-                    f'Rules: 8 characters minimum, a-z, A-Z, 0-9, '
-                    f'{self.SPECIAL_CHARACTERS}'
+                    'Invalid password. '
+                    'Rules: Alphanumeric characters only, 8 characters minimum'
                 )
             )
 
@@ -1456,9 +1487,8 @@ class Config(metaclass=Singleton):
             self.__dict['postgres_password'],
             to_lower=False,
             error_msg=(
-                f'Invalid password. '
-                f'Rules: 8 characters minimum, a-z, A-Z, 0-9, '
-                f'{self.SPECIAL_CHARACTERS}'
+                'Invalid password. '
+                'Rules: Alphanumeric characters only, 8 characters minimum'
             )
         )
 
@@ -1789,9 +1819,8 @@ class Config(metaclass=Singleton):
                 self.__dict['redis_password'],
                 to_lower=False,
                 error_msg=(
-                    f'Invalid password. '
-                    f'Rules: 8 characters minimum, a-z, A-Z, 0-9, '
-                    f'{self.SPECIAL_CHARACTERS}'
+                    'Invalid password. '
+                    'Rules: Alphanumeric characters only, 8 characters minimum'
                 )
             )
 

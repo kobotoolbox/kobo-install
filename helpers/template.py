@@ -6,7 +6,6 @@ import re
 import stat
 import sys
 from string import Template as PyTemplate
-from urllib.parse import quote_plus
 
 from helpers.cli import CLI
 from helpers.config import Config
@@ -185,8 +184,6 @@ class Template:
             'KPI_POSTGRES_DB': dict_['kpi_postgres_db'],
             'POSTGRES_USER': dict_['postgres_user'],
             'POSTGRES_PASSWORD': dict_['postgres_password'],
-            'POSTGRES_PASSWORD_URL_ENCODED': quote_plus(
-                dict_['postgres_password']),
             'DEBUG': dict_['debug'],
             'SMTP_HOST': dict_['smtp_host'],
             'SMTP_PORT': dict_['smtp_port'],
