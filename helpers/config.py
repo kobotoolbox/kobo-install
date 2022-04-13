@@ -583,29 +583,37 @@ class Config(metaclass=Singleton):
 
     def validate_passwords(self):
 
-        default_pattern = rf'^[{self.ALLOWED_PASSWORD_CHARACTERS}]{{8,}}$'
-
         passwords = {
             'PostgreSQL': {
                 'password': self.__dict['postgres_password'],
-                'pattern': default_pattern,
+                'pattern': self.__get_password_validation_pattern(
+                    add_prefix=False
+                ),
             },
             'PostgreSQL replication': {
                 'password': self.__dict['postgres_replication_password'],
-                'pattern': default_pattern,
+                'pattern': self.__get_password_validation_pattern(
+                    add_prefix=False
+                ),
             },
             'MongoDB root’s': {
                 'password': self.__dict['mongo_root_password'],
-                'pattern': default_pattern
+                'pattern': self.__get_password_validation_pattern(
+                    add_prefix=False
+                ),
             },
             'MongoDB user’s': {
                 'password': self.__dict['mongo_user_password'],
-                'pattern': default_pattern
+                'pattern': self.__get_password_validation_pattern(
+                    add_prefix=False
+                ),
             },
             'Redis': {
                 'password': self.__dict['redis_password'],
                 # redis password can be empty
-                'pattern': rf'^[{self.ALLOWED_PASSWORD_CHARACTERS}]{{8,}}|$'
+                'pattern': self.__get_password_validation_pattern(
+                    allow_empty=True, add_prefix=False
+                ),
             },
         }
         errors = []
@@ -617,13 +625,10 @@ class Config(metaclass=Singleton):
                     CLI.COLOR_WARNING
                 )
         if errors:
-            pronoun = 'it' if len(errors) == 1 else 'them'
-            if not ('PostgreSQL replication' in errors and len(errors) == 1):
-                CLI.colored_print(
-                    f'You should run `python run.py --setup` to '
-                    f'change {pronoun}.',
-                    CLI.COLOR_ERROR
-                )
+            CLI.colored_print(
+                'You should run `python run.py --setup` to update.',
+                CLI.COLOR_ERROR
+            )
             # PostgreSQL replication password is set in PostgreSQL on the first
             # launch and nothing is run afterwards in subsequent starts to update
             # it if it has changed.
@@ -796,6 +801,22 @@ class Config(metaclass=Singleton):
             if self.frontend:
                 self.__dict['primary_backend_ip'] = self.__dict[
                     'local_interface_ip']
+
+    def __get_password_validation_pattern(
+        self, chars=8, allow_empty=False, add_prefix=True
+    ):
+        """
+        Return regex pattern needed to validate passwords.
+
+        When it is passed to `CLI.get_response()`, it has to be prefixed with a
+        '~' in order to tell `CLI.get_response()` that the validator is a regex,
+        not a regular string.
+        """
+        pattern = f'[{self.ALLOWED_PASSWORD_CHARACTERS}]{{{chars},}}'
+        prefix = '~' if add_prefix else ''
+        if allow_empty:
+            pattern += '|'
+        return rf'{prefix}^{pattern}$'
 
     def __questions_advanced_options(self):
         """
@@ -1333,7 +1354,7 @@ class Config(metaclass=Singleton):
 
             CLI.colored_print("MongoDB root's password?", CLI.COLOR_QUESTION)
             self.__dict['mongo_root_password'] = CLI.get_response(
-                rf'~^[{self.ALLOWED_PASSWORD_CHARACTERS}]{{8,}}$',
+                self.__get_password_validation_pattern(),
                 self.__dict['mongo_root_password'],
                 to_lower=False,
                 error_msg=(
@@ -1351,7 +1372,7 @@ class Config(metaclass=Singleton):
 
             CLI.colored_print("MongoDB user's password?", CLI.COLOR_QUESTION)
             self.__dict['mongo_user_password'] = CLI.get_response(
-                rf'~^[{self.ALLOWED_PASSWORD_CHARACTERS}]{{8,}}$',
+                self.__get_password_validation_pattern(),
                 self.__dict['mongo_user_password'],
                 to_lower=False,
                 error_msg=(
@@ -1483,7 +1504,7 @@ class Config(metaclass=Singleton):
 
         CLI.colored_print("PostgreSQL user's password?", CLI.COLOR_QUESTION)
         self.__dict['postgres_password'] = CLI.get_response(
-            rf'~^[{self.ALLOWED_PASSWORD_CHARACTERS}]{{8,}}$',
+            self.__get_password_validation_pattern(),
             self.__dict['postgres_password'],
             to_lower=False,
             error_msg=(
@@ -1815,7 +1836,7 @@ class Config(metaclass=Singleton):
         if self.__dict['run_redis_containers']:
             CLI.colored_print('Redis password?', CLI.COLOR_QUESTION)
             self.__dict['redis_password'] = CLI.get_response(
-                rf'~^[{self.ALLOWED_PASSWORD_CHARACTERS}]{{8,}}|$',
+                self.__get_password_validation_pattern(allow_empty=True),
                 self.__dict['redis_password'],
                 to_lower=False,
                 error_msg=(
