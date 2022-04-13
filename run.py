@@ -18,6 +18,7 @@ from helpers.config import Config
 from helpers.setup import Setup
 from helpers.template import Template
 from helpers.updater import Updater
+from helpers.upgrading import Upgrading
 
 
 def run(force_setup=False):
@@ -40,6 +41,7 @@ def run(force_setup=False):
                 Template.render(config)
                 Setup.update_hosts(dict_)
 
+        config.validate_passwords()
         Command.start(force_setup=force_setup)
 
 
