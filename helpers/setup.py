@@ -119,16 +119,16 @@ class Setup:
             dict_ (dict): Dictionary provided by `Config.get_dict()`
         """
         if dict_['local_installation']:
-            start_sentence = '### (BEGIN) KoBoToolbox local routes'
-            end_sentence = '### (END) KoBoToolbox local routes'
+            start_sentence = '### (BEGIN) KoboToolbox local routes'
+            end_sentence = '### (END) KoboToolbox local routes'
 
             _, tmp_file_path = tempfile.mkstemp()
 
             with open('/etc/hosts', 'r') as f:
                 tmp_host = f.read()
 
-            start_position = tmp_host.find(start_sentence)
-            end_position = tmp_host.find(end_sentence)
+            start_position = tmp_host.lower().find(start_sentence.lower())
+            end_position = tmp_host.lower().find(end_sentence.lower())
 
             if start_position > -1:
                 tmp_host = tmp_host[0: start_position] \

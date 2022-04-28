@@ -2076,7 +2076,7 @@ class Config(metaclass=Singleton):
             message = (
                 'WARNING!\n\n'
                 'You have configured a new password for the super user.\n'
-                'This change will *not* take effect if KoBoToolbox has ever '
+                'This change will *not* take effect if KoboToolbox has ever '
                 'been started before. Please use the web interface to change '
                 'passwords for existing users.\n'
                 'If you have forgotten your password:\n'
@@ -2272,7 +2272,7 @@ class Config(metaclass=Singleton):
             'Welcome to kobo-install.\n'
             '\n'
             'You are going to be asked some questions that will determine how '
-            'to build the configuration of `KoBoToolBox`.\n'
+            'to build the configuration of `KoboToolBox`.\n'
             '\n'
             'Some questions already have default values (within brackets).\n'
             'Just press `enter` to accept the default value or enter `-` to '
