@@ -1,7 +1,7 @@
 {
-    "app name": "Enketo Express for KoBo Toolbox",
+    "app name": "Enketo Express for KoboToolbox",
     "linked form and data server": {
-        "name": "KoBo Toolbox",
+        "name": "KoboToolbox",
         "server url": "",
         "api key": "${ENKETO_API_KEY}"
     },
