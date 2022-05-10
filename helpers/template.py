@@ -208,7 +208,13 @@ class Template:
             'NGINX_PUBLIC_PORT': dict_['exposed_nginx_docker_port'],
             'NGINX_EXPOSED_PORT': nginx_port,
             'UWSGI_WORKERS_MAX': dict_['uwsgi_workers_max'],
-            'UWSGI_WORKERS_START': dict_['uwsgi_workers_start'],
+            # Deactivate cheaper algorithm if defaults are 1 worker to start and
+            # 2 maximum.
+            'UWSGI_WORKERS_START': (
+                ''
+                if dict_['uwsgi_workers_start'] == '1' and dict_['uwsgi_workers_max'] == '2'
+                else dict_['uwsgi_workers_start']
+            ),
             'UWSGI_MAX_REQUESTS': dict_['uwsgi_max_requests'],
             'UWSGI_SOFT_LIMIT': int(
                 dict_['uwsgi_soft_limit']) * 1024 * 1024,
