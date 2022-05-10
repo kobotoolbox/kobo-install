@@ -625,10 +625,10 @@ class Config(metaclass=Singleton):
                     CLI.COLOR_ERROR
                 )
         if errors:
-                CLI.colored_print(
-                    'You should run `python run.py --setup` to update.',
-                    CLI.COLOR_WARNING
-                )
+            CLI.colored_print(
+                'You should run `python run.py --setup` to update.',
+                CLI.COLOR_WARNING
+            )
 
         # PostgreSQL replication password must be handled separately because
         # it is set in PostgreSQL on the first launch and nothing is done
