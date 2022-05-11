@@ -616,27 +616,35 @@ class Config(metaclass=Singleton):
             },
         }
         errors = []
+        psql_replication = passwords.pop('PostgreSQL replication')
         for label, config_ in passwords.items():
             if not re.match(config_['pattern'], config_['password']):
                 errors.append(label)
                 CLI.colored_print(
                     f'{label} password contains unsupported characters.',
-                    CLI.COLOR_WARNING
+                    CLI.COLOR_ERROR
                 )
         if errors:
             CLI.colored_print(
                 'You should run `python run.py --setup` to update.',
+                CLI.COLOR_WARNING
+            )
+
+        # PostgreSQL replication password must be handled separately because
+        # it is set in PostgreSQL on the first launch and nothing is done
+        # afterwards in subsequent starts to update it if it has changed.
+        if not re.match(
+            psql_replication['pattern'], psql_replication['password']
+        ):
+            CLI.colored_print(
+                'PostgreSQL replication password contains unsupported characters.',
                 CLI.COLOR_ERROR
             )
-            # PostgreSQL replication password is set in PostgreSQL on the first
-            # launch and nothing is run afterwards in subsequent starts to update
-            # it if it has changed.
-            if 'PostgreSQL replication' in errors:
-                CLI.colored_print(
-                    'PostgreSQL replication password must be changed manually\n'
-                    'in `kobo-install/.run.conf` and PostgreSQL itself.',
-                    CLI.COLOR_WARNING
-                )
+            CLI.colored_print(
+                'It must be changed manually in `kobo-install/.run.conf` '
+                '(and PostgreSQL itself if you use replication).',
+                CLI.COLOR_WARNING
+            )
 
     def write_config(self):
         """
