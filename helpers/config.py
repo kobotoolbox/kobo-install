@@ -421,12 +421,12 @@ class Config(metaclass=Singleton):
             'use_private_dns': False,
             'use_wal_e': False,
             'uwsgi_harakiri': '120',
-            'uwsgi_max_requests': '512',
+            'uwsgi_max_requests': '1024',
             'uwsgi_settings': False,
-            'uwsgi_soft_limit': '128',
+            'uwsgi_soft_limit': '1024',
             'uwsgi_worker_reload_mercy': '120',
-            'uwsgi_workers_max': '2',
-            'uwsgi_workers_start': '1',
+            'uwsgi_workers_max': '4',
+            'uwsgi_workers_start': '2',
         }
 
     @property
@@ -2137,10 +2137,10 @@ class Config(metaclass=Singleton):
 
                 return
 
-        self.__dict['uwsgi_workers_start'] = '1'
-        self.__dict['uwsgi_workers_max'] = '2'
-        self.__dict['uwsgi_max_requests'] = '512'
-        self.__dict['uwsgi_soft_limit'] = '128'
+        self.__dict['uwsgi_workers_start'] = '2'
+        self.__dict['uwsgi_workers_max'] = '4'
+        self.__dict['uwsgi_max_requests'] = '1024'
+        self.__dict['uwsgi_soft_limit'] = '1024'
         self.__dict['uwsgi_harakiri'] = '120'
         self.__dict['uwsgi_worker_reload_mercy'] = '120'
 
