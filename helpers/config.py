@@ -30,9 +30,13 @@ class Config(metaclass=Singleton):
     DEFAULT_PROXY_PORT = '8080'
     DEFAULT_NGINX_PORT = '80'
     DEFAULT_NGINX_HTTPS_PORT = '443'
-    KOBO_DOCKER_BRANCH = '2.022.08c'
+    KOBO_DOCKER_BRANCH = '2.022.16'
     KOBO_INSTALL_VERSION = '6.6.0'
     MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
+    ALLOWED_PASSWORD_CHARACTERS = (
+        string.ascii_letters
+        + string.digits
+    )
 
     def __init__(self):
         self.__first_time = None
@@ -170,7 +174,7 @@ class Config(metaclass=Singleton):
         )))
 
         # if old location is detected, move it to new path.
-        if os.path.exists(old_path):
+        if os.path.exists(old_path) and not os.path.exists(current_path):
             shutil.move(old_path, current_path)
 
         return current_path
@@ -260,14 +264,10 @@ class Config(metaclass=Singleton):
         Returns:
             str
         """
-        characters = (
-            string.ascii_letters
-            + string.digits
-            + '!$+-_^~#`~'
+        return ''.join(
+            choice(cls.ALLOWED_PASSWORD_CHARACTERS)
+            for _ in range(required_chars_count)
         )
-
-        return ''.join(choice(characters)
-                       for _ in range(required_chars_count))
 
     def get_dict(self):
         return self.__dict
@@ -580,6 +580,64 @@ class Config(metaclass=Singleton):
         )
         self.__dict['aws_credentials_valid'] = validation.validate_credentials()
 
+    def validate_passwords(self):
+
+        passwords = {
+            'PostgreSQL': {
+                'password': self.__dict['postgres_password'],
+                'pattern': self.__get_password_validation_pattern(
+                    add_prefix=False
+                ),
+            },
+            'PostgreSQL replication': {
+                'password': self.__dict['postgres_replication_password'],
+                'pattern': self.__get_password_validation_pattern(
+                    add_prefix=False
+                ),
+            },
+            'MongoDB root’s': {
+                'password': self.__dict['mongo_root_password'],
+                'pattern': self.__get_password_validation_pattern(
+                    add_prefix=False
+                ),
+            },
+            'MongoDB user’s': {
+                'password': self.__dict['mongo_user_password'],
+                'pattern': self.__get_password_validation_pattern(
+                    add_prefix=False
+                ),
+            },
+            'Redis': {
+                'password': self.__dict['redis_password'],
+                # redis password can be empty
+                'pattern': self.__get_password_validation_pattern(
+                    allow_empty=True, add_prefix=False
+                ),
+            },
+        }
+        errors = []
+        for label, config_ in passwords.items():
+            if not re.match(config_['pattern'], config_['password']):
+                errors.append(label)
+                CLI.colored_print(
+                    f'{label} password contains unsupported characters.',
+                    CLI.COLOR_WARNING
+                )
+        if errors:
+            CLI.colored_print(
+                'You should run `python run.py --setup` to update.',
+                CLI.COLOR_ERROR
+            )
+            # PostgreSQL replication password is set in PostgreSQL on the first
+            # launch and nothing is run afterwards in subsequent starts to update
+            # it if it has changed.
+            if 'PostgreSQL replication' in errors:
+                CLI.colored_print(
+                    'PostgreSQL replication password must be changed manually\n'
+                    'in `kobo-install/.run.conf` and PostgreSQL itself.',
+                    CLI.COLOR_WARNING
+                )
+
     def write_config(self):
         """
         Writes config to file `Config.CONFIG_FILE`.
@@ -742,6 +800,22 @@ class Config(metaclass=Singleton):
             if self.frontend:
                 self.__dict['primary_backend_ip'] = self.__dict[
                     'local_interface_ip']
+
+    def __get_password_validation_pattern(
+        self, chars=8, allow_empty=False, add_prefix=True
+    ):
+        """
+        Return regex pattern needed to validate passwords.
+
+        When it is passed to `CLI.get_response()`, it has to be prefixed with a
+        '~' in order to tell `CLI.get_response()` that the validator is a regex,
+        not a regular string.
+        """
+        pattern = f'[{self.ALLOWED_PASSWORD_CHARACTERS}]{{{chars},}}'
+        prefix = '~' if add_prefix else ''
+        if allow_empty:
+            pattern += '|'
+        return rf'{prefix}^{pattern}$'
 
     def __questions_advanced_options(self):
         """
@@ -1279,10 +1353,14 @@ class Config(metaclass=Singleton):
 
             CLI.colored_print("MongoDB root's password?", CLI.COLOR_QUESTION)
             self.__dict['mongo_root_password'] = CLI.get_response(
-                r'~^.{8,}$',
+                self.__get_password_validation_pattern(),
                 self.__dict['mongo_root_password'],
                 to_lower=False,
-                error_msg='Too short. 8 characters minimum.')
+                error_msg=(
+                    'Invalid password. '
+                    'Rules: Alphanumeric characters only, 8 characters minimum'
+                )
+            )
 
             CLI.colored_print("MongoDB user's username?",
                               CLI.COLOR_QUESTION)
@@ -1293,10 +1371,14 @@ class Config(metaclass=Singleton):
 
             CLI.colored_print("MongoDB user's password?", CLI.COLOR_QUESTION)
             self.__dict['mongo_user_password'] = CLI.get_response(
-                r'~^.{8,}$',
+                self.__get_password_validation_pattern(),
                 self.__dict['mongo_user_password'],
                 to_lower=False,
-                error_msg='Too short. 8 characters minimum.')
+                error_msg=(
+                    'Invalid password. '
+                    'Rules: Alphanumeric characters only, 8 characters minimum'
+                )
+            )
 
             if (
                 not self.__dict.get('mongo_secured')
@@ -1421,10 +1503,14 @@ class Config(metaclass=Singleton):
 
         CLI.colored_print("PostgreSQL user's password?", CLI.COLOR_QUESTION)
         self.__dict['postgres_password'] = CLI.get_response(
-            r'~^.{8,}$',
+            self.__get_password_validation_pattern(),
             self.__dict['postgres_password'],
             to_lower=False,
-            error_msg='Too short. 8 characters minimum.')
+            error_msg=(
+                'Invalid password. '
+                'Rules: Alphanumeric characters only, 8 characters minimum'
+            )
+        )
 
         if (postgres_user != self.__dict['postgres_user'] or
             postgres_password != self.__dict['postgres_password']) and \
@@ -1749,10 +1835,14 @@ class Config(metaclass=Singleton):
         if self.__dict['run_redis_containers']:
             CLI.colored_print('Redis password?', CLI.COLOR_QUESTION)
             self.__dict['redis_password'] = CLI.get_response(
-                r'~^.{8,}|$',
+                self.__get_password_validation_pattern(allow_empty=True),
                 self.__dict['redis_password'],
                 to_lower=False,
-                error_msg='Too short. 8 characters minimum.')
+                error_msg=(
+                    'Invalid password. '
+                    'Rules: Alphanumeric characters only, 8 characters minimum'
+                )
+            )
 
             if not self.__dict['redis_password']:
                 message = (

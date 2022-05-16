@@ -382,7 +382,7 @@ class Command:
             # Start reverse proxy if user uses it.
             if config.use_letsencrypt:
                 if force_setup:
-                    # Let's Encrypt NGINX container need kobo-docker NGINX
+                    # Let's Encrypt NGINX container needs kobo-docker NGINX
                     # container to be started first
                     config.init_letsencrypt()
                 else:
