@@ -31,7 +31,7 @@ class Config(metaclass=Singleton):
     DEFAULT_NGINX_PORT = '80'
     DEFAULT_NGINX_HTTPS_PORT = '443'
     KOBO_DOCKER_BRANCH = 'beta'
-    KOBO_INSTALL_VERSION = '6.6.0-beta'
+    KOBO_INSTALL_VERSION = '6.6.1'
     MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
     ALLOWED_PASSWORD_CHARACTERS = (
         string.ascii_letters
@@ -1334,11 +1334,9 @@ class Config(metaclass=Singleton):
 
     def __questions_mongo(self):
         """
-        Ask for MongoDB credentials only when server is for:
-        - primary back end
-        - single server installation
+        Ask for MongoDB credentials only when server is not secondary back end
         """
-        if self.primary_backend or not self.multi_servers:
+        if not self.secondary_backend:
             mongo_user_username = self.__dict['mongo_user_username']
             mongo_user_password = self.__dict['mongo_user_password']
             mongo_root_username = self.__dict['mongo_root_username']

@@ -951,6 +951,7 @@ def test_backup_schedules_from_secondary_backend_with_redis_and_no_postgres():
     assert config._Config__dict['backup_from_primary'] is True
     assert config._Config__dict['run_redis_containers'] is True
 
+
 def test_activate_only_postgres_backup():
     config = read_config()
     # Force advanced options and single instance
@@ -977,3 +978,75 @@ def test_activate_only_postgres_backup():
         assert config._Config__dict['postgres_backup_schedule'] == '2 2 2 2 2'
         assert config._Config__dict['mongo_backup_schedule'] == ''
         assert config._Config__dict['redis_backup_schedule'] == ''
+
+
+def test_mongo_questions_on_single_server():
+    config = read_config()
+    # Force advanced options and single instance
+    config._Config__dict['advanced'] = True
+    config._Config__dict['multi'] = True
+
+    mongo_user_username = config.__dict['mongo_user_username']
+    mongo_user_password = config.__dict['mongo_user_password']
+    mongo_root_username = config.__dict['mongo_root_username']
+    mongo_root_password = config.__dict['mongo_root_password']
+
+    with patch('helpers.cli.CLI.colored_input') as mock_ci:
+        mock_ci.side_effect = iter([
+            'root_changed',
+            'rootpassword_changed',
+            'kobo_changed',
+            'mongopassword_changed',
+        ])
+        config._Config__questions_mongo()
+        assert mongo_user_username != config.__dict['mongo_user_username']
+        assert mongo_user_password != config.__dict['mongo_user_password']
+        assert mongo_root_username != config.__dict['mongo_root_username']
+        assert mongo_root_password != config.__dict['mongo_root_password']
+
+
+def test_mongo_questions_on_primary_server():
+    config = read_config()
+    # Force advanced options and primary back-end instance
+    config._Config__dict['advanced'] = True
+    config._Config__dict['multi'] = False
+    config._Config__dict['server_role'] = 'backend'
+    config._Config__dict['backend_server_role'] = 'primary'
+
+    mongo_user_username = config.__dict['mongo_user_username']
+    mongo_user_password = config.__dict['mongo_user_password']
+    mongo_root_username = config.__dict['mongo_root_username']
+    mongo_root_password = config.__dict['mongo_root_password']
+
+    with patch('helpers.cli.CLI.colored_input') as mock_ci:
+        mock_ci.side_effect = iter([
+            'root_changed',
+            'rootpassword_changed',
+            'kobo_changed',
+            'mongopassword_changed',
+        ])
+        config._Config__questions_mongo()
+        assert mongo_user_username != config.__dict['mongo_user_username']
+        assert mongo_user_password != config.__dict['mongo_user_password']
+        assert mongo_root_username != config.__dict['mongo_root_username']
+        assert mongo_root_password != config.__dict['mongo_root_password']
+
+
+def test_mongo_questions_on_secondary_backend_server():
+    config = read_config()
+    # Force advanced options and primary back-end instance
+    config._Config__dict['advanced'] = True
+    config._Config__dict['multi'] = False
+    config._Config__dict['server_role'] = 'backend'
+    config._Config__dict['backend_server_role'] = 'primary'
+
+    mongo_user_username = config.__dict['mongo_user_username']
+    mongo_user_password = config.__dict['mongo_user_password']
+    mongo_root_username = config.__dict['mongo_root_username']
+    mongo_root_password = config.__dict['mongo_root_password']
+
+    config._Config__questions_mongo()
+    assert mongo_user_username == config.__dict['mongo_user_username']
+    assert mongo_user_password == config.__dict['mongo_user_password']
+    assert mongo_root_username == config.__dict['mongo_root_username']
+    assert mongo_root_password == config.__dict['mongo_root_password']
