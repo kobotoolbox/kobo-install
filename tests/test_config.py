@@ -1029,6 +1029,30 @@ def test_mongo_questions_on_primary_server():
         assert mongo_root_password != config._Config__dict['mongo_root_password']
 
 
+def test_mongo_questions_on_frontend_server():
+    config = read_config()
+    # Force advanced options and primary back-end instance
+    config._Config__dict['advanced'] = True
+    config._Config__dict['multi'] = True
+    config._Config__dict['server_role'] = 'frontend'
+
+    mongo_user_username = config._Config__dict['mongo_user_username']
+    mongo_user_password = config._Config__dict['mongo_user_password']
+    mongo_root_username = config._Config__dict['mongo_root_username']
+    mongo_root_password = config._Config__dict['mongo_root_password']
+
+    with patch('helpers.cli.CLI.colored_input') as mock_ci:
+        mock_ci.side_effect = iter([
+            mongo_root_username,
+            'rootpasswordChanged',
+            mongo_user_username,
+            'mongopasswordChanged',
+        ])
+        config._Config__questions_mongo()
+        assert mongo_user_password != config._Config__dict['mongo_user_password']
+        assert mongo_root_password != config._Config__dict['mongo_root_password']
+
+
 def test_mongo_questions_on_secondary_backend_server():
     config = read_config()
     # Force advanced options and primary back-end instance
