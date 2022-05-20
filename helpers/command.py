@@ -20,7 +20,7 @@ class Command:
             '',
             '    Options:',
             '          -i, --info',
-            '                Show KoBoToolbox Url and super user credentials',
+            '                Show KoboToolbox Url and super user credentials',
             '          -l, --logs',
             '                Display docker logs',
             '          -b, --build',
@@ -32,9 +32,9 @@ class Command:
             '          -s, --setup',
             '                Prompt questions to (re)write configuration files',
             '          -S, --stop',
-            '                Stop KoBoToolbox',
+            '                Stop KoboToolbox',
             '          -u, --update, --upgrade [branch or tag]',
-            '                Update KoBoToolbox',
+            '                Update KoboToolbox',
             '          -cf, --compose-frontend [docker-compose arguments]',
             '                Run a docker-compose command in the front-end '
             'environment',
@@ -462,7 +462,7 @@ class Command:
             CLI.run_command(backend_command, dict_['kobodocker_path'])
 
         if output:
-            CLI.colored_print('KoBoToolbox has been stopped', CLI.COLOR_SUCCESS)
+            CLI.colored_print('KoboToolbox has been stopped', CLI.COLOR_SUCCESS)
 
     @classmethod
     def stop_maintenance(cls):
