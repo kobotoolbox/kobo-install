@@ -9,7 +9,7 @@ setup(
     packages=find_packages(exclude=['tests']),
     url='https://github.com/kobotoolbox/kobo-install/',
     license='',
-    author='KoBoToolbox',
+    author='KoboToolbox',
     author_email='',
-    description='Installer for KoBoToolbox'
+    description='Installer for KoboToolbox'
 )
