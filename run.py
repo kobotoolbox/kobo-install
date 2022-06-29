@@ -4,11 +4,14 @@ import platform
 import sys
 
 from helpers.cli import CLI
-if sys.version_info[0] == 2:
+
+if (
+    sys.version_info[0] == 2
+    or (sys.version_info[0] == 3 and sys.version_info[1] <= 5)
+):
     message = (
-        'Python 2.7 has reached the end of its life on '
-        'January 1st, 2020. Please upgrade your Python as Python 2.7 is '
-        'not maintained anymore.'
+        'Your Python version has reached the end of its life.'
+        'Please upgrade it as it is not maintained anymore.'
     )
     CLI.framed_print(message, color=CLI.COLOR_ERROR)
     sys.exit(1)
