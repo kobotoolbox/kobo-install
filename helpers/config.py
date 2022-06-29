@@ -11,6 +11,7 @@ import time
 from datetime import datetime
 from random import choice
 
+from helpers.aws_validation import AWSValidation
 from helpers.cli import CLI
 from helpers.network import Network
 from helpers.singleton import Singleton
@@ -29,8 +30,13 @@ class Config(metaclass=Singleton):
     DEFAULT_PROXY_PORT = '8080'
     DEFAULT_NGINX_PORT = '80'
     DEFAULT_NGINX_HTTPS_PORT = '443'
-    KOBO_DOCKER_BRANCH = '2.020.45'
-    KOBO_INSTALL_VERSION = '4.1.0'
+    KOBO_DOCKER_BRANCH = '2.022.16c'
+    KOBO_INSTALL_VERSION = '6.6.0'
+    MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
+    ALLOWED_PASSWORD_CHARACTERS = (
+        string.ascii_letters
+        + string.digits
+    )
 
     def __init__(self):
         self.__first_time = None
@@ -65,7 +71,7 @@ class Config(metaclass=Singleton):
     @property
     def aws(self):
         """
-        Checks whether questions are backend only
+        Checks whether questions are back end only
 
         Returns:
             bool
@@ -74,8 +80,77 @@ class Config(metaclass=Singleton):
 
     @property
     def backend(self):
-        return not self.multi_servers or self.primary_backend or \
-               self.secondary_backend
+        return not self.multi_servers or not self.frontend
+
+    def build(self):
+        """
+        Build configuration based on user's answers
+
+        Returns:
+            dict: all values from user's responses needed to create
+            configuration files
+        """
+        if not Network.get_primary_ip():
+            message = (
+                'No valid networks detected. Can not continue!\n'
+                'Please connect to a network and re-run the command.'
+            )
+            CLI.framed_print(message, color=CLI.COLOR_ERROR)
+            sys.exit(1)
+        else:
+
+            self.__welcome()
+            self.__dict = self.get_upgraded_dict()
+
+            self.__create_directory()
+            self.__questions_advanced_options()
+            self.__questions_installation_type()
+            self.__detect_network()
+
+            if not self.local_install:
+                if self.advanced_options:
+                    self.__questions_multi_servers()
+                    if self.multi_servers:
+                        self.__questions_roles()
+                        if self.frontend or self.secondary_backend:
+                            self.__questions_private_routes()
+                    else:
+                        self.__reset(fake_dns=True)
+
+                if self.frontend:
+                    self.__questions_public_routes()
+                    self.__questions_https()
+                    self.__questions_reverse_proxy()
+
+            if self.frontend:
+                self.__questions_smtp()
+                self.__questions_super_user_credentials()
+
+            if self.advanced_options:
+                self.__questions_docker_prefix()
+                self.__questions_dev_mode()
+                self.__questions_postgres()
+                self.__questions_mongo()
+                self.__questions_redis()
+                self.__questions_ports()
+
+                if self.frontend:
+                    self.__questions_secret_keys()
+                    self.__questions_aws()
+                    self.__questions_google()
+                    self.__questions_raven()
+                    self.__questions_uwsgi()
+
+                self.__questions_custom_yml()
+
+            else:
+                self.__secure_mongo()
+
+            self.__questions_backup()
+
+            self.write_config()
+
+            return self.__dict
 
     @property
     def block_common_http_ports(self):
@@ -99,7 +174,7 @@ class Config(metaclass=Singleton):
         )))
 
         # if old location is detected, move it to new path.
-        if os.path.exists(old_path):
+        if os.path.exists(old_path) and not os.path.exists(current_path):
             shutil.move(old_path, current_path)
 
         return current_path
@@ -153,83 +228,6 @@ class Config(metaclass=Singleton):
         return upgraded_dict
 
     @property
-    def backend_questions(self):
-        """
-        Checks whether questions are backend only
-
-        Returns:
-            bool
-        """
-        return not self.multi_servers or not self.frontend
-
-    def build(self):
-        """
-        Build configuration based on user's answers
-
-        Returns:
-            dict: all values from user's responses needed to create
-            configuration files
-        """
-        if not Network.get_primary_ip():
-            message = (
-                'No valid networks detected. Can not continue!\n'
-                'Please connect to a network and re-run the command.'
-            )
-            CLI.framed_print(message, color=CLI.COLOR_ERROR)
-            sys.exit(1)
-        else:
-
-            self.__welcome()
-            self.__dict = self.get_upgraded_dict()
-
-            self.__create_directory()
-            self.__questions_advanced_options()
-            self.__questions_installation_type()
-            self.__detect_network()
-
-            if not self.local_install:
-                if self.advanced_options:
-                    self.__questions_multi_servers()
-                    if self.multi_servers:
-                        self.__questions_roles()
-                        if self.frontend or self.secondary_backend:
-                            self.__questions_private_routes()
-                    else:
-                        self.__reset(private_dns=True)
-
-                if self.frontend_questions:
-                    self.__questions_public_routes()
-                    self.__questions_https()
-                    self.__questions_reverse_proxy()
-
-            if self.frontend_questions:
-                self.__questions_smtp()
-                self.__questions_super_user_credentials()
-
-            if self.advanced_options:
-                self.__questions_docker_prefix()
-                self.__questions_dev_mode()
-                self.__questions_postgres()
-                self.__questions_mongo()
-                self.__questions_redis()
-                self.__questions_ports()
-
-                if self.frontend_questions:
-                    self.__questions_secret_keys()
-                    self.__questions_aws()
-                    self.__questions_google()
-                    self.__questions_raven()
-                    self.__questions_uwsgi()
-            else:
-                self.__secure_mongo()
-
-            self.__questions_backup()
-
-            self.write_config()
-
-            return self.__dict
-
-    @property
     def dev_mode(self):
         return self.__dict['dev_mode'] is True
 
@@ -248,49 +246,48 @@ class Config(metaclass=Singleton):
     @property
     def frontend(self):
         """
-        Checks whether setup is running on a frontend server
+        Checks whether setup is running on a front-end server
 
         Returns:
             dict: all values from user's responses needed to create
             configuration files
         """
-        return not self.multi_servers or \
-            self.__dict['server_role'] == 'frontend'
-
-    @property
-    def frontend_questions(self):
-        """
-        Checks whether questions are frontend only
-
-        Returns:
-            bool
-        """
-        return not self.multi_servers or self.frontend
+        return (
+            not self.multi_servers or self.__dict['server_role'] == 'frontend'
+        )
 
     @classmethod
-    def generate_password(cls):
+    def generate_password(cls, required_chars_count=20):
         """
-        Generate 12 characters long random password
+        Generate n characters long random password
 
         Returns:
             str
         """
-        characters = string.ascii_letters \
-                     + '!$%+-_^~@#{}[]()/\'\'`~,;:.<>' \
-                     + string.digits
-        required_chars_count = 12
-
-        return ''.join(choice(characters)
-                       for _ in range(required_chars_count))
+        return ''.join(
+            choice(cls.ALLOWED_PASSWORD_CHARACTERS)
+            for _ in range(required_chars_count)
+        )
 
     def get_dict(self):
         return self.__dict
+
+    def get_service_names(self):
+        service_list_command = ['docker-compose',
+                                '-f', 'docker-compose.frontend.yml',
+                                '-f', 'docker-compose.frontend.override.yml',
+                                'config', '--services']
+
+        services = CLI.run_command(service_list_command,
+                                   self.__dict['kobodocker_path'])
+        return services.strip().split('\n')
 
     @classmethod
     def get_template(cls):
 
         primary_ip = Network.get_primary_ip()
 
+        # Keep properties sorted alphabetically
         return {
             'advanced': False,
             'aws_access_key': '',
@@ -302,10 +299,12 @@ class Config(metaclass=Singleton):
             'aws_backup_weekly_retention': '4',
             'aws_backup_yearly_retention': '2',
             'aws_bucket_name': '',
+            'aws_credentials_valid': False,
             'aws_mongo_backup_minimum_size': '50',
             'aws_postgres_backup_minimum_size': '50',
             'aws_redis_backup_minimum_size': '5',
             'aws_secret_key': '',
+            'aws_validate_credentials': True,
             'backend_server_role': 'primary',
             'backup_from_primary': True,
             'block_common_http_ports': True,
@@ -314,11 +313,11 @@ class Config(metaclass=Singleton):
             'debug': False,
             'default_from_email': 'support@kobo.local',
             'dev_mode': False,
-            'django_secret_key': binascii.hexlify(os.urandom(50)).decode('utf-8'),
+            'django_secret_key': binascii.hexlify(os.urandom(50)).decode(),
             'docker_prefix': '',
             'ee_subdomain': 'ee',
-            'enketo_api_token': binascii.hexlify(os.urandom(60)).decode('utf-8'),
-            'enketo_encryption_key': binascii.hexlify(os.urandom(60)).decode('utf-8'),
+            'enketo_api_token': binascii.hexlify(os.urandom(60)).decode(),
+            'enketo_encryption_key': binascii.hexlify(os.urandom(60)).decode(),
             # default value from enketo. Because it was not customizable before
             # we want to keep the same value when users upgrade.
             'enketo_less_secure_encryption_key': 'this $3cr3t key is crackable',
@@ -333,7 +332,6 @@ class Config(metaclass=Singleton):
             'kc_postgres_db': 'kobocat',
             'kc_subdomain': 'kc',
             'kobocat_media_backup_schedule': '0 0 * * 0',
-            'kobocat_media_schedule': '0 0 * * 0',
             'kobocat_raven': '',
             'kobodocker_path': os.path.realpath(os.path.normpath(os.path.join(
                 os.path.dirname(os.path.realpath(__file__)),
@@ -398,10 +396,12 @@ class Config(metaclass=Singleton):
             'public_domain_name': 'kobo.local',
             'raven_settings': False,
             'redis_backup_schedule': '0 3 * * 0',
+            'redis_cache_max_memory': '',
             'redis_cache_port': '6380',
             'redis_main_port': '6379',
             'redis_password': Config.generate_password(),
             'review_host': True,
+            'run_redis_containers': True,
             'server_role': 'frontend',
             'smtp_host': '',
             'smtp_password': '',
@@ -414,6 +414,9 @@ class Config(metaclass=Singleton):
             'two_databases': True,
             'use_aws': False,
             'use_backup': False,
+            'use_backend_custom_yml': False,
+            'use_celery': True,
+            'use_frontend_custom_yml': False,
             'use_letsencrypt': True,
             'use_private_dns': False,
             'use_wal_e': False,
@@ -425,24 +428,13 @@ class Config(metaclass=Singleton):
             'uwsgi_workers_max': '2',
             'uwsgi_workers_start': '1',
         }
-        # Keep properties sorted alphabetically
-
-    def get_service_names(self):
-        service_list_command = ['docker-compose',
-                                '-f', 'docker-compose.frontend.yml',
-                                '-f', 'docker-compose.frontend.override.yml',
-                                'config', '--services']
-
-        services = CLI.run_command(service_list_command,
-                                   self.__dict['kobodocker_path'])
-        return services.strip().split('\n')
 
     @property
     def is_secure(self):
         return self.__dict['https'] is True
 
     def init_letsencrypt(self):
-        if self.use_letsencrypt:
+        if self.frontend and self.use_letsencrypt:
             reverse_proxy_path = self.get_letsencrypt_repo_path()
             reverse_proxy_command = [
                 '/bin/bash',
@@ -466,19 +458,22 @@ class Config(metaclass=Singleton):
     @property
     def primary_backend(self):
         """
-        Checks whether setup is running on a primary backend server
+        Checks whether setup is running on a primary back-end server
 
         Returns:
             bool
         """
-        return self.multi_servers and \
-            self.__dict['server_role'] == 'backend' and \
-            self.__dict['backend_server_role'] == 'primary'
+        return (
+            self.multi_servers
+            and self.__dict['server_role'] == 'backend'
+            and self.__dict['backend_server_role'] == 'primary'
+        )
 
     @property
     def multi_servers(self):
         """
-        Checks whether installation is for separate frontend and backend servers
+        Checks whether installation is for separate front-end and back-end
+        servers
 
         Returns:
             bool
@@ -552,14 +547,16 @@ class Config(metaclass=Singleton):
     @property
     def secondary_backend(self):
         """
-        Checks whether setup is running on a secondary backend server
+        Checks whether setup is running on a secondary back-end server
 
         Returns:
             bool
         """
-        return self.multi_servers and \
-            self.__dict['server_role'] == 'backend' and \
-            self.__dict['backend_server_role'] == 'secondary'
+        return (
+            self.multi_servers
+            and self.__dict['server_role'] == 'backend'
+            and self.__dict['backend_server_role'] == 'secondary'
+        )
 
     def set_config(self, value):
         self.__dict = value
@@ -575,6 +572,79 @@ class Config(metaclass=Singleton):
     @property
     def use_private_dns(self):
         return self.__dict['use_private_dns']
+
+    def validate_aws_credentials(self):
+        validation = AWSValidation(
+            aws_access_key_id=self.__dict['aws_access_key'],
+            aws_secret_access_key=self.__dict['aws_secret_key'],
+        )
+        self.__dict['aws_credentials_valid'] = validation.validate_credentials()
+
+    def validate_passwords(self):
+
+        passwords = {
+            'PostgreSQL': {
+                'password': self.__dict['postgres_password'],
+                'pattern': self.__get_password_validation_pattern(
+                    add_prefix=False
+                ),
+            },
+            'PostgreSQL replication': {
+                'password': self.__dict['postgres_replication_password'],
+                'pattern': self.__get_password_validation_pattern(
+                    add_prefix=False
+                ),
+            },
+            'MongoDB root’s': {
+                'password': self.__dict['mongo_root_password'],
+                'pattern': self.__get_password_validation_pattern(
+                    add_prefix=False
+                ),
+            },
+            'MongoDB user’s': {
+                'password': self.__dict['mongo_user_password'],
+                'pattern': self.__get_password_validation_pattern(
+                    add_prefix=False
+                ),
+            },
+            'Redis': {
+                'password': self.__dict['redis_password'],
+                # redis password can be empty
+                'pattern': self.__get_password_validation_pattern(
+                    allow_empty=True, add_prefix=False
+                ),
+            },
+        }
+        errors = []
+        psql_replication = passwords.pop('PostgreSQL replication')
+        for label, config_ in passwords.items():
+            if not re.match(config_['pattern'], config_['password']):
+                errors.append(label)
+                CLI.colored_print(
+                    f'{label} password contains unsupported characters.',
+                    CLI.COLOR_ERROR
+                )
+        if errors:
+            CLI.colored_print(
+                'You should run `python run.py --setup` to update.',
+                CLI.COLOR_WARNING
+            )
+
+        # PostgreSQL replication password must be handled separately because
+        # it is set in PostgreSQL on the first launch and nothing is done
+        # afterwards in subsequent starts to update it if it has changed.
+        if not re.match(
+            psql_replication['pattern'], psql_replication['password']
+        ):
+            CLI.colored_print(
+                'PostgreSQL replication password contains unsupported characters.',
+                CLI.COLOR_ERROR
+            )
+            CLI.colored_print(
+                'It must be changed manually in `kobo-install/.run.conf` '
+                '(and PostgreSQL itself if you use replication).',
+                CLI.COLOR_WARNING
+            )
 
     def write_config(self):
         """
@@ -740,6 +810,22 @@ class Config(metaclass=Singleton):
                 self.__dict['primary_backend_ip'] = self.__dict[
                     'local_interface_ip']
 
+    def __get_password_validation_pattern(
+        self, chars=8, allow_empty=False, add_prefix=True
+    ):
+        """
+        Return regex pattern needed to validate passwords.
+
+        When it is passed to `CLI.get_response()`, it has to be prefixed with a
+        '~' in order to tell `CLI.get_response()` that the validator is a regex,
+        not a regular string.
+        """
+        pattern = f'[{self.ALLOWED_PASSWORD_CHARACTERS}]{{{chars},}}'
+        prefix = '~' if add_prefix else ''
+        if allow_empty:
+            pattern += '|'
+        return rf'{prefix}^{pattern}$'
+
     def __questions_advanced_options(self):
         """
         Asks if user wants to see advanced options
@@ -757,6 +843,11 @@ class Config(metaclass=Singleton):
             'Do you want to use AWS S3 storage?',
             default=self.__dict['use_aws']
         )
+        self.__questions_aws_configuration()
+        self.__questions_aws_validate_credentials()
+
+    def __questions_aws_configuration(self):
+
         if self.__dict['use_aws']:
             self.__dict['aws_access_key'] = CLI.colored_input(
                 'AWS Access Key', CLI.COLOR_QUESTION,
@@ -771,6 +862,60 @@ class Config(metaclass=Singleton):
             self.__dict['aws_access_key'] = ''
             self.__dict['aws_secret_key'] = ''
             self.__dict['aws_bucket_name'] = ''
+
+    def __questions_aws_validate_credentials(self):
+        """
+        Prompting user whether they would like to validate their entered AWS
+        credentials or continue without validation.
+        """
+        # Resetting validation when setup is rerun
+        self.__dict['aws_credentials_valid'] = False
+        aws_credential_attempts = 0
+
+        if self.__dict['use_aws']:
+            self.__dict['aws_validate_credentials'] = CLI.yes_no_question(
+                'Would you like to validate your AWS credentials?',
+                default=self.__dict['aws_validate_credentials'],
+            )
+
+        if self.__dict['use_aws'] and self.__dict['aws_validate_credentials']:
+            while (
+                not self.__dict['aws_credentials_valid']
+                and aws_credential_attempts
+                <= self.MAXIMUM_AWS_CREDENTIAL_ATTEMPTS
+            ):
+                aws_credential_attempts += 1
+                self.validate_aws_credentials()
+                attempts_remaining = (
+                    self.MAXIMUM_AWS_CREDENTIAL_ATTEMPTS
+                    - aws_credential_attempts
+                )
+                if (
+                    not self.__dict['aws_credentials_valid']
+                    and attempts_remaining > 0
+                ):
+                    CLI.colored_print(
+                        'Invalid credentials, please try again.',
+                        CLI.COLOR_WARNING,
+                    )
+                    CLI.colored_print(
+                        'Attempts remaining for AWS validation: {}'.format(
+                            attempts_remaining
+                        ),
+                        CLI.COLOR_INFO,
+                    )
+                    self.__questions_aws_configuration()
+            else:
+                if not self.__dict['aws_credentials_valid']:
+                    CLI.colored_print(
+                        'Please restart configuration', CLI.COLOR_ERROR
+                    )
+                    sys.exit(1)
+                else:
+                    CLI.colored_print(
+                        'AWS credentials successfully validated',
+                        CLI.COLOR_SUCCESS
+                    )
 
     def __questions_aws_backup_settings(self):
 
@@ -854,7 +999,7 @@ class Config(metaclass=Singleton):
         """
         Asks all questions about backups.
         """
-        if self.backend_questions or (self.frontend_questions and not self.aws):
+        if self.backend or (self.frontend and not self.aws):
 
             self.__dict['use_backup'] = CLI.yes_no_question(
                 'Do you want to activate backups?',
@@ -863,7 +1008,7 @@ class Config(metaclass=Singleton):
 
             if self.__dict['use_backup']:
                 if self.advanced_options:
-                    if self.backend_questions and not self.frontend_questions:
+                    if self.backend and not self.frontend:
                         self.__questions_aws()
 
                     # Prompting user whether they want to use WAL-E for
@@ -886,8 +1031,9 @@ class Config(metaclass=Singleton):
                         self.__dict['use_wal_e'] = False
 
                     schedule_regex_pattern = (
-                        r'^((((\d+(,\d+)*)|(\d+-\d+)|(\*(\/\d+)?)))'
-                        r'(\s+(((\d+(,\d+)*)|(\d+\-\d+)|(\*(\/\d+)?)))){4})$')
+                        r'^\-|((((\d+(,\d+)*)|(\d+-\d+)|(\*(\/\d+)?)))'
+                        r'(\s+(((\d+(,\d+)*)|(\d+\-\d+)|(\*(\/\d+)?)))){4})?$'
+                    )
                     message = (
                         'Schedules use linux cron syntax with UTC datetimes.\n'
                         'For example, schedule at 12:00 AM E.S.T every Sunday '
@@ -898,8 +1044,12 @@ class Config(metaclass=Singleton):
                         'cron schedule.'
                     )
                     CLI.framed_print(message, color=CLI.COLOR_INFO)
-
-                    if self.frontend_questions and not self.aws:
+                    CLI.colored_print(
+                        'Leave empty (or use `-` to empty) to deactivate backups'
+                        ' for a specific\nservice.',
+                        color=CLI.COLOR_WARNING
+                    )
+                    if self.frontend and not self.aws:
                         CLI.colored_print('KoBoCat media backup schedule?',
                                           CLI.COLOR_QUESTION)
                         self.__dict[
@@ -907,35 +1057,37 @@ class Config(metaclass=Singleton):
                             f'~{schedule_regex_pattern}',
                             self.__dict['kobocat_media_backup_schedule'])
 
-                    if self.backend_questions:
-                        if self.__dict['use_wal_e'] is True:
+                    if self.backend:
+                        if self.__dict['use_wal_e'] or not self.multi_servers:
+                            # We are on primary back-end server
                             self.__dict['backup_from_primary'] = True
+                            backup_postgres = True
                         else:
                             if self.primary_backend:
-                                response = CLI.yes_no_question(
-                                    'Run PostgreSQL backup from primary '
-                                    'backend server?',
-                                    default=self.__dict['backup_from_primary']
-                                )
-                                self.__dict['backup_from_primary'] = response
-                            elif self.secondary_backend:
-                                self.__dict['backup_from_primary'] = False
+                                default_response = self.__dict['backup_from_primary']
                             else:
-                                self.__dict['backup_from_primary'] = True
+                                default_response = not self.__dict[
+                                    'backup_from_primary']
 
-                        backup_from_primary = self.__dict['backup_from_primary']
+                            backup_postgres = CLI.yes_no_question(
+                                'Run PostgreSQL backup from this server?',
+                                default=default_response
+                            )
 
-                        if (not self.multi_servers or
-                                (self.primary_backend and backup_from_primary)
-                                or
-                                (self.secondary_backend and
-                                 not backup_from_primary)):
+                            if self.primary_backend:
+                                self.__dict['backup_from_primary'] = backup_postgres
+                            else:
+                                self.__dict['backup_from_primary'] = not backup_postgres
+
+                        if backup_postgres:
                             CLI.colored_print('PostgreSQL backup schedule?',
                                               CLI.COLOR_QUESTION)
                             self.__dict[
                                 'postgres_backup_schedule'] = CLI.get_response(
                                 f'~{schedule_regex_pattern}',
                                 self.__dict['postgres_backup_schedule'])
+                        else:
+                            self.__dict['postgres_backup_schedule'] = ''
 
                         if self.primary_backend or not self.multi_servers:
                             CLI.colored_print('MongoDB backup schedule?',
@@ -945,12 +1097,15 @@ class Config(metaclass=Singleton):
                                 f'~{schedule_regex_pattern}',
                                 self.__dict['mongo_backup_schedule'])
 
+                        if self.__dict['run_redis_containers']:
                             CLI.colored_print('Redis backup schedule?',
                                               CLI.COLOR_QUESTION)
                             self.__dict[
                                 'redis_backup_schedule'] = CLI.get_response(
                                 f'~{schedule_regex_pattern}',
                                 self.__dict['redis_backup_schedule'])
+                        else:
+                            self.__dict['redis_backup_schedule'] = ''
 
                         if self.aws:
                             self.__questions_aws_backup_settings()
@@ -958,11 +1113,25 @@ class Config(metaclass=Singleton):
                         # Back to default value
                         self.__dict['backup_from_primary'] = True
             else:
-                # Back to default value
-                self.__dict['backup_from_primary'] = True
+                self.__reset(no_backups=True)
         else:
-            self.__dict['use_backup'] = False
-            self.__dict['backup_from_primary'] = True  # Back to default value
+            self.__reset(no_backups=True)
+
+    def __questions_custom_yml(self):
+
+        if self.frontend:
+            self.__dict['use_frontend_custom_yml'] = CLI.yes_no_question(
+                'Do you want to add additional settings to the front-end '
+                'docker containers?',
+                default=self.__dict['use_frontend_custom_yml'],
+            )
+
+        if self.backend:
+            self.__dict['use_backend_custom_yml'] = CLI.yes_no_question(
+                'Do you want to add additional settings to the back-end '
+                'docker containers?',
+                default=self.__dict['use_backend_custom_yml']
+            )
 
     def __questions_dev_mode(self):
         """
@@ -974,10 +1143,10 @@ class Config(metaclass=Singleton):
         Reset to default in case of No
         """
 
-        if self.frontend_questions:
+        if self.frontend:
 
             if self.local_install:
-                # NGinX different port
+                # NGINX different port
                 CLI.colored_print('Web server port?', CLI.COLOR_QUESTION)
                 self.__dict['exposed_nginx_docker_port'] = CLI.get_response(
                     r'~^\d+$', self.__dict['exposed_nginx_docker_port'])
@@ -986,12 +1155,19 @@ class Config(metaclass=Singleton):
                     default=self.__dict['dev_mode']
                 )
                 self.__dict['staging_mode'] = False
+                if self.dev_mode:
+                    self.__dict['use_celery'] = CLI.yes_no_question(
+                        'Use Celery for background tasks?',
+                        default=self.__dict['use_celery']
+                    )
+
             else:
                 self.__dict['staging_mode'] = CLI.yes_no_question(
                     'Use staging mode?',
                     default=self.__dict['staging_mode']
                 )
                 self.__dict['dev_mode'] = False
+                self.__dict['use_celery'] = True
 
             if self.dev_mode or self.staging_mode:
                 message = (
@@ -1024,7 +1200,7 @@ class Config(metaclass=Singleton):
                     self.__dict['kc_dev_build_id'] = f'{prefix}{timestamp}'
 
                 if (
-                    not self.__dict['kpi_dev_build_id'] == '' or
+                    not self.__dict['kpi_dev_build_id'] or
                     self.__dict['kpi_path'] != kpi_path
                 ):
                     prefix = self.get_prefix('frontend')
@@ -1037,7 +1213,7 @@ class Config(metaclass=Singleton):
                         default=self.__dict['debug']
                     )
 
-                    # Frontend development
+                    # Front-end development
                     self.__dict['npm_container'] = CLI.yes_no_question(
                         'How do you want to run `npm`?',
                         default=self.__dict['npm_container'],
@@ -1048,7 +1224,7 @@ class Config(metaclass=Singleton):
                     )
             else:
                 # Force reset paths
-                self.__reset(dev=True, reset_nginx_port=self.staging_mode)
+                self.__reset(production=True, nginx_default=self.staging_mode)
 
     def __questions_docker_prefix(self):
         """
@@ -1095,6 +1271,8 @@ class Config(metaclass=Singleton):
         """
         Asks for installation type
         """
+        previous_installation_type = self.__dict['local_installation']
+
         self.__dict['local_installation'] = CLI.yes_no_question(
             'What kind of installation do you need?',
             default=self.__dict['local_installation'],
@@ -1104,8 +1282,19 @@ class Config(metaclass=Singleton):
             ]
         )
         if self.local_install:
+            message = (
+                'WARNING!\n\n'
+                'SSRF protection is disabled with local installation'
+            )
+            CLI.framed_print(message, color=CLI.COLOR_WARNING)
+
+        if previous_installation_type != self.__dict['local_installation']:
             # Reset previous choices, in case server role is not the same.
-            self.__reset(local_install=True, private_dns=True)
+            self.__reset(
+                production=not self.local_install,
+                http=self.local_install,
+                fake_dns=self.local_install,
+            )
 
     def __questions_maintenance(self):
         if self.first_time:
@@ -1151,7 +1340,7 @@ class Config(metaclass=Singleton):
     def __questions_mongo(self):
         """
         Ask for MongoDB credentials only when server is for:
-        - primary backend
+        - primary back end
         - single server installation
         """
         if self.primary_backend or not self.multi_servers:
@@ -1169,10 +1358,14 @@ class Config(metaclass=Singleton):
 
             CLI.colored_print("MongoDB root's password?", CLI.COLOR_QUESTION)
             self.__dict['mongo_root_password'] = CLI.get_response(
-                r'~^.{8,}$',
+                self.__get_password_validation_pattern(),
                 self.__dict['mongo_root_password'],
                 to_lower=False,
-                error_msg='Too short. 8 characters minimum.')
+                error_msg=(
+                    'Invalid password. '
+                    'Rules: Alphanumeric characters only, 8 characters minimum'
+                )
+            )
 
             CLI.colored_print("MongoDB user's username?",
                               CLI.COLOR_QUESTION)
@@ -1183,10 +1376,14 @@ class Config(metaclass=Singleton):
 
             CLI.colored_print("MongoDB user's password?", CLI.COLOR_QUESTION)
             self.__dict['mongo_user_password'] = CLI.get_response(
-                r'~^.{8,}$',
+                self.__get_password_validation_pattern(),
                 self.__dict['mongo_user_password'],
                 to_lower=False,
-                error_msg='Too short. 8 characters minimum.')
+                error_msg=(
+                    'Invalid password. '
+                    'Rules: Alphanumeric characters only, 8 characters minimum'
+                )
+            )
 
             if (
                 not self.__dict.get('mongo_secured')
@@ -1240,10 +1437,10 @@ class Config(metaclass=Singleton):
     def __questions_multi_servers(self):
         """
         Asks if installation is for only one server
-        or different frontend and backend servers.
+        or different front-end and back-end servers.
         """
         self.__dict['multi'] = CLI.yes_no_question(
-            'Do you want to use separate servers for frontend and backend?',
+            'Do you want to use separate servers for front end and back end?',
             default=self.__dict['multi']
         )
 
@@ -1311,10 +1508,14 @@ class Config(metaclass=Singleton):
 
         CLI.colored_print("PostgreSQL user's password?", CLI.COLOR_QUESTION)
         self.__dict['postgres_password'] = CLI.get_response(
-            r'~^.{8,}$',
+            self.__get_password_validation_pattern(),
             self.__dict['postgres_password'],
             to_lower=False,
-            error_msg='Too short. 8 characters minimum.')
+            error_msg=(
+                'Invalid password. '
+                'Rules: Alphanumeric characters only, 8 characters minimum'
+            )
+        )
 
         if (postgres_user != self.__dict['postgres_user'] or
             postgres_password != self.__dict['postgres_password']) and \
@@ -1352,7 +1553,7 @@ class Config(metaclass=Singleton):
 
             self.__write_upsert_db_users_trigger_file(content, 'postgres')
 
-        if self.backend_questions:
+        if self.backend:
             # Postgres settings
             self.__dict['postgres_settings'] = CLI.yes_no_question(
                 'Do you want to tweak PostgreSQL settings?',
@@ -1499,8 +1700,8 @@ class Config(metaclass=Singleton):
 
         if not self.multi_servers:
             self.__dict['expose_backend_ports'] = CLI.yes_no_question(
-                'Do you want to expose backend container ports '
-                '(`PostgreSQL`, `MongoDB`, `redis`)?',
+                'Do you want to expose back-end container ports '
+                '(`PostgreSQL`, `MongoDB`, `Redis`)?',
                 default=self.__dict['expose_backend_ports']
             )
         else:
@@ -1510,13 +1711,14 @@ class Config(metaclass=Singleton):
             reset_ports()
             return
 
-        message = (
-            'WARNING!\n\n'
-            'When exposing backend container ports, it is STRONGLY '
-            'recommended to use a firewall to grant access to frontend '
-            'containers only.'
-        )
-        CLI.framed_print(message)
+        if self.backend:
+            message = (
+                'WARNING!\n\n'
+                'When exposing back-end container ports, it is STRONGLY '
+                'recommended to use a firewall to grant access to front-end '
+                'containers only.'
+            )
+            CLI.framed_print(message)
 
         self.__dict['customized_ports'] = CLI.yes_no_question(
             'Do you want to customize service ports?',
@@ -1546,7 +1748,7 @@ class Config(metaclass=Singleton):
     def __questions_private_routes(self):
         """
         Asks if configuration uses a DNS for private domain names
-        for communication between frontend and backend.
+        for communication between front end and back end.
         Otherwise, it will create entries in `extra_hosts` in composer
         file based on the provided ip.
         """
@@ -1555,7 +1757,7 @@ class Config(metaclass=Singleton):
             default=self.__dict['use_private_dns']
         )
         if self.__dict['use_private_dns'] is False:
-            CLI.colored_print('IP address (IPv4) of primary backend server?',
+            CLI.colored_print('IP address (IPv4) of primary back-end server?',
                               CLI.COLOR_QUESTION)
             self.__dict['primary_backend_ip'] = CLI.get_response(
                 r'~\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}',
@@ -1621,17 +1823,29 @@ class Config(metaclass=Singleton):
 
     def __questions_redis(self):
         """
-        Ask for redis password only when server is for:
-        - primary backend
+        Ask for Redis password only when server is for:
+        - primary back end
         - single server installation
         """
-        if self.primary_backend or not self.multi_servers:
+        if self.backend:
+            self.__dict['run_redis_containers'] = CLI.yes_no_question(
+                'Do you want to run the Redis containers from this server?',
+                default=self.__dict['run_redis_containers']
+            )
+        else:
+            self.__dict['run_redis_containers'] = True
+
+        if self.__dict['run_redis_containers']:
             CLI.colored_print('Redis password?', CLI.COLOR_QUESTION)
             self.__dict['redis_password'] = CLI.get_response(
-                r'~^.{8,}|$',
+                self.__get_password_validation_pattern(allow_empty=True),
                 self.__dict['redis_password'],
                 to_lower=False,
-                error_msg='Too short. 8 characters minimum.')
+                error_msg=(
+                    'Invalid password. '
+                    'Rules: Alphanumeric characters only, 8 characters minimum'
+                )
+            )
 
             if not self.__dict['redis_password']:
                 message = (
@@ -1646,6 +1860,15 @@ class Config(metaclass=Singleton):
                 )
                 if response is False:
                     self.__questions_redis()
+
+            if self.backend:
+                CLI.colored_print('Max memory (MB) for Redis cache container?',
+                                  CLI.COLOR_QUESTION)
+                CLI.colored_print('Leave empty for no limits',
+                                  CLI.COLOR_INFO)
+                self.__dict['redis_cache_max_memory'] = CLI.get_response(
+                    r'~^(\d+|-)?$',
+                    self.__dict['redis_cache_max_memory'])
 
     def __questions_reverse_proxy(self):
 
@@ -1724,18 +1947,19 @@ class Config(metaclass=Singleton):
                     self.__dict[
                         'nginx_proxy_port'] = Config.DEFAULT_PROXY_PORT
 
-                CLI.colored_print('Internal port used by reverse proxy?',
-                                  CLI.COLOR_QUESTION)
-                while True:
-                    self.__dict['nginx_proxy_port'] = CLI.get_response(
-                        r'~^\d+$',
-                        self.__dict['nginx_proxy_port'])
-                    if self.__is_port_allowed(
-                            self.__dict['nginx_proxy_port']):
-                        break
-                    else:
-                        CLI.colored_print('Ports 80 and 443 are reserved!',
-                                          CLI.COLOR_ERROR)
+                if not self.use_letsencrypt:
+                    CLI.colored_print('Internal port used by reverse proxy?',
+                                      CLI.COLOR_QUESTION)
+                    while True:
+                        self.__dict['nginx_proxy_port'] = CLI.get_response(
+                            r'~^\d+$',
+                            self.__dict['nginx_proxy_port'])
+                        if self.__is_port_allowed(
+                                self.__dict['nginx_proxy_port']):
+                            break
+                        else:
+                            CLI.colored_print('Ports 80 and 443 are reserved!',
+                                              CLI.COLOR_ERROR)
             else:
                 self.__dict['block_common_http_ports'] = True
                 if not self.use_letsencrypt:
@@ -1761,7 +1985,7 @@ class Config(metaclass=Singleton):
 
         if self.__dict['server_role'] == 'backend':
             CLI.colored_print(
-                'Which role do you want to assign to this backend server?',
+                'Which role do you want to assign to this back-end server?',
                 CLI.COLOR_QUESTION)
             CLI.colored_print('\t1) primary')
             CLI.colored_print('\t2) secondary')
@@ -1769,7 +1993,7 @@ class Config(metaclass=Singleton):
                 ['primary', 'secondary'],
                 self.__dict['backend_server_role'])
         else:
-            # It may be useless to force backend role when using multi servers.
+            # It may be useless to force back-end role when using multi servers.
             self.__dict['backend_server_role'] = 'primary'
 
     def __questions_secret_keys(self):
@@ -1855,7 +2079,7 @@ class Config(metaclass=Singleton):
             message = (
                 'WARNING!\n\n'
                 'You have configured a new password for the super user.\n'
-                'This change will *not* take effect if KoBoToolbox has ever '
+                'This change will *not* take effect if KoboToolbox has ever '
                 'been started before. Please use the web interface to change '
                 'passwords for existing users.\n'
                 'If you have forgotten your password:\n'
@@ -1878,13 +2102,13 @@ class Config(metaclass=Singleton):
             )
 
             if self.__dict['uwsgi_settings']:
-                CLI.colored_print('Number of uWSGi workers to start?',
+                CLI.colored_print('Number of uWSGI workers to start?',
                                   CLI.COLOR_QUESTION)
                 self.__dict['uwsgi_workers_start'] = CLI.get_response(
                     r'~^\d+$',
                     self.__dict['uwsgi_workers_start'])
 
-                CLI.colored_print('Maximum uWSGi workers?', CLI.COLOR_QUESTION)
+                CLI.colored_print('Maximum uWSGI workers?', CLI.COLOR_QUESTION)
                 self.__dict['uwsgi_workers_max'] = CLI.get_response(
                     r'~^\d+$',
                     self.__dict['uwsgi_workers_max'])
@@ -1895,7 +2119,8 @@ class Config(metaclass=Singleton):
                     r'~^\d+$',
                     self.__dict['uwsgi_max_requests'])
 
-                CLI.colored_print('Maximum memory per workers in MB?',
+                CLI.colored_print('Stop spawning workers if uWSGI memory use '
+                                  'exceeds this many MB: ',
                                   CLI.COLOR_QUESTION)
                 self.__dict['uwsgi_soft_limit'] = CLI.get_response(
                     r'~^\d+$',
@@ -1933,34 +2158,44 @@ class Config(metaclass=Singleton):
         It can be useful, if user changes the type of installation on
         the same server
 
-        Returns:
-            bool
+        Kwargs:
+            production (bool): If `True`, reset config to production mode
+            http (bool): If `True`, only set values related to http/https config
+            fake_dns (bool): If `True`, reset config to fake dns on docker-compose files  # noqa
+            nginx_default (bool): If `True`, reset NGINX exposed port to default
         """
-        all = True if not kwargs else False
-        dev_mode = kwargs.get('dev', False)
-        local_install = kwargs.get('local_install', False)
-        private_dns = kwargs.get('private_dns', False)
-        reset_nginx_port = kwargs.get('reset_nginx_port', False)
+        all_ = True if not kwargs else False
+        production = kwargs.get('production', False)
+        http = kwargs.get('http', False)
+        fake_dns = kwargs.get('fake_dns', False)
+        nginx_default = kwargs.get('nginx_default', False)
+        no_backups = kwargs.get('no_backups', False)
 
-        if dev_mode or all:
+        if production or all_:
             self.__dict['dev_mode'] = False
             self.__dict['staging_mode'] = False
             self.__dict['kc_path'] = ''
             self.__dict['kpi_path'] = ''
             self.__dict['debug'] = False
-            if reset_nginx_port:
+            self.__dict['use_celery'] = True
+            if nginx_default:
                 self.__dict[
                     'exposed_nginx_docker_port'] = Config.DEFAULT_NGINX_PORT
 
-        if private_dns or all:
+        if fake_dns or all_:
             self.__dict['use_private_dns'] = False
 
-        if local_install or all:
+        if http or all_:
             self.__dict['multi'] = False
             self.__dict['https'] = False
             self.__dict['proxy'] = False
             self.__dict['nginx_proxy_port'] = Config.DEFAULT_NGINX_PORT
             self.__dict['use_letsencrypt'] = False
+
+        if no_backups or all_:
+            self.__dict['backup_from_primary'] = True
+            self.__dict['use_backup'] = False
+            self.__dict['use_wal_e'] = False
 
     def __secure_mongo(self):
         """
@@ -2044,7 +2279,7 @@ class Config(metaclass=Singleton):
             'Welcome to kobo-install.\n'
             '\n'
             'You are going to be asked some questions that will determine how '
-            'to build the configuration of `KoBoToolBox`.\n'
+            'to build the configuration of `KoboToolBox`.\n'
             '\n'
             'Some questions already have default values (within brackets).\n'
             'Just press `enter` to accept the default value or enter `-` to '

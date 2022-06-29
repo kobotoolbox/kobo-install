@@ -2,8 +2,8 @@
 import os
 import sys
 
-from helpers.setup import Setup
 from helpers.cli import CLI
+from helpers.setup import Setup
 
 
 class Updater:
@@ -14,9 +14,18 @@ class Updater:
     NO_UPDATE_SELF_OPTION = '--no-update-self'
 
     @classmethod
-    def run(cls, version='stable', cron=False, update_self=True):
+    def run(cls, version=None, cron=False, update_self=True):
         # Validate kobo-docker already exists and is valid
         Setup.validate_already_run()
+
+        if version is None:
+            git_commit_version_command = [
+                'git',
+                'rev-parse',
+                '--abbrev-ref',
+                'HEAD',
+            ]
+            version = CLI.run_command(git_commit_version_command).strip()
 
         if update_self:
             # Update kobo-install first

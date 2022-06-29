@@ -6,7 +6,6 @@ import re
 import stat
 import sys
 from string import Template as PyTemplate
-from urllib.parse import quote_plus
 
 from helpers.cli import CLI
 from helpers.config import Config
@@ -44,7 +43,7 @@ class Template:
                 'Do you want to continue?',
                 default=False
             )
-            if response:
+            if not response:
                 sys.exit(0)
 
         cls.__write_unique_id(environment_directory, dict_['unique_id'])
@@ -140,13 +139,16 @@ class Template:
         Args:
             config (helpers.config.Config)
         """
+
         dict_ = config.get_dict()
 
         def _get_value(property_, true_value='', false_value='#',
                        comparison_value=True):
-            return true_value \
-                if dict_[property_] == comparison_value \
+            return (
+                true_value
+                if dict_[property_] == comparison_value
                 else false_value
+            )
 
         if config.proxy:
             nginx_port = dict_['nginx_proxy_port']
@@ -182,8 +184,6 @@ class Template:
             'KPI_POSTGRES_DB': dict_['kpi_postgres_db'],
             'POSTGRES_USER': dict_['postgres_user'],
             'POSTGRES_PASSWORD': dict_['postgres_password'],
-            'POSTGRES_PASSWORD_URL_ENCODED': quote_plus(
-                dict_['postgres_password']),
             'DEBUG': dict_['debug'],
             'SMTP_HOST': dict_['smtp_host'],
             'SMTP_PORT': dict_['smtp_port'],
@@ -231,6 +231,7 @@ class Template:
             'MONGO_PORT': dict_['mongo_port'],
             'REDIS_MAIN_PORT': dict_['redis_main_port'],
             'REDIS_CACHE_PORT': dict_['redis_cache_port'],
+            'REDIS_CACHE_MAX_MEMORY': dict_['redis_cache_max_memory'],
             'USE_BACKUP': '' if dict_['use_backup'] else '#',
             'USE_WAL_E': _get_value('use_wal_e'),
             'USE_AWS_BACKUP': '' if (config.aws and
@@ -269,7 +270,8 @@ class Template:
             'MAINTENANCE_EMAIL': dict_['maintenance_email'],
             'USE_NPM_FROM_HOST': '' if (config.dev_mode and
                                         not dict_['npm_container']) else '#',
-            'DOCKER_PREFIX': config.get_prefix('backend'),
+            'DOCKER_NETWORK_BACKEND_PREFIX': config.get_prefix('backend'),
+            'DOCKER_NETWORK_FRONTEND_PREFIX': config.get_prefix('frontend'),
             'USE_BACKEND_NETWORK': _get_value('expose_backend_ports',
                                               comparison_value=False),
             'EXPOSE_BACKEND_PORTS': _get_value('expose_backend_ports'),
@@ -285,10 +287,23 @@ class Template:
             'MONGO_USER_USERNAME': dict_['mongo_user_username'],
             'MONGO_USER_PASSWORD': dict_['mongo_user_password'],
             'REDIS_PASSWORD': dict_['redis_password'],
-            'REDIS_PASSWORD_URL_ENCODED': quote_plus(
-                dict_['redis_password']),
             'REDIS_PASSWORD_JS_ENCODED': json.dumps(
                 dict_['redis_password']),
+            'USE_DEV_MODE': _get_value('dev_mode'),
+            'USE_CELERY': _get_value('use_celery', comparison_value=False),
+            'ENKETO_ALLOW_PRIVATE_IP_ADDRESS': _get_value(
+                'local_installation',
+                true_value='true',
+                false_value='false'
+            ),
+            'RUN_REDIS_CONTAINERS': _get_value('run_redis_containers'),
+            'USE_REDIS_CACHE_MAX_MEMORY': _get_value(
+                'redis_cache_max_memory',
+                true_value='#',
+                false_value='',
+                comparison_value='',
+            ),
+            'USE_LETSENSCRYPT': '#' if config.use_letsencrypt else '',
         }
 
     @staticmethod

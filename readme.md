@@ -1,4 +1,4 @@
-The purpose of the script is to install `KoBoToolbox` in minutes without messing with configuration files.  
+The purpose of the script is to install `KoBoToolbox` in minutes without messing with configuration files.
 It prompts the user to answer some questions to create configuration files automatically and to start docker containers based on [`kobo-docker`](https://github.com/kobotoolbox/kobo-docker "").
 
 ## Important notice when upgrading from any release older than [`2.020.18`](https://github.com/kobotoolbox/kobo-install/releases/tag/2.020.18)
@@ -15,10 +15,9 @@ before using this repository. **If you do not, `kobo-install` will not be able t
 
 ## Versions
 
-Branch `stable` is the recommended branch to use `kobo-install` on your production environment.  
-Just run `git checkout stable` before your first run.
+Branch `master` is the recommended branch to use `kobo-install` on your production environment. Just run `git checkout master` before your first run.
 
-Branch `master` is a pre-release of next stable version. It contains new features and bug fixes.
+Branch `beta` is a pre-release of the next version. It contains new features and bug fixes.
 
 Other branches are for development purposes.
 
@@ -26,7 +25,7 @@ Other branches are for development purposes.
 
 `$kobo-install> python3 run.py`
 
-First time the command is executed, setup will be launched.   
+First time the command is executed, setup will be launched.  
 Subsequent executions will launch docker containers directly.
 
 Rebuild configuration:  
@@ -39,9 +38,9 @@ Get docker logs:
 `$kobo-install> python3 run.py --logs`
 
 Update KoBoToolbox:  
-`$kobo-install> python3 run.py --update [branch or tag]`  
+`$kobo-install> python3 run.py --update [branch or tag]`
 
-By default, fetch latest version of `stable` branch
+By default, fetch the latest version of `master` branch
 
 
 Stop KoBoToolbox:  
@@ -56,10 +55,10 @@ Get version:
 Build kpi and kobocat (dev mode):  
 `$kobo-install> python3 run.py --build`
 
-Run docker commands on frontend containers:  
+Run docker commands on front-end containers:  
 `$kobo-install> python run.py --compose-frontend [docker-compose arguments]`
 
-Run docker commands on backend containers:  
+Run docker commands on back-end containers:  
 `$kobo-install> python run.py --compose-backend [docker-compose arguments]`
 
 Start maintenance mode:  
@@ -71,7 +70,7 @@ Stop maintenance mode:
 ## Build the configuration
 User can choose between 2 types of installations:
 
-- `Workstation`: KoBoToolbox doesn't need to be accessible from anywhere except the computer where it's installed. No DNS needed 
+- `Workstation`: KoBoToolbox doesn't need to be accessible from anywhere except the computer where it's installed. No DNS needed
 - `Server`: KoBoToolbox needs to be accessible from the local network or from the Internet. DNS are needed
 
 ### Options
@@ -79,50 +78,50 @@ User can choose between 2 types of installations:
 |Option|Default|Workstation|Server
 |---|---|---|---|
 |Installation directory| **../kobo-docker**  | ✓ | ✓ |
-|SMTP information|  | ✓ | ✓ (frontend only) |
-|Public domain name| **kobo.local** |  | ✓ (frontend only) |
-|Subdomain names| **kf, kc, ee**  |  | ✓ (frontend only) |
-|Use HTTPS<sup>1</sup>| **False** (Workstation)<br>**True** (Server)  |  | ✓ (frontend only) |
-|Super user's username| **super_admin** | ✓ | ✓ (frontend only) |
-|Super user's password| **Random string**  | ✓ | ✓ (frontend only) |
-|Activate backups<sup>2</sup>|  **False**  | ✓ | ✓ (backend only) |
+|SMTP information|  | ✓ | ✓ (front end only) |
+|Public domain name| **kobo.local** |  | ✓ (front end only) |
+|Subdomain names| **kf, kc, ee**  |  | ✓ (front end only) |
+|Use HTTPS<sup>1</sup>| **False** (Workstation)<br>**True** (Server)  |  | ✓ (front end only) |
+|Super user's username| **super_admin** | ✓ | ✓ (front end only) |
+|Super user's password| **Random string**  | ✓ | ✓ (front end only) |
+|Activate backups<sup>2</sup>|  **False**  | ✓ | ✓ (back end only) |
 
 ### Advanced Options
 
 |Option|Default|Workstation|Server
 |---|---|---|---|
 |Webserver port| **80**  | ✓ |  |
-|Reverse proxy interal port| **8080**  |  | ✓ (frontend only) |
-|Network interface|  **Autodetected**  | ✓ | ✓ (frontend only) |
+|Reverse proxy interal port| **8080**  |  | ✓ (front end only) |
+|Network interface|  **Autodetected**  | ✓ | ✓ (front end only) |
 |Use separate servers| **No**  |  | ✓ |
-|Use DNS for private routes| **No**  |  | ✓ (frontend only) |
-|Primary backend IP _(if previous answer is no)_| **Local IP**  |  | ✓ (frontend only) |
+|Use DNS for private routes| **No**  |  | ✓ (front end only) |
+|Primary back end IP _(if previous answer is no)_| **Local IP**  |  | ✓ (front end only) |
 |PostgreSQL DB|  **kobo**  | ✓ | ✓ |
 |PostgreSQL user's username|  **kobo**  | ✓ | ✓ |
 |PostgreSQL user's password|  **Autogenerate**  | ✓ | ✓ |
-|PostgreSQL number of connections<sup>3</sup>|  **100**  | ✓ | ✓ (backend only) |
-|PostgreSQL RAM<sup>3</sup>|  **2**  | ✓ | ✓ (backend only) |
-|PostgreSQL Application Profile<sup>3</sup>|  **Mixed**  | ✓ | ✓ (backend only) |
-|PostgreSQL Storage<sup>3</sup>|  **HDD**  | ✓ | ✓ (backend only) |
+|PostgreSQL number of connections<sup>3</sup>|  **100**  | ✓ | ✓ (back end only) |
+|PostgreSQL RAM<sup>3</sup>|  **2**  | ✓ | ✓ (back end only) |
+|PostgreSQL Application Profile<sup>3</sup>|  **Mixed**  | ✓ | ✓ (back end only) |
+|PostgreSQL Storage<sup>3</sup>|  **HDD**  | ✓ | ✓ (back end only) |
 |MongoDB super user's username|  **root**  | ✓ | ✓ |
 |MongoDB super user's password|  **Autogenerate**  | ✓ | ✓ |
 |MongoDB user's username|  **kobo**  | ✓ | ✓ |
 |MongoDB user's password|  **Autogenerate**  | ✓ | ✓ |
 |Redis password<sup>4</sup>|  **Autogenerate**  | ✓ | ✓ |
 |Use AWS storage<sup>5</sup>|  **No**  | ✓ | ✓ |
-|Use WAL-E PostgreSQL backups<sup>6</sup> |  **No**  | ✓ | ✓ (backend only) |
-|uWGI workers|  **start: 2, max: 4**  | ✓ | ✓ (frontend only) |
-|uWGI memory limit|  **128 MB**  | ✓ | ✓ (frontend only) |
-|uWGI harakiri timeout |  **120s**  | ✓ | ✓ (frontend only) |
-|uWGI worker reload timeout |  **120s**  | ✓ | ✓ (frontend only) |
-|Google UA|  | ✓ | ✓ (frontend only) |
-|Google API Key|  | ✓ | ✓ (frontend only) |
-|Raven tokens|   | ✓ | ✓ (frontend only) |
+|Use WAL-E PostgreSQL backups<sup>6</sup> |  **No**  | ✓ | ✓ (back end only) |
+|uWGI workers|  **start: 2, max: 4**  | ✓ | ✓ (front end only) |
+|uWGI memory limit|  **128 MB**  | ✓ | ✓ (front end only) |
+|uWGI harakiri timeout |  **120s**  | ✓ | ✓ (front end only) |
+|uWGI worker reload timeout |  **120s**  | ✓ | ✓ (front end only) |
+|Google UA|  | ✓ | ✓ (front end only) |
+|Google API Key|  | ✓ | ✓ (front end only) |
+|Raven tokens|   | ✓ | ✓ (front end only) |
 |Debug|  **False**  | ✓ |  |
 |Developer mode|  **False**  | ✓ | |
-|Staging mode|  **False**  |  | ✓ (frontend only) |
+|Staging mode|  **False**  |  | ✓ (front end only) |
 
-<sup>1)</sup> _HTTPS certificates must be installed on a Reverse Proxy. 
+<sup>1)</sup> _HTTPS certificates must be installed on a Reverse Proxy.
 `kobo-install` can install one and use `Let's Encrypt` to generate certificates
  thanks
  to [nginx-certbot project](https://github.com/wmnnd/nginx-certbot "")_
@@ -147,17 +146,17 @@ User can choose between 2 types of installations:
 - Available TCP Ports: <sup>7</sup>
 
     1. 80 NGINX
-    1. 443 NGINX (if you use kobo-install with LetsEncrypt proxy) 
+    1. 443 NGINX (if you use kobo-install with LetsEncrypt proxy)
     2. Additional ports when `expose ports` advanced option has been selected
         1. 5432 PostgreSQL
         3. 6379-6380 redis
         4. 27017 MongoDB
 
     _**WARNING:**_
-    
+
     - _If you use a firewall, be sure to open traffic publicly on NGINX port, otherwise kobo-install cannot work_
-    - _By default, additional ports are not exposed except when using multi servers configuration. If you choose to expose them, **be sure to not expose them publicly** (e.g. use a firewall and allow traffic between frontend and backend containers only. NGINX port still has to stay publicly opened though)._
-    
+    - _By default, additional ports are not exposed except when using multi servers configuration. If you choose to expose them, **be sure to not expose them publicly** (e.g. use a firewall and allow traffic between front-end and back-end containers only. NGINX port still has to stay publicly opened though)._
+
 <sup>5)</sup> _It has been tested with Ubuntu 14.04, 16.04 and 18.04, CentOS 8_
 
 <sup>6)</sup> _Docker on macOS is slow. First boot usually takes a while to be ready. You may have to answer `Yes` once or twice to question `Wait for another 600 seconds?` when prompted_
@@ -168,14 +167,14 @@ User can choose between 2 types of installations:
 ## Tests
 
 Tests can be run with `tox`.  
-Be sure it's install before running the tests
+Be sure it is installed before running the tests.
 
 ```
 $kobo-install> sudo apt install python3-pip
 $kobo-install> pip3 install tox
 $kobo-install> tox
 ```
-or 
+or
 
 ```
 $kobo-install> sudo apt install tox

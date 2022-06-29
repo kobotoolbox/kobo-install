@@ -1,23 +1,18 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals, absolute_import
-
 import os
 import pytest
 import random
 import shutil
 import tempfile
 import time
-
-try:
-    from unittest.mock import patch, MagicMock
-except ImportError:
-    from mock import patch, MagicMock
+from unittest.mock import patch, MagicMock
 
 from helpers.cli import CLI
 from helpers.config import Config
 from .utils import (
     read_config,
     write_trigger_upsert_db_users,
+    MockAWSValidation
 )
 
 CHOICE_YES = '1'
@@ -91,6 +86,7 @@ def test_dev_mode():
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
         mock_colored_input.side_effect = iter(['8080',
                                                CHOICE_YES,
+                                               CHOICE_NO,
                                                kc_repo_path,
                                                kpi_repo_path,
                                                CHOICE_YES,
@@ -105,6 +101,7 @@ def test_dev_mode():
         assert dict_['kpi_path'] == kpi_repo_path and \
                dict_['kc_path'] == kc_repo_path
         assert dict_['npm_container'] is False
+        assert dict_['use_celery'] is False
 
     shutil.rmtree(kc_repo_path)
     shutil.rmtree(kpi_repo_path)
@@ -119,8 +116,8 @@ def test_dev_mode():
 
 def test_server_roles_questions():
     config = read_config()
-    assert config.frontend_questions
-    assert config.backend_questions
+    assert config.frontend
+    assert config.backend
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
         mock_colored_input.side_effect = iter(
@@ -129,12 +126,12 @@ def test_server_roles_questions():
         config._Config__questions_multi_servers()
 
         config._Config__questions_roles()
-        assert config.frontend_questions
-        assert not config.backend_questions
+        assert config.frontend
+        assert not config.backend
 
         config._Config__questions_roles()
-        assert not config.frontend_questions
-        assert config.backend_questions
+        assert not config.frontend
+        assert config.backend
         assert config.secondary_backend
 
 
@@ -154,6 +151,124 @@ def test_use_https():
         config._Config__questions_installation_type()
         assert config.local_install
         assert not config.is_secure
+
+
+def _aws_validation_setup():
+    config = read_config()
+
+    assert not config._Config__dict['use_aws']
+    assert not config._Config__dict['aws_credentials_valid']
+
+    return config
+
+
+def test_aws_credentials_invalid_with_no_configuration():
+    config = _aws_validation_setup()
+
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        mock_colored_input.side_effect = CHOICE_NO
+        assert not config._Config__dict['use_aws']
+        assert not config._Config__dict['aws_credentials_valid']
+
+
+def test_aws_validation_fails_with_system_exit():
+    config = _aws_validation_setup()
+
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        mock_colored_input.side_effect = iter(
+            [CHOICE_YES, '', '', '', CHOICE_YES, '', '', '', '', '', '']
+        )
+        try:
+            config._Config__questions_aws()
+        except SystemExit:
+            pass
+        assert not config._Config__dict['aws_credentials_valid']
+
+
+def test_aws_invalid_credentials_continue_without_validation():
+    config = _aws_validation_setup()
+
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        mock_colored_input.side_effect = iter([CHOICE_YES,'', '', '', CHOICE_NO])
+        config._Config__questions_aws()
+        assert not config._Config__dict['aws_credentials_valid']
+
+
+@patch('helpers.aws_validation.AWSValidation.validate_credentials',
+       new=MockAWSValidation.validate_credentials)
+def test_aws_validation_passes_with_valid_credentials():
+    config = _aws_validation_setup()
+
+    # correct keys, no validation, should continue without issue
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        mock_colored_input.side_effect = iter(
+            [
+                CHOICE_YES,
+                'test_access_key',
+                'test_secret_key',
+                'test_bucket_name',
+                CHOICE_NO,
+            ]
+        )
+        config._Config__questions_aws()
+        assert not config._Config__dict['aws_credentials_valid']
+
+    # correct keys in first attempt, choose to validate, continue
+    # without issue
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        config._Config__dict['aws_credentials_valid'] = False
+        mock_colored_input.side_effect = iter(
+            [
+                CHOICE_YES,
+                'test_access_key',
+                'test_secret_key',
+                'test_bucket_name',
+                CHOICE_YES,
+            ]
+        )
+        config._Config__questions_aws()
+        assert config._Config__dict['aws_credentials_valid']
+
+    # correct keys in second attempt, choose to validate, continue
+    # without issue
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        config._Config__dict['aws_credentials_valid'] = False
+        mock_colored_input.side_effect = iter(
+            [
+                CHOICE_YES,
+                '',
+                '',
+                '',
+                CHOICE_YES,
+                'test_access_key',
+                'test_secret_key',
+                'test_bucket_name',
+            ]
+        )
+        config._Config__questions_aws()
+        assert config._Config__dict['aws_credentials_valid']
+
+    # correct keys in third attempt, choose to validate, continue
+    # without issue
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        config._Config__dict['aws_credentials_valid'] = False
+        mock_colored_input.side_effect = iter(
+            [
+                CHOICE_YES,
+                '',
+                '',
+                '',
+                CHOICE_YES,
+                '',
+                '',
+                '',
+                'test_access_key',
+                'test_secret_key',
+                'test_bucket_name',
+            ]
+        )
+        config._Config__questions_aws()
+        assert config._Config__dict['aws_credentials_valid']
 
 
 @patch('helpers.config.Config._Config__clone_repo',
@@ -428,9 +543,9 @@ def test_secure_mongo_advanced_options():
     with patch('helpers.cli.CLI.colored_input') as mock_ci:
         mock_ci.side_effect = iter([
             'root',
-            'root_password',
+            'rootpassword',
             'mongo_kobo_user',
-            'mongo_password',
+            'mongopassword',
         ])
         config._Config__questions_mongo()
         assert not os.path.exists('/tmp/upsert_db_users')
@@ -446,9 +561,9 @@ def test_secure_mongo_advanced_options():
     with patch('helpers.cli.CLI.colored_input') as mock_ci:
         mock_ci.side_effect = iter([
             'root',
-            'root_password',
+            'rootPassword',
             'mongo_kobo_user',
-            'mongo_password',
+            'mongoPassword',
         ])
         config._Config__questions_mongo()
         assert os.path.exists('/tmp/upsert_db_users')
@@ -464,9 +579,9 @@ def test_secure_mongo_advanced_options():
     with patch('helpers.cli.CLI.colored_input') as mock_ci:
         mock_ci.side_effect = iter([
             'root',
-            'root_passw0rd',
+            'rootPassw0rd',
             'kobo_user',
-            'mongo_password',
+            'mongoPassword',
             CHOICE_YES,
         ])
         config._Config__questions_mongo()
@@ -485,9 +600,9 @@ def test_update_mongo_passwords():
         config._Config__dict['mongo_user_username'] = 'user'
         mock_ci.side_effect = iter([
             'root',
-            'root_password',
+            'rootPassword',
             'user',
-            'mongo_password'
+            'mongoPassword'
         ])
         config._Config__questions_mongo()
         assert os.path.exists('/tmp/upsert_db_users')
@@ -505,9 +620,9 @@ def test_update_mongo_usernames():
         config._Config__dict['mongo_user_username'] = 'user'
         mock_ci.side_effect = iter([
             'admin',
-            'root_password',
+            'rootPassword',
             'another_user',
-            'mongo_password',
+            'mongoPassword',
             CHOICE_YES  # Delete users
         ])
         config._Config__questions_mongo()
@@ -538,7 +653,7 @@ def test_update_postgres_password():
             'kobocat',
             'koboform',
             'user',
-            'user_password',
+            'userPassw0rd',
             CHOICE_NO,  # Tweak settings
         ])
         config._Config__questions_postgres()
@@ -652,3 +767,213 @@ def test_use_boolean():
     for property_ in boolean_properties:
         assert dict_[property_] == expected_dict[property_]
 
+
+def test_backup_schedules_from_single_instance():
+    config = read_config()
+    # Force advanced options and single instance
+    config._Config__dict['advanced'] = True
+    config._Config__dict['multi'] = False
+    # Force `False` to validate it becomes `True` at the end
+    config._Config__dict['backup_from_primary'] = False
+
+    assert config._Config__dict['kobocat_media_backup_schedule'] == '0 0 * * 0'
+    assert config._Config__dict['mongo_backup_schedule'] == '0 1 * * 0'
+    assert config._Config__dict['postgres_backup_schedule'] == '0 2 * * 0'
+    assert config._Config__dict['redis_backup_schedule'] == '0 3 * * 0'
+
+    with patch('helpers.cli.CLI.colored_input') as mock_ci:
+        mock_ci.side_effect = iter([
+            CHOICE_YES,  # Activate backup
+            '1 1 1 1 1',  # KoBoCAT media
+            '2 2 2 2 2',  # PostgreSQL
+            '3 3 3 3 3',  # Mongo
+            '4 4 4 4 4',  # Redis
+        ])
+        config._Config__questions_backup()
+        assert config._Config__dict['kobocat_media_backup_schedule'] == '1 1 1 1 1'
+        assert config._Config__dict['postgres_backup_schedule'] == '2 2 2 2 2'
+        assert config._Config__dict['mongo_backup_schedule'] == '3 3 3 3 3'
+        assert config._Config__dict['redis_backup_schedule'] == '4 4 4 4 4'
+        assert config._Config__dict['backup_from_primary'] is True
+
+
+def test_backup_schedules_from_frontend_instance():
+    config = read_config()
+    # Force advanced options
+    config._Config__dict['advanced'] = True
+
+    assert config._Config__dict['kobocat_media_backup_schedule'] == '0 0 * * 0'
+
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        mock_colored_input.side_effect = iter(
+            [CHOICE_YES, 'frontend']
+        )
+        config._Config__questions_multi_servers()
+        config._Config__questions_roles()
+
+    assert config.frontend
+
+    with patch('helpers.cli.CLI.colored_input') as mock_ci:
+        mock_ci.side_effect = iter([
+            CHOICE_YES,  # Activate backup
+            '1 1 1 1 1',  # KoBoCAT media
+        ])
+        config._Config__questions_backup()
+    assert config._Config__dict['kobocat_media_backup_schedule'] == '1 1 1 1 1'
+
+
+def test_backup_schedules_from_primary_backend_with_redis_and_no_postgres():
+    config = read_config()
+    # Force advanced options
+    config._Config__dict['advanced'] = True
+
+    assert config._Config__dict['mongo_backup_schedule'] == '0 1 * * 0'
+    assert config._Config__dict['postgres_backup_schedule'] == '0 2 * * 0'
+    assert config._Config__dict['redis_backup_schedule'] == '0 3 * * 0'
+    assert config._Config__dict['run_redis_containers'] is True
+    assert config._Config__dict['backup_from_primary'] is True
+
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        mock_colored_input.side_effect = iter(
+            [CHOICE_YES, 'backend', 'primary'])
+        config._Config__questions_multi_servers()
+        config._Config__questions_roles()
+    assert config.backend and config.primary_backend
+
+    with patch('helpers.cli.CLI.colored_input') as mock_ci:
+        mock_ci.side_effect = iter([
+            CHOICE_YES,  # Activate backup
+            CHOICE_NO,  # Choose AWS
+            CHOICE_NO,  # Run postgres backup from current server
+            '3 3 3 3 3',  # Mongo
+            '4 4 4 4 4',  # Redis
+        ])
+        config._Config__questions_backup()
+
+    assert config._Config__dict['postgres_backup_schedule'] == ''
+    assert config._Config__dict['mongo_backup_schedule'] == '3 3 3 3 3'
+    assert config._Config__dict['redis_backup_schedule'] == '4 4 4 4 4'
+    assert config._Config__dict['backup_from_primary'] is False
+
+
+def test_backup_schedules_from_primary_backend_with_no_redis_and_no_postgres():
+    config = read_config()
+    # Force advanced options
+    config._Config__dict['advanced'] = True
+    config._Config__dict['run_redis_containers'] = False
+
+    assert config._Config__dict['mongo_backup_schedule'] == '0 1 * * 0'
+    assert config._Config__dict['postgres_backup_schedule'] == '0 2 * * 0'
+    assert config._Config__dict['redis_backup_schedule'] == '0 3 * * 0'
+    assert config._Config__dict['backup_from_primary'] is True
+
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        mock_colored_input.side_effect = iter(
+            [CHOICE_YES, 'backend', 'primary'])
+        config._Config__questions_multi_servers()
+        config._Config__questions_roles()
+    assert config.backend and config.primary_backend
+
+    with patch('helpers.cli.CLI.colored_input') as mock_ci:
+        mock_ci.side_effect = iter([
+            CHOICE_YES,  # Activate backup
+            CHOICE_NO,  # Choose AWS
+            CHOICE_NO,  # Run postgres backup from current server
+            '3 3 3 3 3',  # Mongo
+        ])
+        config._Config__questions_backup()
+
+    assert config._Config__dict['postgres_backup_schedule'] == ''
+    assert config._Config__dict['mongo_backup_schedule'] == '3 3 3 3 3'
+    assert config._Config__dict['redis_backup_schedule'] == ''
+    assert config._Config__dict['backup_from_primary'] is False
+
+
+def test_backup_schedules_from_secondary_backend_with_redis_and_postgres():
+    config = read_config()
+    # Force advanced options
+    config._Config__dict['advanced'] = True
+    config._Config__dict['run_redis_containers'] = True
+
+    assert config._Config__dict['postgres_backup_schedule'] == '0 2 * * 0'
+    assert config._Config__dict['redis_backup_schedule'] == '0 3 * * 0'
+    assert config._Config__dict['backup_from_primary'] is True
+
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        mock_colored_input.side_effect = iter(
+            [CHOICE_YES, 'backend', 'secondary'])
+        config._Config__questions_multi_servers()
+        config._Config__questions_roles()
+    assert config.backend and config.secondary_backend
+
+    with patch('helpers.cli.CLI.colored_input') as mock_ci:
+        mock_ci.side_effect = iter([
+            CHOICE_YES,  # Activate backup
+            CHOICE_NO,  # Choose AWS
+            CHOICE_YES,  # Run postgres backup from current server
+            '2 2 2 2 2',  # PostgreSQL
+            '4 4 4 4 4',  # Redis
+        ])
+        config._Config__questions_backup()
+
+    assert config._Config__dict['postgres_backup_schedule'] == '2 2 2 2 2'
+    assert config._Config__dict['redis_backup_schedule'] == '4 4 4 4 4'
+    assert config._Config__dict['backup_from_primary'] is False
+
+
+def test_backup_schedules_from_secondary_backend_with_redis_and_no_postgres():
+    config = read_config()
+    # Force advanced options
+    config._Config__dict['advanced'] = True
+    config._Config__dict['run_redis_containers'] = True
+
+    assert config._Config__dict['postgres_backup_schedule'] == '0 2 * * 0'
+    assert config._Config__dict['redis_backup_schedule'] == '0 3 * * 0'
+
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        mock_colored_input.side_effect = iter(
+            [CHOICE_YES, 'backend', 'secondary'])
+        config._Config__questions_multi_servers()
+        config._Config__questions_roles()
+    assert config.backend and config.secondary_backend
+
+    with patch('helpers.cli.CLI.colored_input') as mock_ci:
+        mock_ci.side_effect = iter([
+            CHOICE_YES,  # Activate backup
+            CHOICE_NO,  # Choose AWS
+            CHOICE_NO,  # Run postgres backup from current server
+            '4 4 4 4 4',  # Redis
+        ])
+        config._Config__questions_backup()
+
+    assert config._Config__dict['postgres_backup_schedule'] == ''
+    assert config._Config__dict['redis_backup_schedule'] == '4 4 4 4 4'
+    assert config._Config__dict['backup_from_primary'] is True
+    assert config._Config__dict['run_redis_containers'] is True
+
+def test_activate_only_postgres_backup():
+    config = read_config()
+    # Force advanced options and single instance
+    config._Config__dict['advanced'] = True
+    config._Config__dict['multi'] = False
+    # Force `False` to validate it becomes `True` at the end
+    config._Config__dict['backup_from_primary'] = False
+
+    assert config._Config__dict['kobocat_media_backup_schedule'] == '0 0 * * 0'
+    assert config._Config__dict['mongo_backup_schedule'] == '0 1 * * 0'
+    assert config._Config__dict['postgres_backup_schedule'] == '0 2 * * 0'
+    assert config._Config__dict['redis_backup_schedule'] == '0 3 * * 0'
+
+    with patch('builtins.input') as mock_input:
+        mock_input.side_effect = iter([
+            CHOICE_YES,  # Activate backup
+            '-',  # Deactivate KoBoCAT media
+            '2 2 2 2 2',  # Modify PostgreSQL
+            '-',  # Deactivate Mongo
+            '-',  # Deactivate Redis
+        ])
+        config._Config__questions_backup()
+        assert config._Config__dict['kobocat_media_backup_schedule'] == ''
+        assert config._Config__dict['postgres_backup_schedule'] == '2 2 2 2 2'
+        assert config._Config__dict['mongo_backup_schedule'] == ''
+        assert config._Config__dict['redis_backup_schedule'] == ''

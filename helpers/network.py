@@ -78,7 +78,7 @@ class Network:
             # Convert names to a bytes array - keep in mind we've mutated the
             # names array, so now our bytes out should represent the bytes
             # results of the get iface list ioctl command.
-            namestr = names.tostring()
+            namestr = names.tobytes()
 
             namestr[:max_bytes_out]
 
@@ -91,7 +91,7 @@ class Network:
 
             for i in range(0, max_bytes_out, 40):
                 name = namestr[i: i + 16].split(FILL_CHAR, 1)[0]
-                name = name.decode('utf-8')
+                name = name.decode()
                 ip_bytes = namestr[i + 20:i + 24]
                 full_addr = []
                 for netaddr in ip_bytes:
@@ -113,10 +113,18 @@ class Network:
             for interface in netifaces.interfaces():
                 if not interface.startswith(excluded_interfaces) or all_:
                     ifaddresses = netifaces.ifaddresses(interface)
-                    if ifaddresses.get(netifaces.AF_INET) and \
-                            ifaddresses.get(netifaces.AF_INET)[0].get('addr'):
-                        interfaces = ifaddresses.get(netifaces.AF_INET)
-                        ip_dict[interface] = interfaces[0].get('addr')
+                    if (
+                        ifaddresses.get(netifaces.AF_INET)
+                        and ifaddresses.get(netifaces.AF_INET)[0].get('addr')
+                    ):
+                        addresses = ifaddresses.get(netifaces.AF_INET)
+                        ip_dict[interface] = addresses[0].get('addr')
+                        for i in range(1, len(addresses)):
+                            virtual_interface = '{interface}:{idx}'.format(
+                                interface=interface,
+                                idx=i
+                            )
+                            ip_dict[virtual_interface] = addresses[i]['addr']
 
         return ip_dict
 

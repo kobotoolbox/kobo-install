@@ -54,9 +54,9 @@ class Setup:
         # When `cron` is True, we want to bypass question and just recreate
         # YML and environment files from new templates
         if cron is True:
-            current_dict = config.get_template()
-            current_dict.update(config.get_dict())
+            current_dict = config.get_upgraded_dict()
             config.set_config(current_dict)
+            config.write_config()
             Template.render(config, force=True)
             sys.exit(0)
 
@@ -69,12 +69,11 @@ class Setup:
         if response is True:
             current_dict = config.build()
             Template.render(config)
-            config.init_letsencrypt()
             Setup.update_hosts(current_dict)
             question = 'Do you want to (re)start containers?'
             response = CLI.yes_no_question(question)
             if response is True:
-                Command.start()
+                Command.start(force_setup=True)
 
     @staticmethod
     def update_kobodocker(dict_=None):
@@ -120,14 +119,16 @@ class Setup:
             dict_ (dict): Dictionary provided by `Config.get_dict()`
         """
         if dict_['local_installation']:
-            start_sentence = '### (BEGIN) KoBoToolbox local routes'
-            end_sentence = '### (END) KoBoToolbox local routes'
+            start_sentence = '### (BEGIN) KoboToolbox local routes'
+            end_sentence = '### (END) KoboToolbox local routes'
+
+            _, tmp_file_path = tempfile.mkstemp()
 
             with open('/etc/hosts', 'r') as f:
                 tmp_host = f.read()
 
-            start_position = tmp_host.find(start_sentence)
-            end_position = tmp_host.find(end_sentence)
+            start_position = tmp_host.lower().find(start_sentence.lower())
+            end_position = tmp_host.lower().find(end_sentence.lower())
 
             if start_position > -1:
                 tmp_host = tmp_host[0: start_position] \
@@ -149,31 +150,36 @@ class Setup:
                 f'\n{end_sentence}'
             )
 
-            with open('/tmp/etchosts', 'w') as f:
+            with open(tmp_file_path, 'w') as f:
                 f.write(tmp_host)
 
-            if dict_['review_host'] is True:
-                message = (
-                    'Privileges escalation is required to update '
-                    'your `/etc/hosts`.'
-                )
-                CLI.framed_print(message, color=CLI.COLOR_INFO)
-                dict_['review_host'] = CLI.yes_no_question(
-                    'Do you want to review your /etc/hosts file '
-                    'before overwriting it?',
-                    default=dict_['review_host']
-                )
-                if dict_['review_host'] is True:
-                    print(tmp_host)
-                    CLI.colored_input('Press any keys when ready')
+            message = (
+                'Privileges escalation is required to update '
+                'your `/etc/hosts`.'
+            )
+            CLI.framed_print(message, color=CLI.COLOR_INFO)
+            dict_['review_host'] = CLI.yes_no_question(
+                'Do you want to review your /etc/hosts file '
+                'before overwriting it?',
+                default=dict_['review_host']
+            )
+            if dict_['review_host']:
+                print(tmp_host)
+                CLI.colored_input('Press any keys when ready')
 
-                # Save 'review_host'
-                config = Config()
-                config.write_config()
+            # Save 'review_host'
+            config = Config()
+            config.write_config()
 
-            cmd = 'sudo mv /etc/hosts /etc/hosts.old ' \
-                  '&& sudo mv /tmp/etchosts /etc/hosts'
+            cmd = (
+                'sudo cp /etc/hosts /etc/hosts.old '
+                '&& sudo cp {tmp_file_path} /etc/hosts'
+            ).format(tmp_file_path=tmp_file_path)
+
             return_value = os.system(cmd)
+
+            os.unlink(tmp_file_path)
+
             if return_value != 0:
                 sys.exit(1)
 

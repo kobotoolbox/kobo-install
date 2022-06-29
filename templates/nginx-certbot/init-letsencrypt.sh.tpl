@@ -40,7 +40,7 @@ echo
 
 
 echo "### Starting nginx ..."
-$$DOCKER_COMPOSE_CMD up --force-recreate -d nginx
+$$DOCKER_COMPOSE_CMD up --force-recreate -d nginx_ssl_proxy
 echo
 
 echo "### Deleting dummy certificate for $${DOMAINS_CSV} ..."
@@ -78,4 +78,4 @@ $$DOCKER_COMPOSE_CMD run --rm --entrypoint "\
 echo
 
 echo "### Reloading nginx ..."
-$$DOCKER_COMPOSE_CMD exec nginx nginx -s reload
+$$DOCKER_COMPOSE_CMD exec nginx_ssl_proxy nginx -s reload

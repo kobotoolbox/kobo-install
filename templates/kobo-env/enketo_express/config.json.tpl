@@ -1,13 +1,21 @@
 {
-    "app name": "Enketo Express for KoBo Toolbox",
+    "app name": "Enketo Express for KoboToolbox",
     "linked form and data server": {
-        "name": "KoBo Toolbox",
+        "name": "KoboToolbox",
         "server url": "",
         "api key": "${ENKETO_API_KEY}"
     },
+    "ip filtering": {
+        "allowPrivateIPAddress": ${ENKETO_ALLOW_PRIVATE_IP_ADDRESS},
+        "allowMetaIPAddress": false,
+        "allowIPAddressList": [],
+        "denyAddressList": []
+    },
     "encryption key": "${ENKETO_ENCRYPTION_KEY}",
     "less secure encryption key": "${ENKETO_LESS_SECURE_ENCRYPTION_KEY}",
-    "support": "${DEFAULT_FROM_EMAIL}",
+    "support": {
+        "email": "${DEFAULT_FROM_EMAIL}"
+    },
     "widgets": [
         "note",
         "select-desktop",

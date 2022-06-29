@@ -18,6 +18,7 @@ from helpers.config import Config
 from helpers.setup import Setup
 from helpers.template import Template
 from helpers.updater import Updater
+from helpers.upgrading import Upgrading
 
 
 def run(force_setup=False):
@@ -34,14 +35,14 @@ def run(force_setup=False):
             dict_ = config.build()
             Setup.clone_kobodocker(config)
             Template.render(config)
-            config.init_letsencrypt()
             Setup.update_hosts(dict_)
         else:
             if config.auto_detect_network():
                 Template.render(config)
                 Setup.update_hosts(dict_)
 
-        Command.start()
+        config.validate_passwords()
+        Command.start(force_setup=force_setup)
 
 
 if __name__ == '__main__':
