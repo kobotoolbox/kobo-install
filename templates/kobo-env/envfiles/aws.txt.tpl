@@ -17,6 +17,8 @@ ${USE_AWS}KOBOCAT_AWS_STORAGE_BUCKET_NAME=${AWS_BUCKET_NAME}
 ${USE_AWS}KPI_DEFAULT_FILE_STORAGE=storages.backends.s3boto3.S3Boto3Storage
 ${USE_AWS}KPI_AWS_STORAGE_BUCKET_NAME=${AWS_BUCKET_NAME}
 
+${USE_AWS}AWS_S3_REGION_NAME=${AWS_S3_REGION_NAME}
+
 ###################
 # Backup settings #
 ###################
