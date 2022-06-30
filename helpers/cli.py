@@ -134,8 +134,7 @@ class CLI:
             )
 
         if message:
-            message = message.strip()
-            message = f'{message}: ' if not default else message
+            message = f'{message.strip()}: ' if not default else message
 
         return f'{message}{default}'
 

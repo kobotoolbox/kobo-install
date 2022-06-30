@@ -626,7 +626,7 @@ class Config(metaclass=Singleton):
                 )
         if errors:
             CLI.colored_print(
-                'You should run `python run.py --setup` to update.',
+                'You should run `python3 run.py --setup` to update.',
                 CLI.COLOR_WARNING
             )
 
@@ -1196,7 +1196,7 @@ class Config(metaclass=Singleton):
                     self.__dict['kc_path'] != kc_path
                 ):
                     prefix = self.get_prefix('frontend')
-                    timestamp = str(int(time.time()))
+                    timestamp = int(time.time())
                     self.__dict['kc_dev_build_id'] = f'{prefix}{timestamp}'
 
                 if (
@@ -1204,7 +1204,7 @@ class Config(metaclass=Singleton):
                     self.__dict['kpi_path'] != kpi_path
                 ):
                     prefix = self.get_prefix('frontend')
-                    timestamp = str(int(time.time()))
+                    timestamp = int(time.time())
                     self.__dict['kpi_dev_build_id'] = f'{prefix}{timestamp}'
 
                 if self.dev_mode:

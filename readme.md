@@ -56,16 +56,16 @@ Build kpi and kobocat (dev mode):
 `$kobo-install> python3 run.py --build`
 
 Run docker commands on front-end containers:  
-`$kobo-install> python run.py --compose-frontend [docker-compose arguments]`
+`$kobo-install> python3 run.py --compose-frontend [docker-compose arguments]`
 
 Run docker commands on back-end containers:  
-`$kobo-install> python run.py --compose-backend [docker-compose arguments]`
+`$kobo-install> python3 run.py --compose-backend [docker-compose arguments]`
 
 Start maintenance mode:  
-`$kobo-install> python run.py --maintenance`
+`$kobo-install> python3 run.py --maintenance`
 
 Stop maintenance mode:  
-`$kobo-install> python run.py --stop-maintenance`
+`$kobo-install> python3 run.py --stop-maintenance`
 
 ## Build the configuration
 User can choose between 2 types of installations:

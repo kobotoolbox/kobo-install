@@ -16,7 +16,7 @@ class Command:
     @staticmethod
     def help():
         output = [
-            'Usage: python run.py [options]',
+            'Usage: python3 run.py [options]',
             '',
             '    Options:',
             '          -i, --info',
@@ -44,6 +44,8 @@ class Command:
             '          -m, --maintenance',
             '                Activate maintenance mode. All traffic is '
             'redirected to maintenance page',
+            '          -sm, --stop-maintenance',
+            '                Stop maintenance mode',
             '          -v, --version',
             '                Display current version',
             ''
@@ -79,7 +81,7 @@ class Command:
 
             if image is None or image == 'kf':
                 prefix = config.get_prefix('frontend')
-                timestamp = str(int(time.time()))
+                timestamp = int(time.time())
                 dict_['kpi_dev_build_id'] = f'{prefix}{timestamp}'
                 config.write_config()
                 Template.render(config)
@@ -93,7 +95,7 @@ class Command:
                 CLI.run_command(pull_base_command, dict_['kobodocker_path'])
 
                 prefix = config.get_prefix('frontend')
-                timestamp = str(int(time.time()))
+                timestamp = int(time.time())
                 dict_['kc_dev_build_id'] = f'{prefix}{timestamp}'
                 config.write_config()
                 Template.render(config)
