@@ -124,8 +124,8 @@ class Template:
                 os.makedirs(destination_directory)
             except OSError:
                 CLI.colored_print(
-                    'Can not create {}. '
-                    'Please verify permissions!'.format(destination_directory),
+                    f'Can not create {destination_directory}. '
+                    'Please verify permissions!',
                     CLI.COLOR_ERROR)
                 sys.exit(1)
 

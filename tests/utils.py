@@ -63,7 +63,7 @@ class MockCommand:
     @classmethod
     def run_command(cls, command, cwd=None, polling=False):
         if 'docker-compose' != command[0]:
-            message = 'Command: `{}` is not implemented!'.format(command[0])
+            message = f'Command: `{command[0]}` is not implemented!'
             raise Exception(message)
 
         mock_docker = MockDocker()

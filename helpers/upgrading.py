@@ -26,10 +26,7 @@ class Upgrading:
             https://github.com/kobotoolbox/kobo-docker/issues/264.
             """
             set_env = 'DATABASE_URL="${KPI_DATABASE_URL}"'
-            return [
-                'bash', '-c',
-                '{} {}'.format(set_env, command)
-            ]
+            return ['bash', '-c', f'{set_env} {command}']
 
         kpi_run_command = ['docker-compose',
                            '-f', 'docker-compose.frontend.yml',
@@ -102,9 +99,9 @@ class Upgrading:
             backend_command = [
                 'docker-compose',
                 '-f',
-                'docker-compose.backend.{}.yml'.format(backend_role),
+                f'docker-compose.backend.{backend_role}.yml',
                 '-f',
-                'docker-compose.backend.{}.override.yml'.format(backend_role),
+                f'docker-compose.backend.{backend_role}.override.yml',
                 '-p', config.get_prefix('backend'),
                 'exec', 'postgres', 'bash',
                 '/kobo-docker-scripts/primary/clone_data_from_kc_to_kpi.sh',
