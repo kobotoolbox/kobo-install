@@ -162,6 +162,7 @@ class Template:
             'AWS_ACCESS_KEY_ID': dict_['aws_access_key'],
             'AWS_SECRET_ACCESS_KEY': dict_['aws_secret_key'],
             'AWS_BUCKET_NAME': dict_['aws_bucket_name'],
+            'AWS_S3_REGION_NAME': dict_['aws_s3_region_name'],
             'GOOGLE_UA': dict_['google_ua'],
             'GOOGLE_API_KEY': dict_['google_api_key'],
             'INTERNAL_DOMAIN_NAME': dict_['internal_domain_name'],
