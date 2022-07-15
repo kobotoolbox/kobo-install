@@ -134,26 +134,20 @@ class Setup:
                 tmp_host = tmp_host[0: start_position] \
                            + tmp_host[end_position + len(end_sentence) + 1:]
 
-            routes = '{ip_address}  ' \
-                     '{kpi_subdomain}.{public_domain_name} ' \
-                     '{kc_subdomain}.{public_domain_name} ' \
-                     '{ee_subdomain}.{public_domain_name}'.format(
-                        ip_address=dict_['local_interface_ip'],
-                        public_domain_name=dict_['public_domain_name'],
-                        kpi_subdomain=dict_['kpi_subdomain'],
-                        kc_subdomain=dict_['kc_subdomain'],
-                        ee_subdomain=dict_['ee_subdomain']
-                     )
+            public_domain_name = dict_['public_domain_name']
+            routes = (
+                f"{dict_['local_interface_ip']}  "
+                f"{dict_['kpi_subdomain']}.{public_domain_name} "
+                f"{dict_['kc_subdomain']}.{public_domain_name} "
+                f"{dict_['ee_subdomain']}.{public_domain_name}"
+            )
 
-            tmp_host = ('{bof}'
-                        '\n{start_sentence}'
-                        '\n{routes}'
-                        '\n{end_sentence}'
-                        ).format(
-                bof=tmp_host.strip(),
-                start_sentence=start_sentence,
-                routes=routes,
-                end_sentence=end_sentence
+            bof = tmp_host.strip()
+            tmp_host = (
+                f'{bof}'
+                f'\n{start_sentence}'
+                f'\n{routes}'
+                f'\n{end_sentence}'
             )
 
             with open(tmp_file_path, 'w') as f:
