@@ -14,3 +14,6 @@ ${USE_MEDIA_BACKUP}KOBOCAT_MEDIA_BACKUP_SCHEDULE=${KOBOCAT_MEDIA_BACKUP_SCHEDULE
 # Dev: One or more mappings from PyDev remote debugging machine file paths to `kobocat` container
 #   file paths (see https://github.com/kobotoolbox/kobocat/blob/master/docker/setup_pydev.bash).
 #KOBOCAT_PATH_FROM_ECLIPSE_TO_PYTHON_PAIRS=~/devel/kobocat -> /srv/src/kobocat | ~/.virtualenvs/kobocat/lib/python2.7/site-packages -> /usr/local/lib/python2.7/dist-packages
+
+# Comma separated domains
+${USE_SERVICE_ACCOUNT_WHITELISTED_HOSTS}SERVICE_ACCOUNT_WHITELISTED_HOSTS=${KOBOCAT_SUBDOMAIN}.${INTERNAL_DOMAIN_NAME}
