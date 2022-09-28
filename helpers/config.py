@@ -421,7 +421,7 @@ class Config(metaclass=Singleton):
             'review_host': True,
             'run_redis_containers': True,
             'server_role': 'frontend',
-            'service_account_whitelisted_hosts': False,
+            'service_account_whitelisted_hosts': True,
             'smtp_host': '',
             'smtp_password': '',
             'smtp_port': '25',
@@ -2077,11 +2077,14 @@ class Config(metaclass=Singleton):
                 error_msg='Too short. 10 characters minimum.')
 
     def __questions_service_account(self):
-        self.__dict['service_account_whitelisted_hosts'] = CLI.yes_no_question(
-            'Do you want to restrict API calls between KPI and KoBoCAT '
-            'to their internal domain names?',
-            default=self.__dict['service_account_whitelisted_hosts']
-        )
+        if not self.local_install:
+            self.__dict['service_account_whitelisted_hosts'] = CLI.yes_no_question(
+                'Do you want to restrict API calls between KPI and KoBoCAT '
+                'to their internal domain names?',
+                default=self.__dict['service_account_whitelisted_hosts']
+            )
+        else:
+            self.__dict['service_account_whitelisted_hosts'] = False
 
     def __questions_smtp(self):
         self.__dict['smtp_host'] = CLI.colored_input('SMTP server?',
