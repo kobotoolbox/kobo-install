@@ -311,6 +311,9 @@ class Template:
                 comparison_value='',
             ),
             'USE_LETSENSCRYPT': '#' if config.use_letsencrypt else '',
+            'USE_SERVICE_ACCOUNT_WHITELISTED_HOSTS': _get_value(
+                'service_account_whitelisted_hosts'
+            ),
         }
 
     @staticmethod

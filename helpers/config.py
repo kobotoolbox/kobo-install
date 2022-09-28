@@ -140,6 +140,7 @@ class Config(metaclass=Singleton):
                     self.__questions_google()
                     self.__questions_raven()
                     self.__questions_uwsgi()
+                    self.__questions_service_account()
 
                 self.__questions_custom_yml()
 
@@ -420,6 +421,7 @@ class Config(metaclass=Singleton):
             'review_host': True,
             'run_redis_containers': True,
             'server_role': 'frontend',
+            'service_account_whitelisted_hosts': False,
             'smtp_host': '',
             'smtp_password': '',
             'smtp_port': '25',
@@ -2073,6 +2075,13 @@ class Config(metaclass=Singleton):
                 self.__dict['enketo_less_secure_encryption_key'],
                 to_lower=False,
                 error_msg='Too short. 10 characters minimum.')
+
+    def __questions_service_account(self):
+        self.__dict['service_account_whitelisted_hosts'] = CLI.yes_no_question(
+            'Do you want to restrict API calls between KPI and KoBoCAT '
+            'to their internal domain names?',
+            default=self.__dict['service_account_whitelisted_hosts']
+        )
 
     def __questions_smtp(self):
         self.__dict['smtp_host'] = CLI.colored_input('SMTP server?',
