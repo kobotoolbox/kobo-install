@@ -16,6 +16,7 @@ from helpers.cli import CLI
 from helpers.network import Network
 from helpers.singleton import Singleton
 from helpers.upgrading import Upgrading
+from helpers.utils import run_docker_compose
 
 
 # Use this class as a singleton to get the same configuration
@@ -226,6 +227,8 @@ class Config(metaclass=Singleton):
         # Upgrade to use booleans in `self.__dict`
         upgraded_dict = Upgrading.use_booleans(upgraded_dict)
 
+        upgraded_dict = Upgrading.set_compose_version(upgraded_dict)
+
         return upgraded_dict
 
     @property
@@ -274,13 +277,15 @@ class Config(metaclass=Singleton):
         return self.__dict
 
     def get_service_names(self):
-        service_list_command = ['docker-compose',
-                                '-f', 'docker-compose.frontend.yml',
-                                '-f', 'docker-compose.frontend.override.yml',
-                                'config', '--services']
+        service_list_command = run_docker_compose(self.__dict, [
+            '-f', 'docker-compose.frontend.yml',
+            '-f', 'docker-compose.frontend.override.yml',
+            'config', '--services',
+        ])
 
-        services = CLI.run_command(service_list_command,
-                                   self.__dict['kobodocker_path'])
+        services = CLI.run_command(
+            service_list_command, self.__dict['kobodocker_path']
+        )
         return services.strip().split('\n')
 
     @classmethod
