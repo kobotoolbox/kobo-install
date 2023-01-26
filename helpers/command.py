@@ -420,7 +420,7 @@ class Command:
 
             # Stop reverse proxy if user uses it.
             if config.use_letsencrypt:
-                proxy_command = run_docker_compose(dict_, ['down'])
+                proxy_command = run_docker_compose(dict_, ['stop'])
                 CLI.run_command(
                     proxy_command, config.get_letsencrypt_repo_path()
                 )
@@ -434,6 +434,13 @@ class Command:
             ])
             cls.__validate_custom_yml(config, frontend_command)
             CLI.run_command(frontend_command, dict_['kobodocker_path'])
+
+            # Clean up interconnected networks
+            if config.use_letsencrypt:
+                proxy_command = run_docker_compose(dict_, ['down'])
+                CLI.run_command(
+                    proxy_command, config.get_letsencrypt_repo_path()
+                )
 
         if not frontend_only and config.backend:
             backend_role = dict_['backend_server_role']

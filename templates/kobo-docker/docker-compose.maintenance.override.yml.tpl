@@ -14,6 +14,7 @@ services:
     networks:
       kobo-fe-network:
         aliases:
+          - nginx
           - nginx.internal
 
 networks:
