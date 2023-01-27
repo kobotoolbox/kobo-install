@@ -402,61 +402,91 @@ class Command:
     @classmethod
     def stop(cls, output=True, frontend_only=False):
         """
-        Stop containers
+        Stop containers.
+        Because containers share the same network, containers must be stopped
+        first, then "down-ed" to remove any attached internal networks.
+        The order must respected to avoid removing networks with active endpoints.
         """
         config = Config()
-        dict_ = config.get_dict()
 
         if not config.multi_servers or config.frontend:
-            # Shut down maintenance container in case it's up&running
-            maintenance_down_command = run_docker_compose(dict_, [
-                '-f', 'docker-compose.maintenance.yml',
-                '-f', 'docker-compose.maintenance.override.yml',
-                '-p', config.get_prefix('maintenance'),
-                'down'
-            ])
-
-            CLI.run_command(maintenance_down_command, dict_['kobodocker_path'])
+            # Stop maintenance container in case it's up&running
+            cls.stop_containers('maintenance')
 
             # Stop reverse proxy if user uses it.
             if config.use_letsencrypt:
-                proxy_command = run_docker_compose(dict_, ['stop'])
-                CLI.run_command(
-                    proxy_command, config.get_letsencrypt_repo_path()
-                )
+                cls.stop_containers('certbot')
 
-            # Shut down front-end containers
-            frontend_command = run_docker_compose(dict_, [
-                '-f', 'docker-compose.frontend.yml',
-                '-f', 'docker-compose.frontend.override.yml',
-                '-p', config.get_prefix('frontend'),
-                'down',
-            ])
-            cls.__validate_custom_yml(config, frontend_command)
-            CLI.run_command(frontend_command, dict_['kobodocker_path'])
+            # Stop down front-end containers
+            cls.stop_containers('frontend')
 
-            # Clean up interconnected networks
+            # Clean maintenance services
+            cls.stop_containers('maintenance', down=True)
+
+            # Clean certbot services if user uses it.
             if config.use_letsencrypt:
-                proxy_command = run_docker_compose(dict_, ['down'])
-                CLI.run_command(
-                    proxy_command, config.get_letsencrypt_repo_path()
-                )
+                cls.stop_containers('certbot', down=True)
 
         if not frontend_only and config.backend:
-            backend_role = dict_['backend_server_role']
+            cls.stop_containers('backend', down=True)
 
-            backend_command = run_docker_compose(dict_, [
-                '-f', f'docker-compose.backend.{backend_role}.yml',
-                '-f', f'docker-compose.backend.{backend_role}.override.yml',
-                '-p', config.get_prefix('backend'),
-                'down'
-            ])
-
-            cls.__validate_custom_yml(config, backend_command)
-            CLI.run_command(backend_command, dict_['kobodocker_path'])
+        # Clean front-end services
+        if not config.multi_servers or config.frontend:
+            cls.stop_containers('frontend', down=True)
 
         if output:
             CLI.colored_print('KoboToolbox has been stopped', CLI.COLOR_SUCCESS)
+
+    @classmethod
+    def stop_containers(cls, group: str, down: bool = False):
+
+        config = Config()
+        dict_ = config.get_dict()
+        backend_role = dict_['backend_server_role']
+
+        if group not in ['frontend', 'backend', 'certbot', 'maintenance']:
+            raise Exception('Unknown group')
+
+        group_docker_maps = {
+            'frontend': {
+                'options': [
+                    '-f', 'docker-compose.frontend.yml',
+                    '-f', 'docker-compose.frontend.override.yml',
+                    '-p', config.get_prefix('frontend'),
+                ],
+                'custom_yml': True,
+            },
+            'backend': {
+                'options': [
+                    '-f', f'docker-compose.backend.{backend_role}.yml',
+                    '-f', f'docker-compose.backend.{backend_role}.override.yml',
+                    '-p', config.get_prefix('backend'),
+                ],
+                'custom_yml': True,
+            },
+            'certbot': {
+                'options': [],
+                'custom_yml': False,
+                'path': config.get_letsencrypt_repo_path(),
+            },
+            'maintenance': {
+                'options': [
+                    '-f', 'docker-compose.maintenance.yml',
+                    '-f', 'docker-compose.maintenance.override.yml',
+                    '-p', config.get_prefix('maintenance'),
+                ],
+                'custom_yml': False,
+            }
+        }
+
+        path = group_docker_maps[group].get('path', dict_['kobodocker_path'])
+        mode = 'stop' if not down else 'down'
+        options = group_docker_maps[group]['options']
+        command = run_docker_compose(dict_,  options + [mode])
+        if group_docker_maps[group]['custom_yml']:
+            cls.__validate_custom_yml(config, command)
+
+        CLI.run_command(command, path)
 
     @classmethod
     def stop_maintenance(cls):
@@ -467,15 +497,8 @@ class Command:
         dict_ = config.get_dict()
 
         if not config.multi_servers or config.frontend:
-            # Shut down maintenance container in case it's up&running
-            maintenance_down_command = run_docker_compose(dict_, [
-                '-f', 'docker-compose.maintenance.yml',
-                '-f', 'docker-compose.maintenance.override.yml',
-                '-p', config.get_prefix('maintenance'),
-                'down'
-            ])
-
-            CLI.run_command(maintenance_down_command, dict_['kobodocker_path'])
+            # Stop maintenance container in case it's up&running
+            cls.stop_containers('maintenance')
 
             # Create and start NGINX container
             frontend_command = run_docker_compose(dict_, [
