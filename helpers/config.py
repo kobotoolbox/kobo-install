@@ -141,6 +141,7 @@ class Config(metaclass=Singleton):
                     self.__questions_raven()
                     self.__questions_uwsgi()
                     self.__questions_service_account()
+                    self.__questions_session_cookies()
 
                 self.__questions_custom_yml()
 
@@ -316,6 +317,7 @@ class Config(metaclass=Singleton):
             'default_from_email': 'support@kobo.local',
             'dev_mode': False,
             'django_secret_key': binascii.hexlify(os.urandom(50)).decode(),
+            'django_session_cookie_age': 604800,
             'docker_prefix': '',
             'ee_subdomain': 'ee',
             'enketo_api_token': binascii.hexlify(os.urandom(60)).decode(),
@@ -2084,6 +2086,25 @@ class Config(metaclass=Singleton):
             )
         else:
             self.__dict['service_account_whitelisted_hosts'] = False
+
+    def __questions_session_cookies(self):
+        # convert seconds to hours
+        session_length_in_hours = (
+            int(self.__dict['django_session_cookie_age'] / 60 / 60)
+        )
+        # Ask user's input and validate it
+        CLI.colored_print(
+            'Length of users\' session (in hours)?',
+            CLI.COLOR_QUESTION,
+        )
+        session_length_in_hours = CLI.get_response(
+            r'~^\d+$',
+            str(session_length_in_hours),
+        )
+        # convert it back to seconds
+        self.__dict['django_session_cookie_age'] = (
+            int(session_length_in_hours) * 60 * 60
+        )
 
     def __questions_smtp(self):
         self.__dict['smtp_host'] = CLI.colored_input('SMTP server?',

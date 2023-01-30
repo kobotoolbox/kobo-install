@@ -135,6 +135,21 @@ def test_server_roles_questions():
         assert config.secondary_backend
 
 
+def test_session_cookies():
+    config = read_config()
+
+    assert config._Config__dict['django_session_cookie_age'] == 604800
+
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input_1:
+        mock_colored_input_1.side_effect = iter([
+            'None',  # Wrong, should ask again
+            '',  # Wrong, should ask again
+            '1'  # Correct, will continue
+        ])
+        config._Config__questions_session_cookies()
+        assert config._Config__dict['django_session_cookie_age'] == 3600
+
+
 def test_use_https():
     config = read_config()
 
@@ -973,6 +988,7 @@ def test_backup_schedules_from_secondary_backend_with_redis_and_no_postgres():
     assert config._Config__dict['redis_backup_schedule'] == '4 4 4 4 4'
     assert config._Config__dict['backup_from_primary'] is True
     assert config._Config__dict['run_redis_containers'] is True
+
 
 def test_activate_only_postgres_backup():
     config = read_config()
