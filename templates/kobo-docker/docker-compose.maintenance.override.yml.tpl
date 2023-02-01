@@ -14,9 +14,9 @@ services:
     networks:
       kobo-fe-network:
         aliases:
+          - nginx
           - nginx.internal
 
 networks:
   kobo-fe-network:
-    external:
-      name: ${DOCKER_NETWORK_FRONTEND_PREFIX}_kobo-fe-network
+    name: ${DOCKER_NETWORK_FRONTEND_PREFIX}_kobo-fe-network

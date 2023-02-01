@@ -105,5 +105,4 @@ services:
 
 ${USE_BACKEND_NETWORK}networks:
 ${USE_BACKEND_NETWORK}  kobo-be-network:
-${USE_BACKEND_NETWORK}    external:
-${USE_BACKEND_NETWORK}      name: ${DOCKER_NETWORK_BACKEND_PREFIX}_kobo-be-network
+${USE_BACKEND_NETWORK}    name: ${DOCKER_NETWORK_BACKEND_PREFIX}_kobo-be-network
