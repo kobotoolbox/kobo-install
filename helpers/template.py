@@ -175,6 +175,7 @@ class Template:
             'KOBO_SUPERUSER_PASSWORD': dict_['super_user_password'],
             'ENKETO_API_KEY': dict_['enketo_api_token'],
             'DJANGO_SECRET_KEY': dict_['django_secret_key'],
+            'DJANGO_SESSION_COOKIE_AGE': dict_['django_session_cookie_age'],
             'ENKETO_ENCRYPTION_KEY': dict_['enketo_encryption_key'],
             'ENKETO_LESS_SECURE_ENCRYPTION_KEY': dict_[
                 'enketo_less_secure_encryption_key'],
