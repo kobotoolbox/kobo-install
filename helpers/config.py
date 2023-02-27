@@ -32,7 +32,7 @@ class Config(metaclass=Singleton):
     DEFAULT_NGINX_PORT = '80'
     DEFAULT_NGINX_HTTPS_PORT = '443'
     KOBO_DOCKER_BRANCH = 'beta'
-    KOBO_INSTALL_VERSION = '8.0.0'
+    KOBO_INSTALL_VERSION = '8.0.1'
     MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
     ALLOWED_PASSWORD_CHARACTERS = (
         string.ascii_letters
@@ -1681,7 +1681,7 @@ class Config(metaclass=Singleton):
                 response = Network.curl(endpoint)
                 if response:
                     # Patch response because of https://github.com/pgconfig/api/issues/13
-                    configuration = re.sub(r'(\d+)KB', "\1kB", configuration)
+                    configuration = re.sub(r'(\d+)KB', r'\1kB', response)
                     self.__dict['postgres_settings_content'] = configuration
                 else:
                     CLI.colored_print('\nAn error has occurred. Current '
