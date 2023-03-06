@@ -137,7 +137,10 @@ class Network:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
             # doesn't even have to be reachable
-            s.connect(('10.255.255.255', 1))
+            # …but it can't be a broadcast address, or you'll get
+            # `Permission denied`. See recent comments on the same SO answer:
+            # https://stackoverflow.com/questions/166506/finding-local-ip-addresses-using-pythons-stdlib/28950776#comment128390746_28950776
+            s.connect(('10.255.255.254', 1))
             ip_address = s.getsockname()[0]
         except:
             ip_address = None
