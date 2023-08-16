@@ -46,6 +46,8 @@
         "text-print",
         "rating",
         "thousands-sep",
+        "integer",
+        "decimal",
         "../../../node_modules/enketo-image-customization-widget/image-customization",
         "../../../node_modules/enketo-literacy-test-widget/literacywidget"
     ],
