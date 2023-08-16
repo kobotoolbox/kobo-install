@@ -317,6 +317,13 @@ class Template:
                 if config.local_install
                 else _get_value('service_account_whitelisted_hosts')
             ),
+            'DOCKER_COMPOSE_CMD': _get_value(
+                'compose_version', 'docker-compose', 'docker', 'v1'
+            ),
+            # Keep leading space in front of suffix if any
+            'DOCKER_COMPOSE_SUFFIX': _get_value(
+                'compose_version', '', ' compose', 'v1'
+            )
         }
 
     @staticmethod

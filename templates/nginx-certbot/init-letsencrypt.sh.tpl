@@ -9,7 +9,7 @@ DATA_PATH="./data/certbot"
 EMAIL="" # Adding a valid address is strongly recommended
 STAGING=0 # Set to 1 if you're testing your setup to avoid hitting request limits
 MKDIR_CMD=$$(which mkdir)
-DOCKER_COMPOSE_CMD=$$(which docker-compose)
+DOCKER_COMPOSE_CMD="$$(which ${DOCKER_COMPOSE_CMD})"
 CURL_CMD=$$(which curl)
 
 
@@ -31,7 +31,7 @@ fi
 echo "### Creating dummy certificate for $${DOMAINS_CSV} ..."
 DOMAINS_PATH="/etc/letsencrypt/live/$$DOMAINS"
 $$MKDIR_CMD -p "$$DATA_PATH/conf/live/$$DOMAINS"
-$$DOCKER_COMPOSE_CMD run --rm --entrypoint "\
+$$DOCKER_COMPOSE_CMD ${DOCKER_COMPOSE_SUFFIX} run --rm --entrypoint "\
   openssl req -x509 -nodes -newkey rsa:1024 -days 1\
     -keyout '$$DOMAINS_PATH/privkey.pem' \
     -out '$$DOMAINS_PATH/fullchain.pem' \
@@ -40,11 +40,11 @@ echo
 
 
 echo "### Starting nginx ..."
-$$DOCKER_COMPOSE_CMD up --force-recreate -d nginx_ssl_proxy
+$$DOCKER_COMPOSE_CMD ${DOCKER_COMPOSE_SUFFIX} up --force-recreate -d nginx_ssl_proxy
 echo
 
 echo "### Deleting dummy certificate for $${DOMAINS_CSV} ..."
-$$DOCKER_COMPOSE_CMD run --rm --entrypoint "\
+$$DOCKER_COMPOSE_CMD ${DOCKER_COMPOSE_SUFFIX} run --rm --entrypoint "\
   rm -Rf /etc/letsencrypt/live/$$DOMAINS && \
   rm -Rf /etc/letsencrypt/archive/$$DOMAINS && \
   rm -Rf /etc/letsencrypt/renewal/$$DOMAINS.conf" certbot
@@ -67,7 +67,7 @@ esac
 # Enable staging mode if needed
 if [ $$STAGING != "0" ]; then STAGING_ARG="--staging"; fi
 
-$$DOCKER_COMPOSE_CMD run --rm --entrypoint "\
+$$DOCKER_COMPOSE_CMD ${DOCKER_COMPOSE_SUFFIX} run --rm --entrypoint "\
   certbot certonly --webroot -w /var/www/certbot \
     $$STAGING_ARG \
     $$EMAIL_ARG \
@@ -78,4 +78,4 @@ $$DOCKER_COMPOSE_CMD run --rm --entrypoint "\
 echo
 
 echo "### Reloading nginx ..."
-$$DOCKER_COMPOSE_CMD exec nginx_ssl_proxy nginx -s reload
+$$DOCKER_COMPOSE_CMD ${DOCKER_COMPOSE_SUFFIX} exec nginx_ssl_proxy nginx -s reload
