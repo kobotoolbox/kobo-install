@@ -167,7 +167,7 @@ User can choose between 2 types of installations:
 
 <sup>6)</sup> _Docker on macOS is slow. First boot usually takes a while to be ready. You may have to answer `Yes` once or twice to question `Wait for another 600 seconds?` when prompted_
 
-<sup>7)</sup> _Compose V1 is still supported but reached its EOL_
+<sup>7)</sup> _Compose V1 is still supported but has reached its EOL from July 2023_
 
 <sup>8)</sup> _These are defaults but can be customized with advanced options_
 
