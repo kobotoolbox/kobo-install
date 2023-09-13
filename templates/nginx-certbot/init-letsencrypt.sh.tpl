@@ -13,7 +13,7 @@ DOCKER_COMPOSE_CMD="$$(which ${DOCKER_COMPOSE_CMD})"
 CURL_CMD=$$(which curl)
 
 
-if [ -d "$$DATA_PATH" ]; then
+if [ -d "$$DATA_PATH/conf/live/$$DOMAINS" ]; then
   read -p "Existing data found for $$DOMAINS_CSV. Continue and replace existing certificate? (y/N) " decision
   if [ "$$decision" != "Y" ] && [ "$$decision" != "y" ]; then
     exit
