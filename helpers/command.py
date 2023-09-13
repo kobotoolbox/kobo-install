@@ -374,10 +374,11 @@ class Command:
                     # Let's Encrypt NGINX container needs kobo-docker NGINX
                     # container to be started first
                     config.init_letsencrypt()
-                else:
-                    proxy_command = run_docker_compose(dict_, ['up', '-d'])
-                    CLI.run_command(proxy_command,
-                                    config.get_letsencrypt_repo_path())
+
+                proxy_command = run_docker_compose(dict_, ['up', '-d'])
+                CLI.run_command(
+                    proxy_command, config.get_letsencrypt_repo_path()
+                )
 
         if dict_['maintenance_enabled']:
             CLI.colored_print(
