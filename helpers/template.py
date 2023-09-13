@@ -322,7 +322,7 @@ class Template:
             ),
             # Keep leading space in front of suffix if any
             'DOCKER_COMPOSE_SUFFIX': _get_value(
-                'compose_version', '', ' compose', 'v1'
+                'compose_version', '', 'compose', 'v1'
             )
         }
 
