@@ -45,6 +45,7 @@ services:
       ${USE_PRIVATE_DNS}- redis-cache.${PRIVATE_DOMAIN_NAME}:${MASTER_BACKEND_IP}
 
   nginx:
+    image: 837577998611.dkr.ecr.us-west-2.amazonaws.com/kobotoolbox/nginx:latest
     environment:
       - NGINX_PUBLIC_PORT=${NGINX_PUBLIC_PORT}
     ports:
