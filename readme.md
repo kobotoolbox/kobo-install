@@ -172,6 +172,20 @@ User can choose between 2 types of installations:
 <sup>8)</sup> _These are defaults but can be customized with advanced options_
 
 
+## Rebuild static files (for frontend development)
+
+To immediately see your changes (in the `kpi` repository) live you need to run `npm run watch` to rebuild static files on the fly:
+
+```
+$kodo-docker> docker-compose -f docker-compose.frontend.yml -f docker-compose.frontend.override.yml run -p 3000:3000 --rm kpi npm run watch
+```
+
+Keep in mind that you need to continue running `npm run watch` to have static files be served continuously. Once stopped, static files won't be found anymore until you restart the `npm watch` or rebuild the container using 
+
+```
+$kobo-install> python run.py --build-kpi
+```
+
 ## Tests
 
 Tests can be run with `tox`.  
