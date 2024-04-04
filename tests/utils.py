@@ -72,11 +72,12 @@ class MockCommand:
 
 class MockDocker(metaclass=Singleton):
 
-    PRIMARY_BACKEND_CONTAINERS = ['primary_postgres',
-                                  'mongo',
-                                  'redis_main',
-                                  'redis_cache']
-    SECONDARY_BACKEND_CONTAINERS = ['secondary_postgres']
+    BACKEND_CONTAINERS = [
+        'primary_postgres',
+        'mongo',
+        'redis_main',
+        'redis_cache',
+    ]
     FRONTEND_CONTAINERS = ['nginx', 'kobocat', 'kpi', 'enketo_express']
     MAINTENANCE_CONTAINERS = ['maintenance', 'kobocat', 'kpi', 'enketo_express']
     LETSENCRYPT = ['letsencrypt_nginx', 'certbot']

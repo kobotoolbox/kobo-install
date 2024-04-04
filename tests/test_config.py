@@ -57,21 +57,15 @@ def test_installation():
        MagicMock(return_value=True))
 def test_staging_mode():
     config = read_config()
-    kc_repo_path = tempfile.mkdtemp()
     kpi_repo_path = tempfile.mkdtemp()
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
-        mock_colored_input.side_effect = iter([CHOICE_YES,
-                                               kc_repo_path,
-                                               kpi_repo_path])
+        mock_colored_input.side_effect = iter([CHOICE_YES, kpi_repo_path])
         config._Config__questions_dev_mode()
         dict_ = config.get_dict()
         assert not config.dev_mode
         assert config.staging_mode
-        assert dict_['kpi_path'] == kpi_repo_path and \
-               dict_['kc_path'] == kc_repo_path
-
-    shutil.rmtree(kc_repo_path)
+        assert dict_['kpi_path'] == kpi_repo_path
     shutil.rmtree(kpi_repo_path)
 
 
@@ -98,8 +92,7 @@ def test_dev_mode():
         assert config.dev_mode
         assert not config.staging_mode
         assert config.get_dict().get('exposed_nginx_docker_port') == '8080'
-        assert dict_['kpi_path'] == kpi_repo_path and \
-               dict_['kc_path'] == kc_repo_path
+        assert dict_['kpi_path'] == kpi_repo_path
         assert dict_['npm_container'] is False
         assert dict_['use_celery'] is False
 
@@ -111,7 +104,7 @@ def test_dev_mode():
         config._Config__questions_dev_mode()
         dict_ = config.get_dict()
         assert not config.dev_mode
-        assert dict_['kpi_path'] == '' and dict_['kc_path'] == ''
+        assert dict_['kpi_path'] == ''
 
 
 def test_server_roles_questions():
@@ -737,7 +730,7 @@ def test_update_postgres_username():
 def test_update_postgres_db_name_from_single_database():
     """
     Simulate upgrade from single database to two databases.
-    With two databases, KoBoCat has its own database. We ensure that
+    With two databases, KoboCat has its own database. We ensure that
     `kc_postgres_db` gets `postgres_db` value.
     """
     config = read_config()
@@ -749,16 +742,6 @@ def test_update_postgres_db_name_from_single_database():
     assert 'kc_postgres_db' not in dict_
     dict_ = config.get_upgraded_dict()
     assert dict_['kc_postgres_db'] == old_db_name
-
-
-def test_new_terminology():
-    """
-    Ensure config uses `primary` instead of `master`
-    """
-    config = read_config()
-    config._Config__dict['backend_server_role'] = 'master'
-    dict_ = config.get_upgraded_dict()
-    assert dict_['backend_server_role'] == 'primary'
 
 
 def test_use_boolean():

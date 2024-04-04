@@ -119,10 +119,9 @@ class Command:
     def compose_backend(cls, args):
         config = Config()
         dict_ = config.get_dict()
-        backend_role = dict_['backend_server_role']
         command = run_docker_compose(dict_, [
-            '-f', f'docker-compose.backend.{backend_role}.yml',
-            '-f', f'docker-compose.backend.{backend_role}.override.yml',
+            '-f', f'docker-compose.backend.yml',
+            '-f', f'docker-compose.backend.override.yml',
             '-p', config.get_prefix('backend')
         ])
         cls.__validate_custom_yml(config, command)
@@ -221,11 +220,10 @@ class Command:
         config = Config()
         dict_ = config.get_dict()
 
-        if config.primary_backend or config.secondary_backend:
-            backend_role = dict_['backend_server_role']
+        if config.backend:
             backend_command = run_docker_compose(dict_, [
-                '-f', f'docker-compose.backend.{backend_role}.yml',
-                '-f', f'docker-compose.backend.{backend_role}.override.yml',
+                '-f', f'docker-compose.backend.yml',
+                '-f', f'docker-compose.backend.override.yml',
                 '-p', config.get_prefix('backend'),
                 'logs', '-f'
             ])
@@ -310,13 +308,10 @@ class Command:
         else:
             nginx_port = int(dict_['exposed_nginx_docker_port'])
 
-        if frontend_only or config.frontend or \
-                not config.multi_servers:
+        if frontend_only or config.frontend or not config.multi_servers:
             ports.append(nginx_port)
 
-        if (not frontend_only or config.primary_backend or
-                config.secondary_backend) and \
-                config.expose_backend_ports:
+        if not frontend_only and config.expose_backend_ports and config.backend:
             ports.append(dict_['postgresql_port'])
             ports.append(dict_['mongo_port'])
             ports.append(dict_['redis_main_port'])
@@ -332,11 +327,9 @@ class Command:
         # Start the back-end containers
         if not frontend_only and config.backend:
 
-            backend_role = dict_['backend_server_role']
-
             backend_command = run_docker_compose(dict_, [
-                '-f', f'docker-compose.backend.{backend_role}.yml',
-                '-f', f'docker-compose.backend.{backend_role}.override.yml',
+                '-f', f'docker-compose.backend.yml',
+                '-f', f'docker-compose.backend.override.yml',
                 '-p', config.get_prefix('backend'),
                 'up', '-d'
             ])
@@ -392,9 +385,8 @@ class Command:
                                   'It can take a few minutes.', CLI.COLOR_INFO)
                 cls.info()
             else:
-                backend_server_role = dict_['backend_server_role']
                 CLI.colored_print(
-                    (f'{backend_server_role} backend server is starting up '
+                    (f'Back-end server is starting up '
                      'and should be up & running soon!\nPlease look at docker '
                      'logs for further information: '
                      '`python3 run.py -cb logs -f`'),
@@ -443,7 +435,6 @@ class Command:
 
         config = Config()
         dict_ = config.get_dict()
-        backend_role = dict_['backend_server_role']
 
         if group not in ['frontend', 'backend', 'certbot', 'maintenance']:
             raise Exception('Unknown group')
@@ -459,8 +450,8 @@ class Command:
             },
             'backend': {
                 'options': [
-                    '-f', f'docker-compose.backend.{backend_role}.yml',
-                    '-f', f'docker-compose.backend.{backend_role}.override.yml',
+                    '-f', f'docker-compose.backend.yml',
+                    '-f', f'docker-compose.backend.override.yml',
                     '-p', config.get_prefix('backend'),
                 ],
                 'custom_yml': True,
@@ -570,10 +561,8 @@ class Command:
             command.insert(start_index + 1, 'docker-compose.frontend.custom.yml')
 
         if not frontend_command and dict_['use_backend_custom_yml']:
-            backend_server_role = dict_['backend_server_role']
-            custom_file = '{}/docker-compose.backend.{}.custom.yml'.format(
+            custom_file = '{}/docker-compose.backend.custom.yml'.format(
                 dict_['kobodocker_path'],
-                backend_server_role
             )
 
             does_custom_file_exist = os.path.exists(custom_file)
@@ -590,5 +579,5 @@ class Command:
             command.insert(start_index, '-f')
             command.insert(
                 start_index + 1,
-                'docker-compose.backend.{}.custom.yml'.format(backend_server_role),
+                'docker-compose.backend.custom.yml',
             )

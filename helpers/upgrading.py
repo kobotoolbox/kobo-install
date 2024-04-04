@@ -22,7 +22,6 @@ class Upgrading:
             config (helpers.config.Config)
         """
         dict_ = config.get_dict()
-        backend_role = dict_['backend_server_role']
 
         def _kpi_db_alias_kludge(command):
             """
@@ -106,7 +105,7 @@ class Upgrading:
                 '-f', f'docker-compose.backend.{backend_role}.override.yml',
                 '-p', config.get_prefix('backend'),
                 'exec', 'postgres', 'bash',
-                '/kobo-docker-scripts/primary/clone_data_from_kc_to_kpi.sh',
+                '/kobo-docker-scripts/scripts/clone_data_from_kc_to_kpi.sh',
                 '--noinput'
             ])
             try:
@@ -126,26 +125,6 @@ class Upgrading:
             CLI.colored_print('An error has occurred', CLI.COLOR_ERROR)
             sys.stderr.write(kpi_kc_db_empty)
             sys.exit(1)
-
-    @staticmethod
-    def new_terminology(upgraded_dict: dict) -> dict:
-        """
-        Updates configuration to use new `kobo-docker` terminology.
-        See: https://github.com/kobotoolbox/kobo-docker/pull/294
-
-        Args:
-            upgraded_dict (dict): Configuration values to be upgraded
-
-        Returns:
-            dict
-        """
-
-        backend_role = upgraded_dict['backend_server_role']
-        if backend_role in ['master', 'slave']:
-            upgraded_dict['backend_server_role'] = 'primary' \
-                if backend_role == 'master' else 'secondary'
-
-        return upgraded_dict
 
     @staticmethod
     def set_compose_version(upgraded_dict: dict) -> dict:

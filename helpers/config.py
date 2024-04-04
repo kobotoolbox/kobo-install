@@ -81,7 +81,7 @@ class Config(metaclass=Singleton):
 
     @property
     def backend(self):
-        return not self.multi_servers or not self.frontend
+        return self.__dict['server_role'] == 'backend' or not self.multi_servers
 
     def build(self):
         """
@@ -113,7 +113,7 @@ class Config(metaclass=Singleton):
                     self.__questions_multi_servers()
                     if self.multi_servers:
                         self.__questions_roles()
-                        if self.frontend or self.secondary_backend:
+                        if self.frontend:
                             self.__questions_private_routes()
                     else:
                         self.__reset(fake_dns=True)
@@ -222,9 +222,6 @@ class Config(metaclass=Singleton):
         # Upgrade to use two databases
         upgraded_dict = Upgrading.two_databases(upgraded_dict, self.__dict)
 
-        # Upgrade to use new terminology primary/secondary
-        upgraded_dict = Upgrading.new_terminology(upgraded_dict)
-
         # Upgrade to use booleans in `self.__dict`
         upgraded_dict = Upgrading.use_booleans(upgraded_dict)
 
@@ -313,8 +310,6 @@ class Config(metaclass=Singleton):
             'aws_s3_region_name': 'us-east-1',
             'aws_secret_key': '',
             'aws_validate_credentials': True,
-            'backend_server_role': 'primary',
-            'backup_from_primary': True,
             'block_common_http_ports': True,
             'custom_secret_keys': False,
             'customized_ports': False,
@@ -337,7 +332,6 @@ class Config(metaclass=Singleton):
             'https': True,
             'internal_domain_name': 'docker.internal',
             'kc_dev_build_id': '',
-            'kc_path': '',
             'kc_postgres_db': 'kobocat',
             'kc_subdomain': 'kc',
             'kobocat_media_backup_schedule': '0 0 * * 0',
@@ -425,7 +419,6 @@ class Config(metaclass=Singleton):
             'redis_main_port': '6379',
             'redis_password': Config.generate_password(),
             'review_host': True,
-            'run_redis_containers': True,
             'server_role': 'frontend',
             'service_account_whitelisted_hosts': True,
             'smtp_host': '',
@@ -444,7 +437,6 @@ class Config(metaclass=Singleton):
             'use_frontend_custom_yml': False,
             'use_letsencrypt': True,
             'use_private_dns': False,
-            'use_wal_e': False,
             'uwsgi_harakiri': '120',
             'uwsgi_max_requests': '1024',
             'uwsgi_settings': False,
@@ -479,20 +471,6 @@ class Config(metaclass=Singleton):
 
     def maintenance(self):
         self.__questions_maintenance()
-
-    @property
-    def primary_backend(self):
-        """
-        Checks whether setup is running on a primary back-end server
-
-        Returns:
-            bool
-        """
-        return (
-            self.multi_servers
-            and self.__dict['server_role'] == 'backend'
-            and self.__dict['backend_server_role'] == 'primary'
-        )
 
     @property
     def multi_servers(self):
@@ -569,20 +547,6 @@ class Config(metaclass=Singleton):
 
         return unique_id
 
-    @property
-    def secondary_backend(self):
-        """
-        Checks whether setup is running on a secondary back-end server
-
-        Returns:
-            bool
-        """
-        return (
-            self.multi_servers
-            and self.__dict['server_role'] == 'backend'
-            and self.__dict['backend_server_role'] == 'secondary'
-        )
-
     def set_config(self, value):
         self.__dict = value
 
@@ -652,22 +616,6 @@ class Config(metaclass=Singleton):
         if errors:
             CLI.colored_print(
                 'You should run `python3 run.py --setup` to update.',
-                CLI.COLOR_WARNING
-            )
-
-        # PostgreSQL replication password must be handled separately because
-        # it is set in PostgreSQL on the first launch and nothing is done
-        # afterwards in subsequent starts to update it if it has changed.
-        if not re.match(
-            psql_replication['pattern'], psql_replication['password']
-        ):
-            CLI.colored_print(
-                'PostgreSQL replication password contains unsupported characters.',
-                CLI.COLOR_ERROR
-            )
-            CLI.colored_print(
-                'It must be changed manually in `kobo-install/.run.conf` '
-                '(and PostgreSQL itself if you use replication).',
                 CLI.COLOR_WARNING
             )
 
@@ -954,8 +902,6 @@ class Config(metaclass=Singleton):
 
         if self.__dict['aws_backup_bucket_name'] != '':
 
-            backup_from_primary = self.__dict['backup_from_primary']
-
             CLI.colored_print('How many yearly backups to keep?',
                               CLI.COLOR_QUESTION)
             self.__dict['aws_backup_yearly_retention'] = CLI.get_response(
@@ -976,9 +922,7 @@ class Config(metaclass=Singleton):
             self.__dict['aws_backup_daily_retention'] = CLI.get_response(
                 r'~^\d+$', self.__dict['aws_backup_daily_retention'])
 
-            if (not self.multi_servers or
-                    (self.primary_backend and backup_from_primary) or
-                    (self.secondary_backend and not backup_from_primary)):
+            if self.backend or not self.multi_servers:
                 CLI.colored_print('PostgresSQL backup minimum size (in MB)?',
                                   CLI.COLOR_QUESTION)
                 CLI.colored_print(
@@ -990,7 +934,6 @@ class Config(metaclass=Singleton):
                     r'~^\d+$',
                     self.__dict['aws_postgres_backup_minimum_size'])
 
-            if self.primary_backend or not self.multi_servers:
                 CLI.colored_print('MongoDB backup minimum size (in MB)?',
                                   CLI.COLOR_QUESTION)
                 CLI.colored_print(
@@ -1040,31 +983,12 @@ class Config(metaclass=Singleton):
                     if self.backend and not self.frontend:
                         self.__questions_aws()
 
-                    # Prompting user whether they want to use WAL-E for
-                    # continuous archiving - only if they are using aws
-                    # for backups
-                    if self.aws:
-                        if self.primary_backend or not self.multi_servers:
-                            self.__dict['use_wal_e'] = CLI.yes_no_question(
-                                'Do you want to use WAL-E for continuous '
-                                'archiving of PostgreSQL backups?',
-                                default=self.__dict['use_wal_e']
-                            )
-                            if self.__dict['use_wal_e']:
-                                self.__dict['backup_from_primary'] = True
-                        else:
-                            # WAL-E cannot run on secondary
-                            self.__dict['use_wal_e'] = False
-                    else:
-                        # WAL-E is only supported with AWS
-                        self.__dict['use_wal_e'] = False
-
                     schedule_regex_pattern = (
                         r'^\-|((((\d+(,\d+)*)|(\d+-\d+)|(\*(\/\d+)?)))'
                         r'(\s+(((\d+(,\d+)*)|(\d+\-\d+)|(\*(\/\d+)?)))){4})?$'
                     )
                     message = (
-                        'Schedules use linux cron syntax with UTC datetimes.\n'
+                        'Schedules use linux cron syntax with UTC date times.\n'
                         'For example, schedule at 12:00 AM E.S.T every Sunday '
                         'would be:\n'
                         '0 5 * * 0\n'
@@ -1079,7 +1003,7 @@ class Config(metaclass=Singleton):
                         color=CLI.COLOR_WARNING
                     )
                     if self.frontend and not self.aws:
-                        CLI.colored_print('KoBoCat media backup schedule?',
+                        CLI.colored_print('KoboCat media backup schedule?',
                                           CLI.COLOR_QUESTION)
                         self.__dict[
                             'kobocat_media_backup_schedule'] = CLI.get_response(
@@ -1087,60 +1011,34 @@ class Config(metaclass=Singleton):
                             self.__dict['kobocat_media_backup_schedule'])
 
                     if self.backend:
-                        if self.__dict['use_wal_e'] or not self.multi_servers:
-                            # We are on primary back-end server
-                            self.__dict['backup_from_primary'] = True
-                            backup_postgres = True
-                        else:
-                            if self.primary_backend:
-                                default_response = self.__dict['backup_from_primary']
-                            else:
-                                default_response = not self.__dict[
-                                    'backup_from_primary']
-
-                            backup_postgres = CLI.yes_no_question(
-                                'Run PostgreSQL backup from this server?',
-                                default=default_response
+                        CLI.colored_print(
+                            'PostgreSQL backup schedule?', CLI.COLOR_QUESTION
+                        )
+                        self.__dict['postgres_backup_schedule'] = (
+                            CLI.get_response(
+                                f'~{schedule_regex_pattern}',
+                                self.__dict['postgres_backup_schedule'],
                             )
+                        )
 
-                            if self.primary_backend:
-                                self.__dict['backup_from_primary'] = backup_postgres
-                            else:
-                                self.__dict['backup_from_primary'] = not backup_postgres
+                        CLI.colored_print(
+                            'MongoDB backup schedule?', CLI.COLOR_QUESTION
+                        )
+                        self.__dict['mongo_backup_schedule'] = CLI.get_response(
+                            f'~{schedule_regex_pattern}',
+                            self.__dict['mongo_backup_schedule'],
+                        )
 
-                        if backup_postgres:
-                            CLI.colored_print('PostgreSQL backup schedule?',
-                                              CLI.COLOR_QUESTION)
-                            self.__dict[
-                                'postgres_backup_schedule'] = CLI.get_response(
-                                f'~{schedule_regex_pattern}',
-                                self.__dict['postgres_backup_schedule'])
-                        else:
-                            self.__dict['postgres_backup_schedule'] = ''
-
-                        if self.primary_backend or not self.multi_servers:
-                            CLI.colored_print('MongoDB backup schedule?',
-                                              CLI.COLOR_QUESTION)
-                            self.__dict[
-                                'mongo_backup_schedule'] = CLI.get_response(
-                                f'~{schedule_regex_pattern}',
-                                self.__dict['mongo_backup_schedule'])
-
-                        if self.__dict['run_redis_containers']:
-                            CLI.colored_print('Redis backup schedule?',
-                                              CLI.COLOR_QUESTION)
-                            self.__dict[
-                                'redis_backup_schedule'] = CLI.get_response(
-                                f'~{schedule_regex_pattern}',
-                                self.__dict['redis_backup_schedule'])
-                        else:
-                            self.__dict['redis_backup_schedule'] = ''
+                        CLI.colored_print(
+                            'Redis backup schedule?', CLI.COLOR_QUESTION
+                        )
+                        self.__dict['redis_backup_schedule'] = CLI.get_response(
+                            f'~{schedule_regex_pattern}',
+                            self.__dict['redis_backup_schedule'],
+                        )
 
                         if self.aws:
                             self.__questions_aws_backup_settings()
-                    else:
-                        # Back to default value
-                        self.__dict['backup_from_primary'] = True
             else:
                 self.__reset(no_backups=True)
         else:
@@ -1206,27 +1104,11 @@ class Config(metaclass=Singleton):
                 )
                 CLI.framed_print(message, color=CLI.COLOR_INFO)
 
-                kc_path = self.__dict['kc_path']
-                self.__dict['kc_path'] = CLI.colored_input(
-                    'KoBoCat files location?', CLI.COLOR_QUESTION,
-                    self.__dict['kc_path'])
-                self.__clone_repo(self.__dict['kc_path'], 'kobocat')
-
                 kpi_path = self.__dict['kpi_path']
                 self.__dict['kpi_path'] = CLI.colored_input(
                     'KPI files location?', CLI.COLOR_QUESTION,
                     self.__dict['kpi_path'])
                 self.__clone_repo(self.__dict['kpi_path'], 'kpi')
-
-                # Create an unique id to build fresh image
-                # when starting containers
-                if (
-                    not self.__dict['kc_dev_build_id'] or
-                    self.__dict['kc_path'] != kc_path
-                ):
-                    prefix = self.get_prefix('frontend')
-                    timestamp = int(time.time())
-                    self.__dict['kc_dev_build_id'] = f'{prefix}{timestamp}'
 
                 if (
                     not self.__dict['kpi_dev_build_id'] or
@@ -1372,7 +1254,7 @@ class Config(metaclass=Singleton):
         - primary back end
         - single server installation
         """
-        if self.primary_backend or not self.multi_servers:
+        if self.backend or not self.multi_servers:
             mongo_user_username = self.__dict['mongo_user_username']
             mongo_user_password = self.__dict['mongo_user_password']
             mongo_root_username = self.__dict['mongo_root_username']
@@ -1479,7 +1361,7 @@ class Config(metaclass=Singleton):
 
         Settings can be tweaked thanks to pgconfig.org API
         """
-        CLI.colored_print('KoBoCat PostgreSQL database name?',
+        CLI.colored_print('KoboCat PostgreSQL database name?',
                           CLI.COLOR_QUESTION)
         kc_postgres_db = CLI.get_response(
             r'~^\w+$',
@@ -1792,7 +1674,7 @@ class Config(metaclass=Singleton):
             self.__dict['kpi_subdomain']
         )
         self.__dict['kc_subdomain'] = CLI.colored_input(
-            'KoBoCat sub domain?',
+            'KoboCat sub domain?',
             CLI.COLOR_QUESTION,
             self.__dict['kc_subdomain']
         )
@@ -1817,18 +1699,14 @@ class Config(metaclass=Singleton):
         )
         if self.__dict['raven_settings'] is True:
             self.__dict['kpi_raven'] = CLI.colored_input(
-                'KPI Raven token',
+                'KPI Sentry token',
                 CLI.COLOR_QUESTION,
                 self.__dict['kpi_raven'])
-            self.__dict['kobocat_raven'] = CLI.colored_input(
-                'KoBoCat Raven token', CLI.COLOR_QUESTION,
-                self.__dict['kobocat_raven'])
             self.__dict['kpi_raven_js'] = CLI.colored_input(
-                'KPI Raven JS token', CLI.COLOR_QUESTION,
+                'KPI Sentry JS token', CLI.COLOR_QUESTION,
                 self.__dict['kpi_raven_js'])
         else:
             self.__dict['kpi_raven'] = ''
-            self.__dict['kobocat_raven'] = ''
             self.__dict['kpi_raven_js'] = ''
 
     def __questions_redis(self):
@@ -1837,48 +1715,39 @@ class Config(metaclass=Singleton):
         - primary back end
         - single server installation
         """
+        CLI.colored_print('Redis password?', CLI.COLOR_QUESTION)
+        self.__dict['redis_password'] = CLI.get_response(
+            self.__get_password_validation_pattern(allow_empty=True),
+            self.__dict['redis_password'],
+            to_lower=False,
+            error_msg=(
+                'Invalid password. '
+                'Rules: Alphanumeric characters only, 8 characters minimum'
+            )
+        )
+
+        if not self.__dict['redis_password']:
+            message = (
+                'WARNING!\n\n'
+                'It is STRONGLY recommended to set a password for Redis '
+                'as well.'
+            )
+            CLI.framed_print(message)
+            response = CLI.yes_no_question(
+                'Do you want to continue without password?',
+                default=False
+            )
+            if response is False:
+                self.__questions_redis()
+
         if self.backend:
-            self.__dict['run_redis_containers'] = CLI.yes_no_question(
-                'Do you want to run the Redis containers from this server?',
-                default=self.__dict['run_redis_containers']
-            )
-        else:
-            self.__dict['run_redis_containers'] = True
-
-        if self.__dict['run_redis_containers']:
-            CLI.colored_print('Redis password?', CLI.COLOR_QUESTION)
-            self.__dict['redis_password'] = CLI.get_response(
-                self.__get_password_validation_pattern(allow_empty=True),
-                self.__dict['redis_password'],
-                to_lower=False,
-                error_msg=(
-                    'Invalid password. '
-                    'Rules: Alphanumeric characters only, 8 characters minimum'
-                )
-            )
-
-            if not self.__dict['redis_password']:
-                message = (
-                    'WARNING!\n\n'
-                    'It is STRONGLY recommended to set a password for Redis '
-                    'as well.'
-                )
-                CLI.framed_print(message)
-                response = CLI.yes_no_question(
-                    'Do you want to continue without password?',
-                    default=False
-                )
-                if response is False:
-                    self.__questions_redis()
-
-            if self.backend:
-                CLI.colored_print('Max memory (MB) for Redis cache container?',
-                                  CLI.COLOR_QUESTION)
-                CLI.colored_print('Leave empty for no limits',
-                                  CLI.COLOR_INFO)
-                self.__dict['redis_cache_max_memory'] = CLI.get_response(
-                    r'~^(\d+|-)?$',
-                    self.__dict['redis_cache_max_memory'])
+            CLI.colored_print('Max memory (MB) for Redis cache container?',
+                              CLI.COLOR_QUESTION)
+            CLI.colored_print('Leave empty for no limits',
+                              CLI.COLOR_INFO)
+            self.__dict['redis_cache_max_memory'] = CLI.get_response(
+                r'~^(\d+|-)?$',
+                self.__dict['redis_cache_max_memory'])
 
     def __questions_reverse_proxy(self):
 
@@ -1990,21 +1859,8 @@ class Config(metaclass=Singleton):
         CLI.colored_print('\t1) frontend')
         CLI.colored_print('\t2) backend')
         self.__dict['server_role'] = CLI.get_response(
-            ['backend', 'frontend'],
-            self.__dict['server_role'])
-
-        if self.__dict['server_role'] == 'backend':
-            CLI.colored_print(
-                'Which role do you want to assign to this back-end server?',
-                CLI.COLOR_QUESTION)
-            CLI.colored_print('\t1) primary')
-            CLI.colored_print('\t2) secondary')
-            self.__dict['backend_server_role'] = CLI.get_response(
-                ['primary', 'secondary'],
-                self.__dict['backend_server_role'])
-        else:
-            # It may be useless to force back-end role when using multi servers.
-            self.__dict['backend_server_role'] = 'primary'
+            ['backend', 'frontend'], self.__dict['server_role']
+        )
 
     def __questions_secret_keys(self):
         self.__dict['custom_secret_keys'] = CLI.yes_no_question(
@@ -2213,7 +2069,6 @@ class Config(metaclass=Singleton):
         if production or all_:
             self.__dict['dev_mode'] = False
             self.__dict['staging_mode'] = False
-            self.__dict['kc_path'] = ''
             self.__dict['kpi_path'] = ''
             self.__dict['debug'] = False
             self.__dict['use_celery'] = True
@@ -2232,7 +2087,6 @@ class Config(metaclass=Singleton):
             self.__dict['use_letsencrypt'] = False
 
         if no_backups or all_:
-            self.__dict['backup_from_primary'] = True
             self.__dict['use_backup'] = False
             self.__dict['use_wal_e'] = False
 
@@ -2280,11 +2134,11 @@ class Config(metaclass=Singleton):
                         'You are installing over existing data.\n'
                         '\n'
                         'It is recommended to backup your data and import it '
-                        'to a fresh installed (by KoBoInstall) database.\n'
+                        'to a fresh installed (by kobo-install) database.\n'
                         '\n'
                         'kobo-install uses these images:\n'
-                        '    - MongoDB: mongo:3.4\n'
-                        '    - PostgreSQL: mdillon/postgis:9.5\n'
+                        '    - MongoDB: mongo:5.0\n'
+                        '    - PostgreSQL: postgis/postgis:14-3.2\n'
                         '\n'
                         'Be sure to upgrade to these versions before going '
                         'further!'
