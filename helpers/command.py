@@ -25,11 +25,7 @@ class Command:
             '          -l, --logs',
             '                Display docker logs',
             '          -b, --build',
-            '                Build kpi and kobocat (only on dev/staging mode)',
-            '          -bkf, --build-kpi',
-            '                Build kpi (only on dev/staging mode)',
-            '          -bkc, --build-kobocat',
-            '                Build kobocat (only on dev/staging mode)',
+            '                Build django (kpi) container (only on dev/staging mode)',
             '          -s, --setup',
             '                Prompt questions to (re)write configuration files',
             '          -S, --stop',
@@ -54,52 +50,27 @@ class Command:
         print('\n'.join(output))
 
     @classmethod
-    def build(cls, image=None):
+    def build(cls):
         """
-        Builds kpi/kobocat images with `--no-caches` option
-        Pulls latest `kobotoolbox/koboform_base` as well
-
-        :param image: str
+        Builds kpi image with `--no-caches` option
         """
         config = Config()
         dict_ = config.get_dict()
 
         if config.dev_mode or config.staging_mode:
 
-            def build_image(image_):
-                frontend_command = run_docker_compose(dict_, [
-                    '-f', 'docker-compose.frontend.yml',
-                    '-f', 'docker-compose.frontend.override.yml',
-                    '-p', config.get_prefix('frontend'),
-                    'build', '--force-rm', '--no-cache',
-                    image_
-                ])
-
-                CLI.run_command(frontend_command, dict_['kobodocker_path'])
-
-            if image is None or image == 'kf':
-                prefix = config.get_prefix('frontend')
-                timestamp = int(time.time())
-                dict_['kpi_dev_build_id'] = f'{prefix}{timestamp}'
-                config.write_config()
-                Template.render(config)
-                build_image('kpi')
-
-            if image is None or image == 'kc':
-                pull_base_command = [
-                    'docker',
-                    'pull',
-                    'kobotoolbox/koboform_base',
-                ]
-
-                CLI.run_command(pull_base_command, dict_['kobodocker_path'])
-
-                prefix = config.get_prefix('frontend')
-                timestamp = int(time.time())
-                dict_['kc_dev_build_id'] = f'{prefix}{timestamp}'
-                config.write_config()
-                Template.render(config)
-                build_image('kobocat')
+            prefix = config.get_prefix('frontend')
+            timestamp = int(time.time())
+            dict_['kpi_dev_build_id'] = f'{prefix}{timestamp}'
+            config.write_config()
+            Template.render(config)
+            frontend_command = run_docker_compose(dict_, [
+                '-f', 'docker-compose.frontend.yml',
+                '-f', 'docker-compose.frontend.override.yml',
+                '-p', config.get_prefix('frontend'),
+                'build', '--force-rm', '--no-cache', 'kpi'
+            ])
+            CLI.run_command(frontend_command, dict_['kobodocker_path'])
 
     @classmethod
     def compose_frontend(cls, args):
