@@ -23,7 +23,7 @@ def test_toggle_trivial():
     Command.start()
     mock_docker = MockDocker()
     expected_containers = MockDocker.FRONTEND_CONTAINERS + \
-        MockDocker.PRIMARY_BACKEND_CONTAINERS + \
+        MockDocker.BACKEND_CONTAINERS + \
         MockDocker.LETSENCRYPT
     assert sorted(mock_docker.ps()) == sorted(expected_containers)
 
@@ -45,8 +45,9 @@ def test_toggle_no_letsencrypt():
     config_object._Config__dict['use_letsencrypt'] = False
     Command.start()
     mock_docker = MockDocker()
-    expected_containers = MockDocker.FRONTEND_CONTAINERS + \
-        MockDocker.PRIMARY_BACKEND_CONTAINERS
+    expected_containers = (
+        MockDocker.FRONTEND_CONTAINERS + MockDocker.BACKEND_CONTAINERS
+    )
     assert sorted(mock_docker.ps()) == sorted(expected_containers)
 
     Command.stop()
@@ -110,16 +111,20 @@ def test_toggle_maintenance():
     config_object = read_config()
     mock_docker = MockDocker()
     Command.start()
-    expected_containers = MockDocker.FRONTEND_CONTAINERS + \
-                          MockDocker.PRIMARY_BACKEND_CONTAINERS + \
-                          MockDocker.LETSENCRYPT
+    expected_containers = (
+        MockDocker.FRONTEND_CONTAINERS
+        + MockDocker.BACKEND_CONTAINERS
+        + MockDocker.LETSENCRYPT
+    )
     assert sorted(mock_docker.ps()) == sorted(expected_containers)
 
     config_object._Config__dict['maintenance_enabled'] = True
     Command.start()
-    maintenance_containers = MockDocker.PRIMARY_BACKEND_CONTAINERS + \
-                             MockDocker.MAINTENANCE_CONTAINERS + \
-                             MockDocker.LETSENCRYPT
+    maintenance_containers = (
+        MockDocker.BACKEND_CONTAINERS
+        + MockDocker.MAINTENANCE_CONTAINERS
+        + MockDocker.LETSENCRYPT
+    )
     assert sorted(mock_docker.ps()) == sorted(maintenance_containers)
     config_object._Config__dict['maintenance_enabled'] = False
     Command.start()
