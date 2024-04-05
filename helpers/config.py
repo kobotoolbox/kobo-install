@@ -32,7 +32,7 @@ class Config(metaclass=Singleton):
     DEFAULT_NGINX_PORT = '80'
     DEFAULT_NGINX_HTTPS_PORT = '443'
     KOBO_DOCKER_BRANCH = '2.024.09'
-    KOBO_INSTALL_VERSION = '8.2.0'
+    KOBO_INSTALL_VERSION = '9.0.0'
     MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
     ALLOWED_PASSWORD_CHARACTERS = (
         string.ascii_letters
@@ -1741,13 +1741,13 @@ class Config(metaclass=Singleton):
                 self.__questions_redis()
 
         if self.backend:
-            CLI.colored_print('Max memory (MB) for Redis cache container?',
-                              CLI.COLOR_QUESTION)
-            CLI.colored_print('Leave empty for no limits',
-                              CLI.COLOR_INFO)
+            CLI.colored_print(
+                'Max memory (MB) for Redis cache container?', CLI.COLOR_QUESTION
+            )
+            CLI.colored_print('Leave empty for no limits', CLI.COLOR_INFO)
             self.__dict['redis_cache_max_memory'] = CLI.get_response(
-                r'~^(\d+|-)?$',
-                self.__dict['redis_cache_max_memory'])
+                r'~^(\d+|-)?$', self.__dict['redis_cache_max_memory']
+            )
 
     def __questions_reverse_proxy(self):
 
@@ -1854,8 +1854,10 @@ class Config(metaclass=Singleton):
             self.__dict['block_common_http_ports'] = False
 
     def __questions_roles(self):
-        CLI.colored_print('Which role do you want to assign to this server?',
-                          CLI.COLOR_QUESTION)
+        CLI.colored_print(
+            'Which role do you want to assign to this server?',
+            CLI.COLOR_QUESTION,
+        )
         CLI.colored_print('\t1) frontend')
         CLI.colored_print('\t2) backend')
         self.__dict['server_role'] = CLI.get_response(
@@ -1900,10 +1902,12 @@ class Config(metaclass=Singleton):
 
     def __questions_service_account(self):
         if not self.local_install:
-            self.__dict['service_account_whitelisted_hosts'] = CLI.yes_no_question(
-                'Do you want to restrict API calls between KPI and KoBoCAT '
-                'to their internal domain names?',
-                default=self.__dict['service_account_whitelisted_hosts']
+            self.__dict['service_account_whitelisted_hosts'] = (
+                CLI.yes_no_question(
+                    'Do you want to restrict API calls between KPI and KoboCAT '
+                    'to their internal domain names?',
+                    default=self.__dict['service_account_whitelisted_hosts'],
+                )
             )
         else:
             self.__dict['service_account_whitelisted_hosts'] = False
@@ -1928,15 +1932,15 @@ class Config(metaclass=Singleton):
         )
 
     def __questions_smtp(self):
-        self.__dict['smtp_host'] = CLI.colored_input('SMTP server?',
-                                                     CLI.COLOR_QUESTION,
-                                                     self.__dict['smtp_host'])
-        self.__dict['smtp_port'] = CLI.colored_input('SMTP port?',
-                                                     CLI.COLOR_QUESTION,
-                                                     self.__dict['smtp_port'])
-        self.__dict['smtp_user'] = CLI.colored_input('SMTP user?',
-                                                     CLI.COLOR_QUESTION,
-                                                     self.__dict['smtp_user'])
+        self.__dict['smtp_host'] = CLI.colored_input(
+            'SMTP server?', CLI.COLOR_QUESTION, self.__dict['smtp_host']
+        )
+        self.__dict['smtp_port'] = CLI.colored_input(
+            'SMTP port?', CLI.COLOR_QUESTION, self.__dict['smtp_port']
+        )
+        self.__dict['smtp_user'] = CLI.colored_input(
+            'SMTP user?', CLI.COLOR_QUESTION, self.__dict['smtp_user']
+        )
         if self.__dict['smtp_user']:
             self.__dict['smtp_password'] = CLI.colored_input(
                 'SMTP password',
