@@ -230,9 +230,6 @@ class Template:
             'POSTGRES_APP_PROFILE': dict_['postgres_profile'],
             'POSTGRES_RAM': dict_['postgres_ram'],
             'POSTGRES_SETTINGS': dict_['postgres_settings_content'],
-            'POSTGRES_BACKUP_FROM_SECONDARY': _get_value(
-                'backup_from_primary', comparison_value=False
-            ),
             'POSTGRES_PORT': dict_['postgresql_port'],
             'MONGO_PORT': dict_['mongo_port'],
             'REDIS_MAIN_PORT': dict_['redis_main_port'],
@@ -320,7 +317,6 @@ class Template:
             'ENKETO_ALLOW_PRIVATE_IP_ADDRESS': _get_value(
                 'local_installation', true_value='true', false_value='false'
             ),
-            'RUN_REDIS_CONTAINERS': _get_value('run_redis_containers'),
             'USE_REDIS_CACHE_MAX_MEMORY': _get_value(
                 'redis_cache_max_memory',
                 true_value='#',
