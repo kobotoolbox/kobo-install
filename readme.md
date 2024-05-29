@@ -94,37 +94,37 @@ User can choose between 2 types of installations:
 
 ### Advanced Options
 
-| Option                                           |Default|Workstation|Server
-|--------------------------------------------------|---|---|---|
-| Webserver port                                   | **80**  | ✓ |  |
-| Reverse proxy interal port                       | **8080**  |  | ✓ (front end only) |
-| Network interface                                |  **Autodetected**  | ✓ | ✓ (front end only) |
-| Use separate servers                             | **No**  |  | ✓ |
-| Use DNS for private routes                       | **No**  |  | ✓ (front end only) |
-| Primary back end IP _(if previous answer is no)_ | **Local IP**  |  | ✓ (front end only) |
-| PostgreSQL DB                                    |  **kobo**  | ✓ | ✓ |
-| PostgreSQL user's username                       |  **kobo**  | ✓ | ✓ |
-| PostgreSQL user's password                       |  **Autogenerate**  | ✓ | ✓ |
-| PostgreSQL number of connections<sup>3</sup>     |  **100**  | ✓ | ✓ (back end only) |
-| PostgreSQL RAM<sup>3</sup>                       |  **2**  | ✓ | ✓ (back end only) |
-| PostgreSQL Application Profile<sup>3</sup>       |  **Mixed**  | ✓ | ✓ (back end only) |
-| PostgreSQL Storage<sup>3</sup>                   |  **HDD**  | ✓ | ✓ (back end only) |
-| MongoDB super user's username                    |  **root**  | ✓ | ✓ |
-| MongoDB super user's password                    |  **Autogenerate**  | ✓ | ✓ |
-| MongoDB user's username                          |  **kobo**  | ✓ | ✓ |
-| MongoDB user's password                          |  **Autogenerate**  | ✓ | ✓ |
-| Redis password<sup>4</sup>                       |  **Autogenerate**  | ✓ | ✓ |
-| Use AWS storage<sup>5</sup>                      |  **No**  | ✓ | ✓ |
-| uWGI workers                                     |  **start: 2, max: 4**  | ✓ | ✓ (front end only) |
-| uWGI memory limit                                |  **128 MB**  | ✓ | ✓ (front end only) |
-| uWGI harakiri timeout                            |  **120s**  | ✓ | ✓ (front end only) |
-| uWGI worker reload timeout                       |  **120s**  | ✓ | ✓ (front end only) |
-| Google UA                                        |  | ✓ | ✓ (front end only) |
-| Google API Key                                   |  | ✓ | ✓ (front end only) |
-| Sentry tokens                                    |   | ✓ | ✓ (front end only) |
-| Debug                                            |  **False**  | ✓ |  |
-| Developer mode                                   |  **False**  | ✓ | |
-| Staging mode                                     |  **False**  |  | ✓ (front end only) |
+| Option                                          |Default|Workstation|Server
+|-------------------------------------------------|---|---|---|
+| Webserver port                                  | **80**  | ✓ |  |
+| Reverse proxy interal port                      | **8080**  |  | ✓ (front end only) |
+| Network interface                               |  **Autodetected**  | ✓ | ✓ (front end only) |
+| Use separate servers                            | **No**  |  | ✓ |
+| Use DNS for private routes                      | **No**  |  | ✓ (front end only) |
+| Back-end server IP _(if previous answer is no)_ | **Local IP**  |  | ✓ (front end only) |
+| PostgreSQL DB                                   |  **kobo**  | ✓ | ✓ |
+| PostgreSQL user's username                      |  **kobo**  | ✓ | ✓ |
+| PostgreSQL user's password                      |  **Autogenerate**  | ✓ | ✓ |
+| PostgreSQL number of connections<sup>3</sup>    |  **100**  | ✓ | ✓ (back end only) |
+| PostgreSQL RAM<sup>3</sup>                      |  **2**  | ✓ | ✓ (back end only) |
+| PostgreSQL Application Profile<sup>3</sup>      |  **Mixed**  | ✓ | ✓ (back end only) |
+| PostgreSQL Storage<sup>3</sup>                  |  **HDD**  | ✓ | ✓ (back end only) |
+| MongoDB super user's username                   |  **root**  | ✓ | ✓ |
+| MongoDB super user's password                   |  **Autogenerate**  | ✓ | ✓ |
+| MongoDB user's username                         |  **kobo**  | ✓ | ✓ |
+| MongoDB user's password                         |  **Autogenerate**  | ✓ | ✓ |
+| Redis password<sup>4</sup>                      |  **Autogenerate**  | ✓ | ✓ |
+| Use AWS storage<sup>5</sup>                     |  **No**  | ✓ | ✓ |
+| uWGI workers                                    |  **start: 2, max: 4**  | ✓ | ✓ (front end only) |
+| uWGI memory limit                               |  **128 MB**  | ✓ | ✓ (front end only) |
+| uWGI harakiri timeout                           |  **120s**  | ✓ | ✓ (front end only) |
+| uWGI worker reload timeout                      |  **120s**  | ✓ | ✓ (front end only) |
+| Google UA                                       |  | ✓ | ✓ (front end only) |
+| Google API Key                                  |  | ✓ | ✓ (front end only) |
+| Sentry tokens                                   |   | ✓ | ✓ (front end only) |
+| Debug                                           |  **False**  | ✓ |  |
+| Developer mode                                  |  **False**  | ✓ | |
+| Staging mode                                    |  **False**  |  | ✓ (front end only) |
 
 <sup>1)</sup> _HTTPS certificates must be installed on a Reverse Proxy.
 `kobo-install` can install one and use `Let's Encrypt` to generate certificates
