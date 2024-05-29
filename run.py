@@ -98,10 +98,6 @@ if __name__ == '__main__':
                 Command.logs()
             elif sys.argv[1] == '-b' or sys.argv[1] == '--build':
                 Command.build()
-            elif sys.argv[1] == '-bkf' or sys.argv[1] == '--build-kpi':
-                Command.build('kf')
-            elif sys.argv[1] == '-bkc' or sys.argv[1] == '--build-kobocat':
-                Command.build('kc')
             elif sys.argv[1] == '-v' or sys.argv[1] == '--version':
                 Command.version()
             elif sys.argv[1] == '-m' or sys.argv[1] == '--maintenance':
