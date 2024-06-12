@@ -812,7 +812,8 @@ class Config(metaclass=Singleton):
             choices.append('other')
             response = CLI.get_response(
                 choices,
-                default=self.__dict['local_interface']
+                default=self.__dict['local_interface'],
+                to_lower=False
             )
 
             if response == 'other':
