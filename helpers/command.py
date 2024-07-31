@@ -133,8 +133,8 @@ class Command:
             elif int(time.time()) - start >= timeout:
                 if timeout > 0:
                     CLI.colored_print(
-                        '\n`KoBoToolbox` has not started yet. '
-                        'This is can be normal with low CPU/RAM computers.\n',
+                        '\n`KoboToolbox` has not started yet. '
+                        'This can happen with low CPU/RAM computers.\n',
                         CLI.COLOR_INFO)
                     question = f'Wait for another {timeout} seconds?'
                     response = CLI.yes_no_question(question)
@@ -179,7 +179,7 @@ class Command:
 
         else:
             message = (
-                'KoBoToolbox could not start!\n'
+                'KoboToolbox could not start!\n'
                 'Please try `python3 run.py --logs` to see the logs.'
             )
             CLI.framed_print(message, color=CLI.COLOR_ERROR)
