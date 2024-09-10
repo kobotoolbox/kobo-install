@@ -72,7 +72,7 @@ class Upgrading:
             )
             message = (
                 'Upgrading to separate databases is required to run the latest '
-                'release of KoBoToolbox, but it may be a slow process if you '
+                'release of KoboToolbox, but it may be a slow process if you '
                 'have a lot of data. Expect at least one minute of downtime '
                 'for every 1,500 KPI assets. Assets are surveys and library '
                 'items: questions, blocks, and templates.\n'
