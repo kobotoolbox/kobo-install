@@ -31,7 +31,7 @@ class Config(metaclass=Singleton):
     DEFAULT_PROXY_PORT = '8080'
     DEFAULT_NGINX_PORT = '80'
     DEFAULT_NGINX_HTTPS_PORT = '443'
-    KOBO_DOCKER_BRANCH = 'kobocat-as-django-app'
+    KOBO_DOCKER_BRANCH = '2.024.25a'
     KOBO_INSTALL_VERSION = '9.0.0'
     MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
     ALLOWED_PASSWORD_CHARACTERS = (
@@ -760,7 +760,8 @@ class Config(metaclass=Singleton):
             choices.append('other')
             response = CLI.get_response(
                 choices,
-                default=self.__dict['local_interface']
+                default=self.__dict['local_interface'],
+                to_lower=False
             )
 
             if response == 'other':
