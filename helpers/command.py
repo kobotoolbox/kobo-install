@@ -25,11 +25,7 @@ class Command:
             '          -l, --logs',
             '                Display docker logs',
             '          -b, --build',
-            '                Build kpi and kobocat (only on dev/staging mode)',
-            '          -bkf, --build-kpi',
-            '                Build kpi (only on dev/staging mode)',
-            '          -bkc, --build-kobocat',
-            '                Build kobocat (only on dev/staging mode)',
+            '                Build django (kpi) container (only on dev/staging mode)',
             '          -s, --setup',
             '                Prompt questions to (re)write configuration files',
             '          -S, --stop',
@@ -54,52 +50,27 @@ class Command:
         print('\n'.join(output))
 
     @classmethod
-    def build(cls, image=None):
+    def build(cls):
         """
-        Builds kpi/kobocat images with `--no-caches` option
-        Pulls latest `kobotoolbox/koboform_base` as well
-
-        :param image: str
+        Builds kpi image with `--no-caches` option
         """
         config = Config()
         dict_ = config.get_dict()
 
         if config.dev_mode or config.staging_mode:
 
-            def build_image(image_):
-                frontend_command = run_docker_compose(dict_, [
-                    '-f', 'docker-compose.frontend.yml',
-                    '-f', 'docker-compose.frontend.override.yml',
-                    '-p', config.get_prefix('frontend'),
-                    'build', '--force-rm', '--no-cache',
-                    image_
-                ])
-
-                CLI.run_command(frontend_command, dict_['kobodocker_path'])
-
-            if image is None or image == 'kf':
-                prefix = config.get_prefix('frontend')
-                timestamp = int(time.time())
-                dict_['kpi_dev_build_id'] = f'{prefix}{timestamp}'
-                config.write_config()
-                Template.render(config)
-                build_image('kpi')
-
-            if image is None or image == 'kc':
-                pull_base_command = [
-                    'docker',
-                    'pull',
-                    'kobotoolbox/koboform_base',
-                ]
-
-                CLI.run_command(pull_base_command, dict_['kobodocker_path'])
-
-                prefix = config.get_prefix('frontend')
-                timestamp = int(time.time())
-                dict_['kc_dev_build_id'] = f'{prefix}{timestamp}'
-                config.write_config()
-                Template.render(config)
-                build_image('kobocat')
+            prefix = config.get_prefix('frontend')
+            timestamp = int(time.time())
+            dict_['kpi_dev_build_id'] = f'{prefix}{timestamp}'
+            config.write_config()
+            Template.render(config)
+            frontend_command = run_docker_compose(dict_, [
+                '-f', 'docker-compose.frontend.yml',
+                '-f', 'docker-compose.frontend.override.yml',
+                '-p', config.get_prefix('frontend'),
+                'build', '--force-rm', '--no-cache', 'kpi'
+            ])
+            CLI.run_command(frontend_command, dict_['kobodocker_path'])
 
     @classmethod
     def compose_frontend(cls, args):
@@ -119,10 +90,9 @@ class Command:
     def compose_backend(cls, args):
         config = Config()
         dict_ = config.get_dict()
-        backend_role = dict_['backend_server_role']
         command = run_docker_compose(dict_, [
-            '-f', f'docker-compose.backend.{backend_role}.yml',
-            '-f', f'docker-compose.backend.{backend_role}.override.yml',
+            '-f', f'docker-compose.backend.yml',
+            '-f', f'docker-compose.backend.override.yml',
             '-p', config.get_prefix('backend')
         ])
         cls.__validate_custom_yml(config, command)
@@ -163,8 +133,8 @@ class Command:
             elif int(time.time()) - start >= timeout:
                 if timeout > 0:
                     CLI.colored_print(
-                        '\n`KoBoToolbox` has not started yet. '
-                        'This is can be normal with low CPU/RAM computers.\n',
+                        '\n`KoboToolbox` has not started yet. '
+                        'This can happen with low CPU/RAM computers.\n',
                         CLI.COLOR_INFO)
                     question = f'Wait for another {timeout} seconds?'
                     response = CLI.yes_no_question(question)
@@ -209,7 +179,7 @@ class Command:
 
         else:
             message = (
-                'KoBoToolbox could not start!\n'
+                'KoboToolbox could not start!\n'
                 'Please try `python3 run.py --logs` to see the logs.'
             )
             CLI.framed_print(message, color=CLI.COLOR_ERROR)
@@ -221,11 +191,10 @@ class Command:
         config = Config()
         dict_ = config.get_dict()
 
-        if config.primary_backend or config.secondary_backend:
-            backend_role = dict_['backend_server_role']
+        if config.backend:
             backend_command = run_docker_compose(dict_, [
-                '-f', f'docker-compose.backend.{backend_role}.yml',
-                '-f', f'docker-compose.backend.{backend_role}.override.yml',
+                '-f', f'docker-compose.backend.yml',
+                '-f', f'docker-compose.backend.override.yml',
                 '-p', config.get_prefix('backend'),
                 'logs', '-f'
             ])
@@ -310,13 +279,10 @@ class Command:
         else:
             nginx_port = int(dict_['exposed_nginx_docker_port'])
 
-        if frontend_only or config.frontend or \
-                not config.multi_servers:
+        if frontend_only or config.frontend or not config.multi_servers:
             ports.append(nginx_port)
 
-        if (not frontend_only or config.primary_backend or
-                config.secondary_backend) and \
-                config.expose_backend_ports:
+        if not frontend_only and config.expose_backend_ports and config.backend:
             ports.append(dict_['postgresql_port'])
             ports.append(dict_['mongo_port'])
             ports.append(dict_['redis_main_port'])
@@ -332,11 +298,9 @@ class Command:
         # Start the back-end containers
         if not frontend_only and config.backend:
 
-            backend_role = dict_['backend_server_role']
-
             backend_command = run_docker_compose(dict_, [
-                '-f', f'docker-compose.backend.{backend_role}.yml',
-                '-f', f'docker-compose.backend.{backend_role}.override.yml',
+                '-f', f'docker-compose.backend.yml',
+                '-f', f'docker-compose.backend.override.yml',
                 '-p', config.get_prefix('backend'),
                 'up', '-d'
             ])
@@ -392,9 +356,8 @@ class Command:
                                   'It can take a few minutes.', CLI.COLOR_INFO)
                 cls.info()
             else:
-                backend_server_role = dict_['backend_server_role']
                 CLI.colored_print(
-                    (f'{backend_server_role} backend server is starting up '
+                    (f'Back-end server is starting up '
                      'and should be up & running soon!\nPlease look at docker '
                      'logs for further information: '
                      '`python3 run.py -cb logs -f`'),
@@ -443,7 +406,6 @@ class Command:
 
         config = Config()
         dict_ = config.get_dict()
-        backend_role = dict_['backend_server_role']
 
         if group not in ['frontend', 'backend', 'certbot', 'maintenance']:
             raise Exception('Unknown group')
@@ -459,8 +421,8 @@ class Command:
             },
             'backend': {
                 'options': [
-                    '-f', f'docker-compose.backend.{backend_role}.yml',
-                    '-f', f'docker-compose.backend.{backend_role}.override.yml',
+                    '-f', f'docker-compose.backend.yml',
+                    '-f', f'docker-compose.backend.override.yml',
                     '-p', config.get_prefix('backend'),
                 ],
                 'custom_yml': True,
@@ -570,10 +532,8 @@ class Command:
             command.insert(start_index + 1, 'docker-compose.frontend.custom.yml')
 
         if not frontend_command and dict_['use_backend_custom_yml']:
-            backend_server_role = dict_['backend_server_role']
-            custom_file = '{}/docker-compose.backend.{}.custom.yml'.format(
+            custom_file = '{}/docker-compose.backend.custom.yml'.format(
                 dict_['kobodocker_path'],
-                backend_server_role
             )
 
             does_custom_file_exist = os.path.exists(custom_file)
@@ -590,5 +550,5 @@ class Command:
             command.insert(start_index, '-f')
             command.insert(
                 start_index + 1,
-                'docker-compose.backend.{}.custom.yml'.format(backend_server_role),
+                'docker-compose.backend.custom.yml',
             )

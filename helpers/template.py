@@ -156,7 +156,7 @@ class Template:
             nginx_port = dict_['exposed_nginx_docker_port']
 
         return {
-            'PROTOCOL': _get_value('https', 'https', 'http'),
+            'PUBLIC_REQUEST_SCHEME': _get_value('https', 'https', 'http'),
             'USE_HTTPS': _get_value('https'),
             'USE_AWS': _get_value('use_aws'),
             'AWS_ACCESS_KEY_ID': dict_['aws_access_key'],
@@ -178,7 +178,8 @@ class Template:
             'DJANGO_SESSION_COOKIE_AGE': dict_['django_session_cookie_age'],
             'ENKETO_ENCRYPTION_KEY': dict_['enketo_encryption_key'],
             'ENKETO_LESS_SECURE_ENCRYPTION_KEY': dict_[
-                'enketo_less_secure_encryption_key'],
+                'enketo_less_secure_encryption_key'
+            ],
             'KOBOCAT_RAVEN_DSN': dict_['kobocat_raven'],
             'KPI_RAVEN_DSN': dict_['kpi_raven'],
             'KPI_RAVEN_JS_DSN': dict_['kpi_raven_js'],
@@ -195,46 +196,40 @@ class Template:
             'DEFAULT_FROM_EMAIL': dict_['default_from_email'],
             'PRIMARY_BACKEND_IP': dict_['primary_backend_ip'],
             'LOCAL_INTERFACE_IP': dict_['local_interface_ip'],
-            'KC_PATH': dict_['kc_path'],
             'KPI_PATH': dict_['kpi_path'],
-            'USE_KPI_DEV_MODE': _get_value('kpi_path',
-                                           true_value='#',
-                                           false_value='',
-                                           comparison_value=''),
-            'USE_KC_DEV_MODE': _get_value('kc_path',
-                                          true_value='#',
-                                          false_value='',
-                                          comparison_value=''),
-            'KC_DEV_BUILD_ID': dict_['kc_dev_build_id'],
+            'USE_KPI_DEV_MODE': _get_value(
+                'kpi_path', true_value='#', false_value='', comparison_value=''
+            ),
             'KPI_DEV_BUILD_ID': dict_['kpi_dev_build_id'],
-            'NGINX_PUBLIC_PORT': dict_['exposed_nginx_docker_port'],
+            'NGINX_PUBLIC_PORT': (
+                ''
+                if dict_['exposed_nginx_docker_port'] == '80'
+                else f":{dict_['exposed_nginx_docker_port']}"
+            ),
             'NGINX_EXPOSED_PORT': nginx_port,
             'UWSGI_WORKERS_MAX': dict_['uwsgi_workers_max'],
             # Deactivate cheaper algorithm if defaults are 1 worker to start and
             # 2 maximum.
             'UWSGI_WORKERS_START': (
                 ''
-                if dict_['uwsgi_workers_start'] == '1' and dict_['uwsgi_workers_max'] == '2'
+                if dict_['uwsgi_workers_start'] == '1'
+                and dict_['uwsgi_workers_max'] == '2'
                 else dict_['uwsgi_workers_start']
             ),
             'UWSGI_MAX_REQUESTS': dict_['uwsgi_max_requests'],
-            'UWSGI_SOFT_LIMIT': int(
-                dict_['uwsgi_soft_limit']) * 1024 * 1024,
+            'UWSGI_SOFT_LIMIT': int(dict_['uwsgi_soft_limit']) * 1024 * 1024,
             'UWSGI_HARAKIRI': dict_['uwsgi_harakiri'],
-            'UWSGI_WORKER_RELOAD_MERCY': dict_[
-                'uwsgi_worker_reload_mercy'],
+            'UWSGI_WORKER_RELOAD_MERCY': dict_['uwsgi_worker_reload_mercy'],
             'UWSGI_PASS_TIMEOUT': int(dict_['uwsgi_harakiri']) + 10,
             'POSTGRES_REPLICATION_PASSWORD': dict_[
-                'postgres_replication_password'],
-            'WSGI_SERVER': 'runserver_plus' if config.dev_mode else 'uWSGI',
+                'postgres_replication_password'
+            ],
+            'WSGI': 'runserver_plus' if config.dev_mode else 'uWSGI',
             'USE_X_FORWARDED_HOST': '' if config.dev_mode else '#',
             'OVERRIDE_POSTGRES_SETTINGS': _get_value('postgres_settings'),
             'POSTGRES_APP_PROFILE': dict_['postgres_profile'],
             'POSTGRES_RAM': dict_['postgres_ram'],
             'POSTGRES_SETTINGS': dict_['postgres_settings_content'],
-            'POSTGRES_BACKUP_FROM_SECONDARY': _get_value(
-                'backup_from_primary',
-                comparison_value=False),
             'POSTGRES_PORT': dict_['postgresql_port'],
             'MONGO_PORT': dict_['mongo_port'],
             'REDIS_MAIN_PORT': dict_['redis_main_port'],
@@ -242,69 +237,86 @@ class Template:
             'REDIS_CACHE_MAX_MEMORY': dict_['redis_cache_max_memory'],
             'USE_BACKUP': '' if dict_['use_backup'] else '#',
             'USE_WAL_E': _get_value('use_wal_e'),
-            'USE_AWS_BACKUP': '' if (config.aws and
-                                     dict_['aws_backup_bucket_name'] != '' and
-                                     dict_['use_backup']) else '#',
-            'USE_MEDIA_BACKUP': '' if (not config.aws and
-                                       dict_['use_backup']) else '#',
+            'USE_AWS_BACKUP': (
+                ''
+                if (
+                    config.aws
+                    and dict_['aws_backup_bucket_name'] != ''
+                    and dict_['use_backup']
+                )
+                else '#'
+            ),
+            'USE_MEDIA_BACKUP': (
+                '' if (not config.aws and dict_['use_backup']) else '#'
+            ),
             'KOBOCAT_MEDIA_BACKUP_SCHEDULE': dict_[
-                'kobocat_media_backup_schedule'],
+                'kobocat_media_backup_schedule'
+            ],
             'MONGO_BACKUP_SCHEDULE': dict_['mongo_backup_schedule'],
             'POSTGRES_BACKUP_SCHEDULE': dict_['postgres_backup_schedule'],
             'REDIS_BACKUP_SCHEDULE': dict_['redis_backup_schedule'],
             'AWS_BACKUP_BUCKET_NAME': dict_['aws_backup_bucket_name'],
-            'AWS_BACKUP_YEARLY_RETENTION': dict_[
-                'aws_backup_yearly_retention'],
+            'AWS_BACKUP_YEARLY_RETENTION': dict_['aws_backup_yearly_retention'],
             'AWS_BACKUP_MONTHLY_RETENTION': dict_[
-                'aws_backup_monthly_retention'],
-            'AWS_BACKUP_WEEKLY_RETENTION': dict_[
-                'aws_backup_weekly_retention'],
-            'AWS_BACKUP_DAILY_RETENTION': dict_[
-                'aws_backup_daily_retention'],
+                'aws_backup_monthly_retention'
+            ],
+            'AWS_BACKUP_WEEKLY_RETENTION': dict_['aws_backup_weekly_retention'],
+            'AWS_BACKUP_DAILY_RETENTION': dict_['aws_backup_daily_retention'],
             'AWS_MONGO_BACKUP_MINIMUM_SIZE': dict_[
-                'aws_mongo_backup_minimum_size'],
+                'aws_mongo_backup_minimum_size'
+            ],
             'AWS_POSTGRES_BACKUP_MINIMUM_SIZE': dict_[
-                'aws_postgres_backup_minimum_size'],
+                'aws_postgres_backup_minimum_size'
+            ],
             'AWS_REDIS_BACKUP_MINIMUM_SIZE': dict_[
-                'aws_redis_backup_minimum_size'],
+                'aws_redis_backup_minimum_size'
+            ],
             'AWS_BACKUP_UPLOAD_CHUNK_SIZE': dict_[
-                'aws_backup_upload_chunk_size'],
+                'aws_backup_upload_chunk_size'
+            ],
             'AWS_BACKUP_BUCKET_DELETION_RULE_ENABLED': _get_value(
-                'aws_backup_bucket_deletion_rule_enabled', 'True', 'False'),
+                'aws_backup_bucket_deletion_rule_enabled', 'True', 'False'
+            ),
             'LETSENCRYPT_EMAIL': dict_['letsencrypt_email'],
             'MAINTENANCE_ETA': dict_['maintenance_eta'],
             'MAINTENANCE_DATE_ISO': dict_['maintenance_date_iso'],
             'MAINTENANCE_DATE_STR': dict_['maintenance_date_str'],
             'MAINTENANCE_EMAIL': dict_['maintenance_email'],
-            'USE_NPM_FROM_HOST': '' if (config.dev_mode and
-                                        not dict_['npm_container']) else '#',
+            'USE_NPM_FROM_HOST': (
+                '' if (config.dev_mode and not dict_['npm_container']) else '#'
+            ),
             'DOCKER_NETWORK_BACKEND_PREFIX': config.get_prefix('backend'),
             'DOCKER_NETWORK_FRONTEND_PREFIX': config.get_prefix('frontend'),
-            'USE_BACKEND_NETWORK': _get_value('expose_backend_ports',
-                                              comparison_value=False),
+            'USE_BACKEND_NETWORK': _get_value(
+                'expose_backend_ports', comparison_value=False
+            ),
             'EXPOSE_BACKEND_PORTS': _get_value('expose_backend_ports'),
             'USE_FAKE_DNS': _get_value('local_installation'),
-            'ADD_BACKEND_EXTRA_HOSTS': '' if (
-                        config.expose_backend_ports and
-                        not config.use_private_dns) else '#',
-            'USE_EXTRA_HOSTS': '' if (config.local_install or
-                                      config.expose_backend_ports and
-                                      not config.use_private_dns) else '#',
+            'ADD_BACKEND_EXTRA_HOSTS': (
+                ''
+                if (config.expose_backend_ports and not config.use_private_dns)
+                else '#'
+            ),
+            'USE_EXTRA_HOSTS': (
+                ''
+                if (
+                    config.local_install
+                    or config.expose_backend_ports
+                    and not config.use_private_dns
+                )
+                else '#'
+            ),
             'MONGO_ROOT_USERNAME': dict_['mongo_root_username'],
             'MONGO_ROOT_PASSWORD': dict_['mongo_root_password'],
             'MONGO_USER_USERNAME': dict_['mongo_user_username'],
             'MONGO_USER_PASSWORD': dict_['mongo_user_password'],
             'REDIS_PASSWORD': dict_['redis_password'],
-            'REDIS_PASSWORD_JS_ENCODED': json.dumps(
-                dict_['redis_password']),
+            'REDIS_PASSWORD_JS_ENCODED': json.dumps(dict_['redis_password']),
             'USE_DEV_MODE': _get_value('dev_mode'),
             'USE_CELERY': _get_value('use_celery', comparison_value=False),
             'ENKETO_ALLOW_PRIVATE_IP_ADDRESS': _get_value(
-                'local_installation',
-                true_value='true',
-                false_value='false'
+                'local_installation', true_value='true', false_value='false'
             ),
-            'RUN_REDIS_CONTAINERS': _get_value('run_redis_containers'),
             'USE_REDIS_CACHE_MAX_MEMORY': _get_value(
                 'redis_cache_max_memory',
                 true_value='#',
@@ -323,7 +335,7 @@ class Template:
             # Keep leading space in front of suffix if any
             'DOCKER_COMPOSE_SUFFIX': _get_value(
                 'compose_version', '', 'compose', 'v1'
-            )
+            ),
         }
 
     @staticmethod

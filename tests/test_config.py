@@ -57,61 +57,52 @@ def test_installation():
        MagicMock(return_value=True))
 def test_staging_mode():
     config = read_config()
-    kc_repo_path = tempfile.mkdtemp()
     kpi_repo_path = tempfile.mkdtemp()
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
-        mock_colored_input.side_effect = iter([CHOICE_YES,
-                                               kc_repo_path,
-                                               kpi_repo_path])
+        mock_colored_input.side_effect = iter([CHOICE_YES, kpi_repo_path])
         config._Config__questions_dev_mode()
         dict_ = config.get_dict()
         assert not config.dev_mode
         assert config.staging_mode
-        assert dict_['kpi_path'] == kpi_repo_path and \
-               dict_['kc_path'] == kc_repo_path
-
-    shutil.rmtree(kc_repo_path)
+        assert dict_['kpi_path'] == kpi_repo_path
     shutil.rmtree(kpi_repo_path)
 
 
-@patch('helpers.config.Config._Config__clone_repo',
-       MagicMock(return_value=True))
+@patch('helpers.config.Config._Config__clone_repo', MagicMock(return_value=True))
 def test_dev_mode():
     config = test_installation()
 
-    kc_repo_path = tempfile.mkdtemp()
     kpi_repo_path = tempfile.mkdtemp()
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
-        mock_colored_input.side_effect = iter(['8080',
-                                               CHOICE_YES,
-                                               CHOICE_NO,
-                                               kc_repo_path,
-                                               kpi_repo_path,
-                                               CHOICE_YES,
-                                               CHOICE_NO,
-                                               ])
+        mock_colored_input.side_effect = iter(
+            [
+                '8080',
+                CHOICE_YES,
+                CHOICE_NO,
+                kpi_repo_path,
+                CHOICE_YES,
+                CHOICE_NO,
+            ]
+        )
 
         config._Config__questions_dev_mode()
         dict_ = config.get_dict()
         assert config.dev_mode
         assert not config.staging_mode
         assert config.get_dict().get('exposed_nginx_docker_port') == '8080'
-        assert dict_['kpi_path'] == kpi_repo_path and \
-               dict_['kc_path'] == kc_repo_path
+        assert dict_['kpi_path'] == kpi_repo_path
         assert dict_['npm_container'] is False
         assert dict_['use_celery'] is False
 
-    shutil.rmtree(kc_repo_path)
     shutil.rmtree(kpi_repo_path)
 
-    with patch.object(CLI, 'colored_input',
-                      return_value=CHOICE_NO) as mock_ci:
+    with patch.object(CLI, 'colored_input', return_value=CHOICE_NO) as mock_ci:
         config._Config__questions_dev_mode()
         dict_ = config.get_dict()
         assert not config.dev_mode
-        assert dict_['kpi_path'] == '' and dict_['kc_path'] == ''
+        assert dict_['kpi_path'] == ''
 
 
 def test_server_roles_questions():
@@ -121,7 +112,7 @@ def test_server_roles_questions():
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
         mock_colored_input.side_effect = iter(
-            [CHOICE_YES, 'frontend', 'backend', 'secondary'])
+            [CHOICE_YES, 'frontend', 'backend'])
 
         config._Config__questions_multi_servers()
 
@@ -132,7 +123,6 @@ def test_server_roles_questions():
         config._Config__questions_roles()
         assert not config.frontend
         assert config.backend
-        assert config.secondary_backend
 
 
 def test_session_cookies():
@@ -737,7 +727,7 @@ def test_update_postgres_username():
 def test_update_postgres_db_name_from_single_database():
     """
     Simulate upgrade from single database to two databases.
-    With two databases, KoBoCat has its own database. We ensure that
+    With two databases, KoboCat has its own database. We ensure that
     `kc_postgres_db` gets `postgres_db` value.
     """
     config = read_config()
@@ -749,16 +739,6 @@ def test_update_postgres_db_name_from_single_database():
     assert 'kc_postgres_db' not in dict_
     dict_ = config.get_upgraded_dict()
     assert dict_['kc_postgres_db'] == old_db_name
-
-
-def test_new_terminology():
-    """
-    Ensure config uses `primary` instead of `master`
-    """
-    config = read_config()
-    config._Config__dict['backend_server_role'] = 'master'
-    dict_ = config.get_upgraded_dict()
-    assert dict_['backend_server_role'] == 'primary'
 
 
 def test_use_boolean():
@@ -811,8 +791,6 @@ def test_backup_schedules_from_single_instance():
     # Force advanced options and single instance
     config._Config__dict['advanced'] = True
     config._Config__dict['multi'] = False
-    # Force `False` to validate it becomes `True` at the end
-    config._Config__dict['backup_from_primary'] = False
 
     assert config._Config__dict['kobocat_media_backup_schedule'] == '0 0 * * 0'
     assert config._Config__dict['mongo_backup_schedule'] == '0 1 * * 0'
@@ -832,7 +810,6 @@ def test_backup_schedules_from_single_instance():
         assert config._Config__dict['postgres_backup_schedule'] == '2 2 2 2 2'
         assert config._Config__dict['mongo_backup_schedule'] == '3 3 3 3 3'
         assert config._Config__dict['redis_backup_schedule'] == '4 4 4 4 4'
-        assert config._Config__dict['backup_from_primary'] is True
 
 
 def test_backup_schedules_from_frontend_instance():
@@ -860,7 +837,7 @@ def test_backup_schedules_from_frontend_instance():
     assert config._Config__dict['kobocat_media_backup_schedule'] == '1 1 1 1 1'
 
 
-def test_backup_schedules_from_primary_backend_with_redis_and_no_postgres():
+def test_backup_schedules_from_backend():
     config = read_config()
     # Force advanced options
     config._Config__dict['advanced'] = True
@@ -868,126 +845,26 @@ def test_backup_schedules_from_primary_backend_with_redis_and_no_postgres():
     assert config._Config__dict['mongo_backup_schedule'] == '0 1 * * 0'
     assert config._Config__dict['postgres_backup_schedule'] == '0 2 * * 0'
     assert config._Config__dict['redis_backup_schedule'] == '0 3 * * 0'
-    assert config._Config__dict['run_redis_containers'] is True
-    assert config._Config__dict['backup_from_primary'] is True
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
-        mock_colored_input.side_effect = iter(
-            [CHOICE_YES, 'backend', 'primary'])
+        mock_colored_input.side_effect = iter([CHOICE_YES, 'backend'])
         config._Config__questions_multi_servers()
         config._Config__questions_roles()
-    assert config.backend and config.primary_backend
+    assert config.backend
 
     with patch('helpers.cli.CLI.colored_input') as mock_ci:
         mock_ci.side_effect = iter([
             CHOICE_YES,  # Activate backup
             CHOICE_NO,  # Choose AWS
-            CHOICE_NO,  # Run postgres backup from current server
+            '1 1 1 1 1',  # PostgreSQL
             '3 3 3 3 3',  # Mongo
             '4 4 4 4 4',  # Redis
         ])
         config._Config__questions_backup()
 
-    assert config._Config__dict['postgres_backup_schedule'] == ''
+    assert config._Config__dict['postgres_backup_schedule'] == '1 1 1 1 1'
     assert config._Config__dict['mongo_backup_schedule'] == '3 3 3 3 3'
     assert config._Config__dict['redis_backup_schedule'] == '4 4 4 4 4'
-    assert config._Config__dict['backup_from_primary'] is False
-
-
-def test_backup_schedules_from_primary_backend_with_no_redis_and_no_postgres():
-    config = read_config()
-    # Force advanced options
-    config._Config__dict['advanced'] = True
-    config._Config__dict['run_redis_containers'] = False
-
-    assert config._Config__dict['mongo_backup_schedule'] == '0 1 * * 0'
-    assert config._Config__dict['postgres_backup_schedule'] == '0 2 * * 0'
-    assert config._Config__dict['redis_backup_schedule'] == '0 3 * * 0'
-    assert config._Config__dict['backup_from_primary'] is True
-
-    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
-        mock_colored_input.side_effect = iter(
-            [CHOICE_YES, 'backend', 'primary'])
-        config._Config__questions_multi_servers()
-        config._Config__questions_roles()
-    assert config.backend and config.primary_backend
-
-    with patch('helpers.cli.CLI.colored_input') as mock_ci:
-        mock_ci.side_effect = iter([
-            CHOICE_YES,  # Activate backup
-            CHOICE_NO,  # Choose AWS
-            CHOICE_NO,  # Run postgres backup from current server
-            '3 3 3 3 3',  # Mongo
-        ])
-        config._Config__questions_backup()
-
-    assert config._Config__dict['postgres_backup_schedule'] == ''
-    assert config._Config__dict['mongo_backup_schedule'] == '3 3 3 3 3'
-    assert config._Config__dict['redis_backup_schedule'] == ''
-    assert config._Config__dict['backup_from_primary'] is False
-
-
-def test_backup_schedules_from_secondary_backend_with_redis_and_postgres():
-    config = read_config()
-    # Force advanced options
-    config._Config__dict['advanced'] = True
-    config._Config__dict['run_redis_containers'] = True
-
-    assert config._Config__dict['postgres_backup_schedule'] == '0 2 * * 0'
-    assert config._Config__dict['redis_backup_schedule'] == '0 3 * * 0'
-    assert config._Config__dict['backup_from_primary'] is True
-
-    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
-        mock_colored_input.side_effect = iter(
-            [CHOICE_YES, 'backend', 'secondary'])
-        config._Config__questions_multi_servers()
-        config._Config__questions_roles()
-    assert config.backend and config.secondary_backend
-
-    with patch('helpers.cli.CLI.colored_input') as mock_ci:
-        mock_ci.side_effect = iter([
-            CHOICE_YES,  # Activate backup
-            CHOICE_NO,  # Choose AWS
-            CHOICE_YES,  # Run postgres backup from current server
-            '2 2 2 2 2',  # PostgreSQL
-            '4 4 4 4 4',  # Redis
-        ])
-        config._Config__questions_backup()
-
-    assert config._Config__dict['postgres_backup_schedule'] == '2 2 2 2 2'
-    assert config._Config__dict['redis_backup_schedule'] == '4 4 4 4 4'
-    assert config._Config__dict['backup_from_primary'] is False
-
-
-def test_backup_schedules_from_secondary_backend_with_redis_and_no_postgres():
-    config = read_config()
-    # Force advanced options
-    config._Config__dict['advanced'] = True
-    config._Config__dict['run_redis_containers'] = True
-
-    assert config._Config__dict['postgres_backup_schedule'] == '0 2 * * 0'
-    assert config._Config__dict['redis_backup_schedule'] == '0 3 * * 0'
-
-    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
-        mock_colored_input.side_effect = iter(
-            [CHOICE_YES, 'backend', 'secondary'])
-        config._Config__questions_multi_servers()
-        config._Config__questions_roles()
-    assert config.backend and config.secondary_backend
-
-    with patch('helpers.cli.CLI.colored_input') as mock_ci:
-        mock_ci.side_effect = iter([
-            CHOICE_YES,  # Activate backup
-            CHOICE_NO,  # Choose AWS
-            CHOICE_NO,  # Run postgres backup from current server
-            '4 4 4 4 4',  # Redis
-        ])
-        config._Config__questions_backup()
-
-    assert config._Config__dict['postgres_backup_schedule'] == ''
-    assert config._Config__dict['redis_backup_schedule'] == '4 4 4 4 4'
-    assert config._Config__dict['backup_from_primary'] is True
-    assert config._Config__dict['run_redis_containers'] is True
 
 
 def test_activate_only_postgres_backup():

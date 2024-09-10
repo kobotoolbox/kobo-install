@@ -43,13 +43,13 @@ Get info:
 Get docker logs:  
 `$kobo-install> python3 run.py --logs`
 
-Update KoBoToolbox:  
+Update KoboToolbox:  
 `$kobo-install> python3 run.py --update [branch or tag]`
 
 By default, fetch the latest version of `master` branch
 
 
-Stop KoBoToolbox:  
+Stop KoboToolbox:  
 `$kobo-install> python3 run.py --stop`
 
 Get help:  
@@ -76,8 +76,8 @@ Stop maintenance mode:
 ## Build the configuration
 User can choose between 2 types of installations:
 
-- `Workstation`: KoBoToolbox doesn't need to be accessible from anywhere except the computer where it's installed. No DNS needed
-- `Server`: KoBoToolbox needs to be accessible from the local network or from the Internet. DNS are needed
+- `Workstation`: KoboToolbox doesn't need to be accessible from anywhere except the computer where it's installed. No DNS needed
+- `Server`: KoboToolbox needs to be accessible from the local network or from the Internet. DNS are needed
 
 ### Options
 
@@ -94,38 +94,37 @@ User can choose between 2 types of installations:
 
 ### Advanced Options
 
-|Option|Default|Workstation|Server
-|---|---|---|---|
-|Webserver port| **80**  | ✓ |  |
-|Reverse proxy interal port| **8080**  |  | ✓ (front end only) |
-|Network interface|  **Autodetected**  | ✓ | ✓ (front end only) |
-|Use separate servers| **No**  |  | ✓ |
-|Use DNS for private routes| **No**  |  | ✓ (front end only) |
-|Primary back end IP _(if previous answer is no)_| **Local IP**  |  | ✓ (front end only) |
-|PostgreSQL DB|  **kobo**  | ✓ | ✓ |
-|PostgreSQL user's username|  **kobo**  | ✓ | ✓ |
-|PostgreSQL user's password|  **Autogenerate**  | ✓ | ✓ |
-|PostgreSQL number of connections<sup>3</sup>|  **100**  | ✓ | ✓ (back end only) |
-|PostgreSQL RAM<sup>3</sup>|  **2**  | ✓ | ✓ (back end only) |
-|PostgreSQL Application Profile<sup>3</sup>|  **Mixed**  | ✓ | ✓ (back end only) |
-|PostgreSQL Storage<sup>3</sup>|  **HDD**  | ✓ | ✓ (back end only) |
-|MongoDB super user's username|  **root**  | ✓ | ✓ |
-|MongoDB super user's password|  **Autogenerate**  | ✓ | ✓ |
-|MongoDB user's username|  **kobo**  | ✓ | ✓ |
-|MongoDB user's password|  **Autogenerate**  | ✓ | ✓ |
-|Redis password<sup>4</sup>|  **Autogenerate**  | ✓ | ✓ |
-|Use AWS storage<sup>5</sup>|  **No**  | ✓ | ✓ |
-|Use WAL-E PostgreSQL backups<sup>6</sup> |  **No**  | ✓ | ✓ (back end only) |
-|uWGI workers|  **start: 2, max: 4**  | ✓ | ✓ (front end only) |
-|uWGI memory limit|  **128 MB**  | ✓ | ✓ (front end only) |
-|uWGI harakiri timeout |  **120s**  | ✓ | ✓ (front end only) |
-|uWGI worker reload timeout |  **120s**  | ✓ | ✓ (front end only) |
-|Google UA|  | ✓ | ✓ (front end only) |
-|Google API Key|  | ✓ | ✓ (front end only) |
-|Raven tokens|   | ✓ | ✓ (front end only) |
-|Debug|  **False**  | ✓ |  |
-|Developer mode|  **False**  | ✓ | |
-|Staging mode|  **False**  |  | ✓ (front end only) |
+| Option                                          |Default|Workstation|Server
+|-------------------------------------------------|---|---|---|
+| Webserver port                                  | **80**  | ✓ |  |
+| Reverse proxy interal port                      | **8080**  |  | ✓ (front end only) |
+| Network interface                               |  **Autodetected**  | ✓ | ✓ (front end only) |
+| Use separate servers                            | **No**  |  | ✓ |
+| Use DNS for private routes                      | **No**  |  | ✓ (front end only) |
+| Back-end server IP _(if previous answer is no)_ | **Local IP**  |  | ✓ (front end only) |
+| PostgreSQL DB                                   |  **kobo**  | ✓ | ✓ |
+| PostgreSQL user's username                      |  **kobo**  | ✓ | ✓ |
+| PostgreSQL user's password                      |  **Autogenerate**  | ✓ | ✓ |
+| PostgreSQL number of connections<sup>3</sup>    |  **100**  | ✓ | ✓ (back end only) |
+| PostgreSQL RAM<sup>3</sup>                      |  **2**  | ✓ | ✓ (back end only) |
+| PostgreSQL Application Profile<sup>3</sup>      |  **Mixed**  | ✓ | ✓ (back end only) |
+| PostgreSQL Storage<sup>3</sup>                  |  **HDD**  | ✓ | ✓ (back end only) |
+| MongoDB super user's username                   |  **root**  | ✓ | ✓ |
+| MongoDB super user's password                   |  **Autogenerate**  | ✓ | ✓ |
+| MongoDB user's username                         |  **kobo**  | ✓ | ✓ |
+| MongoDB user's password                         |  **Autogenerate**  | ✓ | ✓ |
+| Redis password<sup>4</sup>                      |  **Autogenerate**  | ✓ | ✓ |
+| Use AWS storage<sup>5</sup>                     |  **No**  | ✓ | ✓ |
+| uWGI workers                                    |  **start: 2, max: 4**  | ✓ | ✓ (front end only) |
+| uWGI memory limit                               |  **128 MB**  | ✓ | ✓ (front end only) |
+| uWGI harakiri timeout                           |  **120s**  | ✓ | ✓ (front end only) |
+| uWGI worker reload timeout                      |  **120s**  | ✓ | ✓ (front end only) |
+| Google UA                                       |  | ✓ | ✓ (front end only) |
+| Google API Key                                  |  | ✓ | ✓ (front end only) |
+| Sentry tokens                                   |   | ✓ | ✓ (front end only) |
+| Debug                                           |  **False**  | ✓ |  |
+| Developer mode                                  |  **False**  | ✓ | |
+| Staging mode                                    |  **False**  |  | ✓ (front end only) |
 
 <sup>1)</sup> _HTTPS certificates must be installed on a Reverse Proxy.
 `kobo-install` can install one and use `Let's Encrypt` to generate certificates
@@ -139,8 +138,6 @@ User can choose between 2 types of installations:
 <sup>4)</sup> _Redis password is optional but **strongly** recommended_
 
 <sup>5)</sup> _If AWS storage is selected, credentials must be provided if backups are activated_
-
-<sup>6)</sup> _WAL-E backups for PostgreSQL are only available when using AWS storage_
 
 ℹ  Intercom App ID [must now](https://github.com/kobotoolbox/kpi/pull/2285) be configured through "Per user settings" in the Django admin interface of KPI.
 

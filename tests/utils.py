@@ -72,11 +72,12 @@ class MockCommand:
 
 class MockDocker(metaclass=Singleton):
 
-    PRIMARY_BACKEND_CONTAINERS = ['primary_postgres',
-                                  'mongo',
-                                  'redis_main',
-                                  'redis_cache']
-    SECONDARY_BACKEND_CONTAINERS = ['secondary_postgres']
+    BACKEND_CONTAINERS = [
+        'primary_postgres',
+        'mongo',
+        'redis_main',
+        'redis_cache',
+    ]
     FRONTEND_CONTAINERS = ['nginx', 'kobocat', 'kpi', 'enketo_express']
     MAINTENANCE_CONTAINERS = ['maintenance', 'kobocat', 'kpi', 'enketo_express']
     LETSENCRYPT = ['letsencrypt_nginx', 'certbot']
@@ -98,10 +99,8 @@ class MockDocker(metaclass=Singleton):
         if command[-2] == 'up':
             if letsencrypt:
                 self.__containers += self.LETSENCRYPT
-            elif 'primary' in command[2]:
-                self.__containers += self.PRIMARY_BACKEND_CONTAINERS
-            elif 'secondary' in command[2]:
-                self.__containers += self.SECONDARY_BACKEND_CONTAINERS
+            elif 'backend' in command[2]:
+                self.__containers += self.BACKEND_CONTAINERS
             elif 'maintenance' in command[2]:
                 self.__containers += self.MAINTENANCE_CONTAINERS
             elif 'frontend' in command[2]:
@@ -111,11 +110,8 @@ class MockDocker(metaclass=Singleton):
                 if letsencrypt:
                     for container in self.LETSENCRYPT:
                         self.__containers.remove(container)
-                elif 'primary' in command[2]:
-                    for container in self.PRIMARY_BACKEND_CONTAINERS:
-                        self.__containers.remove(container)
-                elif 'secondary' in command[2]:
-                    for container in self.SECONDARY_BACKEND_CONTAINERS:
+                elif 'backend' in command[2]:
+                    for container in self.BACKEND_CONTAINERS:
                         self.__containers.remove(container)
                 elif 'maintenance' in command[2]:
                     for container in self.MAINTENANCE_CONTAINERS:
