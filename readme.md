@@ -21,7 +21,7 @@ before using this repository. **If you do not, `kobo-install` will not be able t
 
 ## Versions
 
-Release branches `release/*` (e.g. `release/2.024.36`) are the recommended branches to use with `kobo-install` on your production environment. Run `git switch "$(git branch -rl 'origin/release/*' | tail -1 | sed -r 's/^.*n\///')"` to switch to the latest release branch.
+Release branches `release/*` (e.g. `release/2.024.36`) are the recommended branches to use with `kobo-install` on your production environment. Run `git switch "$(git branch -rl 'origin/release/*' | tail -1 | sed -r 's/^.*n\///')"` from the `kpi` folder to switch it to the latest release branch.
 
 Branch `main` is a pre-release of the next version. It contains new features and bug fixes.
 
