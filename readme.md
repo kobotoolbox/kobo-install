@@ -21,9 +21,9 @@ before using this repository. **If you do not, `kobo-install` will not be able t
 
 ## Versions
 
-Branch `master` is the recommended branch to use `kobo-install` on your production environment. Just run `git checkout master` before your first run.
+Release branches `release/*` (e.g. `release/2.024.36`) are the recommended branches to use with `kobo-install` on your production environment. Run `git switch "$(git branch -rl 'origin/release/*' | tail -1 | sed -r 's/^.*n\///')"` to switch to the latest release branch.
 
-Branch `beta` is a pre-release of the next version. It contains new features and bug fixes.
+Branch `main` is a pre-release of the next version. It contains new features and bug fixes.
 
 Other branches are for development purposes.
 
