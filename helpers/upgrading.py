@@ -127,18 +127,6 @@ class Upgrading:
             sys.exit(1)
 
     @staticmethod
-    def set_compose_version(upgraded_dict: dict) -> dict:
-
-        if 'compose_version' not in upgraded_dict:
-            # FIXME On macOS, Docker Desktop always installs a symlink for
-            #   `docker-compose`. Version will be always detected as v1 even if
-            #   user has chosen v2 in Docker Desktop preferences.
-            compose_version = 'v2' if which('docker-compose') is None else 'v1'
-            upgraded_dict['compose_version'] = compose_version
-
-        return upgraded_dict
-
-    @staticmethod
     def two_databases(upgraded_dict: dict, current_dict: dict) -> dict:
         """
         If the configuration came from a previous version that had a single

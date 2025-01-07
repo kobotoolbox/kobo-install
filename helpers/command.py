@@ -510,8 +510,7 @@ class Command:
                 frontend_command = False
                 break
 
-        start_index = 5 if dict_.get('compose_version', 'v1') == 'v1' else 6
-
+        start_index = 6  # len of command `docker` + extra space
         if frontend_command and dict_['use_frontend_custom_yml']:
             custom_file = '{}/docker-compose.frontend.custom.yml'.format(
                 dict_['kobodocker_path']

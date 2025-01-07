@@ -144,7 +144,7 @@ User can choose between 2 types of installations:
 ## Requirements
 
 - Linux <sup>5</sup> / macOS <sup>6</sup>
-- Python 3.8+
+- Python 3.10+
 - [Docker](https://www.docker.com/get-started "") <sup>7</sup>
 - Available TCP Ports: <sup>8</sup>
 
@@ -160,11 +160,11 @@ User can choose between 2 types of installations:
     - _If you use a firewall, be sure to open traffic publicly on NGINX port, otherwise kobo-install cannot work_
     - _By default, additional ports are not exposed except when using multi servers configuration. If you choose to expose them, **be sure to not expose them publicly** (e.g. use a firewall and allow traffic between front-end and back-end containers only. NGINX port still has to stay publicly opened though)._
 
-<sup>5)</sup> _It has been tested with Ubuntu 18.04, 20.04 and 22.04_
+<sup>5)</sup> _It has been tested with Ubuntu 20.04, 22.04 and 24.04_
 
 <sup>6)</sup> _Docker on macOS is slow. First boot usually takes a while to be ready. You may have to answer `Yes` once or twice to question `Wait for another 600 seconds?` when prompted_
 
-<sup>7)</sup> _Compose V1 is still supported but has reached its EOL from July 2023_
+<sup>7)</sup> _Compose V1 is **NOT** supported anymore. It has reached its EOL from July 2023_
 
 <sup>8)</sup> _These are defaults but can be customized with advanced options_
 

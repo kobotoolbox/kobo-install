@@ -1,5 +1,4 @@
 # For public, HTTPS servers.
-version: '3'
 
 services:
 

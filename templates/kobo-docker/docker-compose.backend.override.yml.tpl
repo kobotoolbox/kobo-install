@@ -1,5 +1,4 @@
 # Override for primary back-end server
-version: '3'
 
 services:
 

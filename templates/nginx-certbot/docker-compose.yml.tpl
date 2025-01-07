@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   nginx_ssl_proxy:
     image: nginx:1.26-alpine
