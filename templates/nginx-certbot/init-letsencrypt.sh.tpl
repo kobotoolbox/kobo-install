@@ -32,7 +32,7 @@ echo "### Creating dummy certificate for $${DOMAINS_CSV} ..."
 DOMAINS_PATH="/etc/letsencrypt/live/$$DOMAINS"
 $$MKDIR_CMD -p "$$DATA_PATH/conf/live/$$DOMAINS"
 $$DOCKER_COMPOSE_CMD ${DOCKER_COMPOSE_SUFFIX} run --rm --entrypoint "\
-  openssl req -x509 -nodes -newkey rsa:1024 -days 1\
+  openssl req -x509 -nodes -newkey rsa:2048 -days 1\
     -keyout '$$DOMAINS_PATH/privkey.pem' \
     -out '$$DOMAINS_PATH/fullchain.pem' \
     -subj '/CN=localhost'" certbot

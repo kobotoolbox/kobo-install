@@ -25,3 +25,4 @@ services:
 networks:
   kobo-fe-network:
     name: ${DOCKER_NETWORK_FRONTEND_PREFIX}_kobo-fe-network
+    external: true
