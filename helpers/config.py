@@ -697,37 +697,128 @@ class Config(metaclass=Singleton):
 
     def __clone_repo(self, repo_path, repo_name):
         if repo_path:
-            if repo_path.startswith('.'):
+            # Check if repo_path is a git URL
+            if self.__is_git_url(repo_path):
+                # Extract repository name from git URL for directory name
+                repo_dir_name = self.__extract_repo_name_from_url(repo_path)
                 full_repo_path = os.path.normpath(os.path.join(
                     self.__dict['kobodocker_path'],
-                    repo_path
+                    '..',
+                    repo_dir_name
                 ))
+                
+                if not os.path.isdir(full_repo_path):
+                    # create parent directory
+                    try:
+                        os.makedirs(os.path.dirname(full_repo_path), exist_ok=True)
+                    except OSError:
+                        CLI.colored_print('Please verify permissions.',
+                                          CLI.COLOR_ERROR)
+                        sys.exit(1)
+
+                # Only clone if folder doesn't exist or is empty
+                if not os.path.isdir(os.path.join(full_repo_path, '.git')):
+                    git_command = [
+                        'git', 'clone',
+                        repo_path,  # Use the provided git URL
+                        full_repo_path
+                    ]
+
+                    CLI.colored_print(
+                        f'Cloning repository from `{repo_path}` to `{full_repo_path}`',
+                        CLI.COLOR_INFO
+                    )
+                    CLI.run_command(git_command,
+                                    cwd=os.path.dirname(full_repo_path))
+                
+                # Update the repo_path to point to the cloned directory
+                self.__dict['kpi_path'] = full_repo_path
+                
             else:
-                full_repo_path = repo_path
+                # Handle local paths (existing behavior)
+                if repo_path.startswith('.'):
+                    full_repo_path = os.path.normpath(os.path.join(
+                        self.__dict['kobodocker_path'],
+                        repo_path
+                    ))
+                else:
+                    full_repo_path = repo_path
 
-            if not os.path.isdir(full_repo_path):
-                # clone repo
-                try:
-                    os.makedirs(full_repo_path)
-                except OSError:
-                    CLI.colored_print('Please verify permissions.',
-                                      CLI.COLOR_ERROR)
-                    sys.exit(1)
+                if not os.path.isdir(full_repo_path):
+                    # clone repo
+                    try:
+                        os.makedirs(full_repo_path)
+                    except OSError:
+                        CLI.colored_print('Please verify permissions.',
+                                          CLI.COLOR_ERROR)
+                        sys.exit(1)
 
-            # Only clone if folder is empty
-            if not os.path.isdir(os.path.join(full_repo_path, '.git')):
-                git_command = [
-                    'git', 'clone',
-                    f'https://github.com/kobotoolbox/{repo_name}',
-                    full_repo_path
-                ]
+                # Only clone if folder is empty
+                if not os.path.isdir(os.path.join(full_repo_path, '.git')):
+                    git_command = [
+                        'git', 'clone',
+                        f'https://github.com/kobotoolbox/{repo_name}',
+                        full_repo_path
+                    ]
 
-                CLI.colored_print(
-                    f'Cloning `{repo_name}` repository to `{full_repo_path}`',
-                    CLI.COLOR_INFO
-                )
+                    CLI.colored_print(
+                        f'Cloning `{repo_name}` repository to `{full_repo_path}`',
+                        CLI.COLOR_INFO
+                    )
                 CLI.run_command(git_command,
                                 cwd=os.path.dirname(full_repo_path))
+
+    def __is_git_url(self, url):
+        """
+        Check if the provided string is a git URL
+        
+        Args:
+            url (str): The URL to check
+            
+        Returns:
+            bool: True if it's a git URL, False otherwise
+        """
+        git_url_patterns = [
+            r'^https?://.*\.git$',  # https://github.com/user/repo.git
+            r'^git@.*:.*\.git$',    # git@github.com:user/repo.git
+            r'^https?://github\.com/.+/.+$',  # https://github.com/user/repo (without .git)
+            r'^https?://gitlab\.com/.+/.+$',  # https://gitlab.com/user/repo
+            r'^https?://bitbucket\.org/.+/.+$',  # https://bitbucket.org/user/repo
+        ]
+        
+        import re
+        for pattern in git_url_patterns:
+            if re.match(pattern, url):
+                return True
+        return False
+
+    def __extract_repo_name_from_url(self, git_url):
+        """
+        Extract repository name from git URL to use as directory name
+        
+        Args:
+            git_url (str): The git URL
+            
+        Returns:
+            str: Repository name to use as directory
+        """
+        import re
+        
+        # Handle different git URL formats
+        if git_url.startswith('git@'):
+            # git@github.com:user/repo.git -> repo
+            match = re.search(r':([^/]+)/([^/]+?)(?:\.git)?$', git_url)
+            if match:
+                return match.group(2)
+        else:
+            # https://github.com/user/repo.git -> repo
+            # https://github.com/user/repo -> repo
+            match = re.search(r'/([^/]+?)(?:\.git)?/?$', git_url)
+            if match:
+                return match.group(1)
+        
+        # Fallback: use the last part of the URL
+        return git_url.split('/')[-1].replace('.git', '')
 
     def __detect_network(self):
 
@@ -1097,15 +1188,16 @@ class Config(metaclass=Singleton):
 
             if self.dev_mode or self.staging_mode:
                 message = (
-                    'Where are the files located locally? It can be absolute '
-                    'or relative to the directory of `kobo-docker`.\n\n'
+                    'Where are the KPI files located? You can provide:\n'
+                    '• A local path (absolute or relative to kobo-docker directory)\n'
+                    '• A git repository URL (e.g., https://github.com/user/kpi.git)\n\n'
                     'Leave empty if you do not need to overload the repository.'
                 )
                 CLI.framed_print(message, color=CLI.COLOR_INFO)
 
                 kpi_path = self.__dict['kpi_path']
                 self.__dict['kpi_path'] = CLI.colored_input(
-                    'KPI files location?', CLI.COLOR_QUESTION,
+                    'KPI files location or git URL?', CLI.COLOR_QUESTION,
                     self.__dict['kpi_path'])
                 self.__clone_repo(self.__dict['kpi_path'], 'kpi')
 
