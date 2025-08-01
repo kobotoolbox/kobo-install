@@ -139,29 +139,77 @@ class CLI:
         return f'{message}{default}'
 
     @classmethod
-    def run_command(cls, command, cwd=None, polling=False):
+    def run_command(cls, command, cwd=None, polling=True, verbose=0, show_command=False):
+        """
+        Run a command with optional verbosity levels
+        
+        Args:
+            command: Command list to execute
+            cwd: Working directory
+            polling: If True, show real-time output
+            verbose: Verbosity level (0=minimal, 1=normal, 2=detailed)
+            show_command: If True, show the command being executed
+        """
+        import time
+        
+        if show_command or verbose >= 1:
+            command_str = ' '.join(command) if isinstance(command, list) else command
+            cls.colored_print(f"🔧 Executing: {command_str}", cls.COLOR_INFO)
+        
+        start_time = time.time()
+        
         if polling:
-            process = subprocess.Popen(command, stdout=subprocess.PIPE, cwd=cwd)
+            process = subprocess.Popen(
+                command, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.STDOUT,  # Combine stderr with stdout
+                cwd=cwd,
+                universal_newlines=True
+            )
             while True:
                 output = process.stdout.readline()
                 if output == '' and process.poll() is not None:
                     break
                 if output:
-                    print(output.decode().strip())
-            return process.poll()
+                    line = output.strip()
+                    if verbose >= 2:
+                        # Show detailed output with timestamps
+                        timestamp = time.strftime("%H:%M:%S")
+                        print(f"[{timestamp}] {line}")
+                    else:
+                        print(line)
+            
+            exit_code = process.poll()
+            elapsed_time = time.time() - start_time
+            
+            if verbose >= 1:
+                if exit_code == 0:
+                    cls.colored_print(f"✅ Command completed in {elapsed_time:.2f}s", cls.COLOR_SUCCESS)
+                else:
+                    cls.colored_print(f"❌ Command failed with exit code {exit_code} after {elapsed_time:.2f}s", cls.COLOR_ERROR)
+            
+            return exit_code
         else:
             try:
                 stdout = subprocess.check_output(command,
                                                  universal_newlines=True,
+                                                 stderr=subprocess.STDOUT,
                                                  cwd=cwd)
+                elapsed_time = time.time() - start_time
+                
+                if verbose >= 1:
+                    cls.colored_print(f"✅ Command completed in {elapsed_time:.2f}s", cls.COLOR_SUCCESS)
+                
+                return stdout
             except subprocess.CalledProcessError as cpe:
-                # Error will be display by above command.
-                # ^^^ this doesn't seem to be true? let's write it explicitly
-                # see https://docs.python.org/3/library/subprocess.html#subprocess.check_output
+                elapsed_time = time.time() - start_time
                 sys.stderr.write(cpe.output)
-                cls.colored_print('An error has occurred', CLI.COLOR_ERROR)
+                
+                if verbose >= 1:
+                    cls.colored_print(f"❌ Command failed after {elapsed_time:.2f}s", cls.COLOR_ERROR)
+                else:
+                    cls.colored_print('An error has occurred', cls.COLOR_ERROR)
                 sys.exit(1)
-            return stdout
 
     @classmethod
     def yes_no_question(cls, question, default=True,
@@ -171,3 +219,48 @@ class CLI:
             choice_number = index + 1
             cls.colored_print(f'\t{choice_number}) {label}')
         return cls.get_response(default=default)
+
+    @classmethod
+    def progress_message(cls, message, status="info"):
+        """
+        Display a progress message with appropriate emoji and color
+        
+        Args:
+            message: The message to display
+            status: 'info', 'success', 'error', 'warning'
+        """
+        icons = {
+            'info': '🔧',
+            'success': '✅',
+            'error': '❌',
+            'warning': '⚠️'
+        }
+        
+        colors = {
+            'info': cls.COLOR_INFO,
+            'success': cls.COLOR_SUCCESS,
+            'error': cls.COLOR_ERROR,
+            'warning': cls.COLOR_WARNING
+        }
+        
+        icon = icons.get(status, '🔧')
+        color = colors.get(status, cls.COLOR_INFO)
+        
+        cls.colored_print(f"{icon} {message}", color)
+
+    @classmethod
+    def print_step(cls, step_number, total_steps, message, verbose=0):
+        """
+        Print a numbered step with progress indication
+        
+        Args:
+            step_number: Current step number
+            total_steps: Total number of steps
+            message: Step description
+            verbose: Verbosity level
+        """
+        if verbose >= 1:
+            progress = f"[{step_number}/{total_steps}]"
+            cls.colored_print(f"{progress} {message}", cls.COLOR_INFO)
+        else:
+            cls.progress_message(message, "info")

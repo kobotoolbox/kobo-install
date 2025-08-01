@@ -24,8 +24,12 @@ class Command:
             '                Show KoboToolbox Url and super user credentials',
             '          -l, --logs',
             '                Display docker logs',
-            '          -b, --build',
+            '          -b, --build [-v|--verbose|-vv]',
             '                Build django (kpi) container (only on dev/staging mode)',
+            '                  -v, --verbose: Show build progress and commands',
+            '                  -vv: Show detailed output with timestamps',
+            '          -bv, -bvv',
+            '                Shorthand for build with verbosity levels',
             '          -s, --setup',
             '                Prompt questions to (re)write configuration files',
             '          -S, --stop',
@@ -50,27 +54,66 @@ class Command:
         print('\n'.join(output))
 
     @classmethod
-    def build(cls):
+    def build(cls, verbose=0):
         """
         Builds kpi image with `--no-caches` option
+        
+        Args:
+            verbose: Verbosity level (0=minimal, 1=normal, 2=detailed)
         """
+        import time
+        
         config = Config()
         dict_ = config.get_dict()
 
-        if config.dev_mode or config.staging_mode:
+        if not (config.dev_mode or config.staging_mode):
+            CLI.colored_print("Build command is only available in dev or staging mode", CLI.COLOR_ERROR)
+            return
 
-            prefix = config.get_prefix('frontend')
-            timestamp = int(time.time())
-            dict_['kpi_dev_build_id'] = f'{prefix}{timestamp}'
-            config.write_config()
-            Template.render(config)
-            frontend_command = run_docker_compose(dict_, [
-                '-f', 'docker-compose.frontend.yml',
-                '-f', 'docker-compose.frontend.override.yml',
-                '-p', config.get_prefix('frontend'),
-                'build', '--force-rm', '--no-cache', 'kpi'
-            ])
-            CLI.run_command(frontend_command, dict_['kobodocker_path'])
+        start_time = time.time()
+        
+        if verbose >= 1:
+            CLI.framed_print("Starting KPI Container Build Process", CLI.COLOR_INFO)
+        
+        CLI.print_step(1, 3, "Preparing build environment", verbose)
+        
+        prefix = config.get_prefix('frontend')
+        timestamp = int(time.time())
+        dict_['kpi_dev_build_id'] = f'{prefix}{timestamp}'
+        
+        if verbose >= 1:
+            CLI.colored_print(f"Build ID: {dict_['kpi_dev_build_id']}", CLI.COLOR_INFO)
+        
+        config.write_config()
+        
+        CLI.print_step(2, 3, "Updating configuration templates", verbose)
+        Template.render(config)
+        
+        CLI.print_step(3, 3, "Building KPI Docker container (this may take several minutes)", verbose)
+        
+        frontend_command = run_docker_compose(dict_, [
+            '-f', 'docker-compose.frontend.yml',
+            '-f', 'docker-compose.frontend.override.yml',
+            '-p', config.get_prefix('frontend'),
+            'build', '--force-rm', '--no-cache', 'kpi'
+        ])
+        
+        # Always use polling for build commands to show progress
+        exit_code = CLI.run_command(
+            frontend_command, 
+            dict_['kobodocker_path'], 
+            polling=True, 
+            verbose=verbose,
+            show_command=(verbose >= 1)
+        )
+        
+        total_time = time.time() - start_time
+        
+        if exit_code == 0:
+            CLI.progress_message(f"Build completed successfully in {total_time:.1f} seconds!", "success")
+        else:
+            CLI.progress_message(f"Build failed after {total_time:.1f} seconds", "error")
+            sys.exit(exit_code)
 
     @classmethod
     def compose_frontend(cls, args):

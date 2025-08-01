@@ -97,7 +97,20 @@ if __name__ == '__main__':
             elif sys.argv[1] == '-l' or sys.argv[1] == '--logs':
                 Command.logs()
             elif sys.argv[1] == '-b' or sys.argv[1] == '--build':
-                Command.build()
+                # Handle build with optional verbosity
+                verbose = 0
+                if len(sys.argv) > 2:
+                    if sys.argv[2] == '-v' or sys.argv[2] == '--verbose':
+                        verbose = 1
+                    elif sys.argv[2] == '-vv':
+                        verbose = 2
+                Command.build(verbose=verbose)
+            elif sys.argv[1] == '-bv':
+                # Shorthand for build with verbosity
+                Command.build(verbose=1)
+            elif sys.argv[1] == '-bvv':
+                # Shorthand for build with max verbosity
+                Command.build(verbose=2)
             elif sys.argv[1] == '-v' or sys.argv[1] == '--version':
                 Command.version()
             elif sys.argv[1] == '-m' or sys.argv[1] == '--maintenance':
