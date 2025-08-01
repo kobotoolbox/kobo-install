@@ -139,19 +139,20 @@ class CLI:
         return f'{message}{default}'
 
     @classmethod
-    def run_command(cls, command, cwd=None, polling=True, verbose=0, show_command=False):
+    def run_command(cls, command, cwd=None, polling=False, verbose=0, show_command=False):
         """
         Run a command with optional verbosity levels
         
         Args:
             command: Command list to execute
             cwd: Working directory
-            polling: If True, show real-time output
+            polling: If True, show real-time output and return exit code
             verbose: Verbosity level (0=minimal, 1=normal, 2=detailed)
             show_command: If True, show the command being executed
         """
         import time
         
+        # Only show verbose output if explicitly requested
         if show_command or verbose >= 1:
             command_str = ' '.join(command) if isinstance(command, list) else command
             cls.colored_print(f"🔧 Executing: {command_str}", cls.COLOR_INFO)
@@ -182,6 +183,7 @@ class CLI:
             exit_code = process.poll()
             elapsed_time = time.time() - start_time
             
+            # Only show timing info if verbose
             if verbose >= 1:
                 if exit_code == 0:
                     cls.colored_print(f"✅ Command completed in {elapsed_time:.2f}s", cls.COLOR_SUCCESS)
@@ -197,6 +199,7 @@ class CLI:
                                                  cwd=cwd)
                 elapsed_time = time.time() - start_time
                 
+                # Only show timing info if verbose
                 if verbose >= 1:
                     cls.colored_print(f"✅ Command completed in {elapsed_time:.2f}s", cls.COLOR_SUCCESS)
                 

@@ -25,7 +25,7 @@ class Updater:
                 '--abbrev-ref',
                 'HEAD',
             ]
-            version = CLI.run_command(git_commit_version_command).strip()
+            version = CLI.run_command(git_commit_version_command, polling=False).strip()
 
         if update_self:
             # Update kobo-install first

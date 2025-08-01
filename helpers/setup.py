@@ -87,29 +87,29 @@ class Setup:
 
         # fetch new tags and prune
         git_command = ['git', 'fetch', '-p']
-        CLI.run_command(git_command, cwd=dict_['kobodocker_path'])
+        CLI.run_command(git_command, cwd=dict_['kobodocker_path'], verbose=0)
 
         # checkout branch
         git_command = ['git', 'checkout', '--force', Config.KOBO_DOCKER_BRANCH]
-        CLI.run_command(git_command, cwd=dict_['kobodocker_path'])
+        CLI.run_command(git_command, cwd=dict_['kobodocker_path'], verbose=0)
 
         # update code
         git_command = ['git', 'pull', 'origin', Config.KOBO_DOCKER_BRANCH]
-        CLI.run_command(git_command, cwd=dict_['kobodocker_path'])
+        CLI.run_command(git_command, cwd=dict_['kobodocker_path'], verbose=0)
 
     @staticmethod
     def update_koboinstall(version):
         # fetch new tags and prune
         git_fetch_prune_command = ['git', 'fetch', '-p']
-        CLI.run_command(git_fetch_prune_command)
+        CLI.run_command(git_fetch_prune_command, verbose=0)
 
         # checkout branch
         git_command = ['git', 'checkout', '--force', version]
-        CLI.run_command(git_command)
+        CLI.run_command(git_command, verbose=0)
 
         # update code
         git_command = ['git', 'pull', 'origin', version]
-        CLI.run_command(git_command)
+        CLI.run_command(git_command, verbose=0)
 
     @classmethod
     def update_hosts(cls, dict_):

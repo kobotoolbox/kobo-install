@@ -58,7 +58,7 @@ class Upgrading:
                                 'python', 'manage.py',
                                 'is_database_empty', 'kpi', 'kobocat'
                            ]))
-        output = CLI.run_command(frontend_command, dict_['kobodocker_path'])
+        output = CLI.run_command(frontend_command, dict_['kobodocker_path'], polling=False)
         # TODO: read only stdout and don't consider stderr unless the exit code
         # is non-zero. Currently, `output` combines both stdout and stderr
         kpi_kc_db_empty = output.strip().split('\n')[-1]

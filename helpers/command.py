@@ -527,7 +527,7 @@ class Command:
     @classmethod
     def version(cls):
         git_commit_version_command = ['git', 'rev-parse', 'HEAD']
-        stdout = CLI.run_command(git_commit_version_command)
+        stdout = CLI.run_command(git_commit_version_command, polling=False)
         build = stdout.strip()[0:7]
         version = Config.KOBO_INSTALL_VERSION
         CLI.colored_print(

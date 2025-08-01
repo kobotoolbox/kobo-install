@@ -455,7 +455,7 @@ class Config(metaclass=Singleton):
                 '/bin/bash',
                 'init-letsencrypt.sh'
             ]
-            CLI.run_command(reverse_proxy_command, reverse_proxy_path)
+            CLI.run_command(reverse_proxy_command, reverse_proxy_path, verbose=0)
 
     @property
     def local_install(self):
