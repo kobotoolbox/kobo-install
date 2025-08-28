@@ -73,6 +73,15 @@ Start maintenance mode:
 Stop maintenance mode:  
 `$kobo-install> python3 run.py --stop-maintenance`
 
+## React files: Hot Module Reload (HMR) by Webpack
+For frontend file changes to take effect, run watch in terminal and open/refresh http://kf.kobo.local to see your changes hot reloaded (don’t worry about first timeout error, it’s still building):
+```
+./run.py -cf run --rm --publish 3000:3000 kpi npm run watch && ./run.py -cf restart kpi
+```
+The script creates a new docker container for frontend in `npm run watch` mode within the same docker network with the same (internal) port. Using the same port will overshadow the original kpi container’s ports and nginx will instantly serve the new container instead. Unfortunately the port overshadowing doesn’t nicely undo itself and a restart of `kpi` is required. Once the container exits (hit CTRL+C **once**), the container will automatically remove itself and initiate kpi restart which will take up to few minutes.
+
+It should as well handle dependency changes, maybe except for webpack itself.
+
 ## Build the configuration
 User can choose between 2 types of installations:
 
