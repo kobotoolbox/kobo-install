@@ -435,6 +435,7 @@ class Config(metaclass=Singleton):
             'use_frontend_custom_yml': False,
             'use_letsencrypt': True,
             'use_private_dns': False,
+            'use_wal_e': False,
             'uwsgi_harakiri': '120',
             'uwsgi_max_requests': '1024',
             'uwsgi_settings': False,
