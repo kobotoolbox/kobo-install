@@ -1,8 +1,43 @@
+# IDE
 .idea
+.vscode/
+*.swp
+*.swo
+*~
+
+# kobo-install specific
 .run.conf
 .run.conf.*
+
+# Python
 *.pyc
-__pycache__
+*.pyo
+*.pyd
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# Testing
 .pytest_cache/
-.tox
-*.egg-info
+.tox/
+.coverage
+htmlcov/
+*.cover
+.hypothesis/
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+*.egg
+
+# OS specific
+.DS_Store
+Thumbs.db
