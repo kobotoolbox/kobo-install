@@ -139,7 +139,19 @@ class CLI:
         return f'{message}{default}'
 
     @classmethod
-    def run_command(cls, command, cwd=None, polling=False):
+    def run_command(cls, command, cwd=None, polling=False, capture_stderr=False):
+        """
+        Execute a command and return its output.
+        
+        Args:
+            command: Command to execute (list or string)
+            cwd: Current working directory
+            polling: If True, stream output in real-time
+            capture_stderr: If True, capture stderr with stdout (combined output)
+        
+        Returns:
+            str: Command output (stdout only, unless capture_stderr=True)
+        """
         if polling:
             process = subprocess.Popen(command, stdout=subprocess.PIPE, cwd=cwd)
             while True:
@@ -151,17 +163,24 @@ class CLI:
             return process.poll()
         else:
             try:
-                stdout = subprocess.check_output(command,
-                                                 universal_newlines=True,
-                                                 cwd=cwd)
+                # If capture_stderr is True, combine stdout and stderr
+                stderr_arg = subprocess.STDOUT if capture_stderr else subprocess.PIPE
+                result = subprocess.run(
+                    command,
+                    capture_output=True,
+                    text=True,
+                    cwd=cwd,
+                    check=True
+                )
+                return result.stdout
             except subprocess.CalledProcessError as cpe:
-                # Error will be display by above command.
-                # ^^^ this doesn't seem to be true? let's write it explicitly
-                # see https://docs.python.org/3/library/subprocess.html#subprocess.check_output
-                sys.stderr.write(cpe.output)
+                # Display stderr if command failed
+                if cpe.stderr:
+                    sys.stderr.write(cpe.stderr)
+                if cpe.stdout:
+                    sys.stderr.write(cpe.stdout)
                 cls.colored_print('An error has occurred', CLI.COLOR_ERROR)
                 sys.exit(1)
-            return stdout
 
     @classmethod
     def yes_no_question(cls, question, default=True,
