@@ -38,19 +38,22 @@ class Upgrading:
            'run', '--rm', 'kpi'
         ])
 
-        # Install/update pip requirements first to avoid import errors
+        # Install/update pip requirements first to avoid import errors in dev mode
         # See: https://github.com/kobotoolbox/kobo-install/issues/169
-        CLI.colored_print(
-            'Installing/updating Python dependencies...',
-            CLI.COLOR_INFO)
-        pip_command = kpi_run_command + ['bash', '-c', 'pip install --quiet -r requirements/base.pip']
-        try:
-            CLI.run_command(pip_command, dict_['kobodocker_path'])
-        except Exception:
-            # If pip install fails, continue anyway as it might work with cached deps
+        # Only run if requirements file exists (dev mode with local code)
+        if dict_.get('dev_mode'):
             CLI.colored_print(
-                'Warning: Could not update dependencies. Continuing...',
-                CLI.COLOR_WARNING)
+                'Installing/updating Python dependencies...',
+                CLI.COLOR_INFO)
+            pip_command = kpi_run_command + ['bash', '-c', 
+                'if [ -f requirements/base.pip ]; then pip install --quiet -r requirements/base.pip; fi']
+            try:
+                CLI.run_command(pip_command, dict_['kobodocker_path'])
+            except Exception:
+                # If pip install fails, continue anyway as it might work with cached deps
+                CLI.colored_print(
+                    'Warning: Could not update dependencies. Continuing...',
+                    CLI.COLOR_WARNING)
 
         # Make sure Postgres is running
         # We add this message to users because when AWS backups are activated,
