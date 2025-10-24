@@ -61,13 +61,17 @@ class MockCommand:
     `run_command` (as a standalone method) is used as a mock.
     """
     @classmethod
-    def run_command(cls, command, cwd=None, polling=False):
-        if 'docker-compose' != command[0]:
+    def run_command(cls, command, cwd=None, polling=False, capture_stderr=False):
+        # Support both 'docker-compose' and 'docker compose' formats
+        if 'docker-compose' == command[0]:
+            mock_docker = MockDocker()
+            return mock_docker.compose(command, cwd)
+        elif 'docker' == command[0] and len(command) > 1 and command[1] == 'compose':
+            mock_docker = MockDocker()
+            return mock_docker.compose(command, cwd)
+        else:
             message = f'Command: `{command[0]}` is not implemented!'
             raise Exception(message)
-
-        mock_docker = MockDocker()
-        return mock_docker.compose(command, cwd)
 
 
 class MockDocker(metaclass=Singleton):
