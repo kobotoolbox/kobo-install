@@ -12,7 +12,7 @@ from helpers.utils import run_docker_compose
 class Upgrading:
 
     @staticmethod
-    def migrate_single_to_two_databases(config: 'helpers.Config'):
+    def migrate_single_to_two_databases(config):
         """
         Check the contents of the databases. If KPI's is empty or doesn't exist
         while KoBoCAT's has user data, then we are migrating from a
@@ -58,9 +58,9 @@ class Upgrading:
                                 'python', 'manage.py',
                                 'is_database_empty', 'kpi', 'kobocat'
                            ]))
+        # Get stdout only; stderr will be shown only on error
         output = CLI.run_command(frontend_command, dict_['kobodocker_path'])
-        # TODO: read only stdout and don't consider stderr unless the exit code
-        # is non-zero. Currently, `output` combines both stdout and stderr
+        # Extract the last line of stdout which contains the database status
         kpi_kc_db_empty = output.strip().split('\n')[-1]
 
         if kpi_kc_db_empty == 'True\tFalse':
@@ -101,8 +101,8 @@ class Upgrading:
                 sys.exit(0)
 
             backend_command = run_docker_compose(dict_, [
-                '-f', f'docker-compose.backend.{backend_role}.yml',
-                '-f', f'docker-compose.backend.{backend_role}.override.yml',
+                '-f', 'docker-compose.backend.yml',
+                '-f', 'docker-compose.backend.override.yml',
                 '-p', config.get_prefix('backend'),
                 'exec', 'postgres', 'bash',
                 '/kobo-docker-scripts/scripts/clone_data_from_kc_to_kpi.sh',
