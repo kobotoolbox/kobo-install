@@ -99,7 +99,30 @@ services:
     ${USE_BACKEND_NETWORK}  kobo-be-network:
     ${USE_BACKEND_NETWORK}    aliases:
     ${USE_BACKEND_NETWORK}      - worker_low_priority
-    ${USE_BACKEND_NETWORK}      - worker.docker.container
+    ${USE_BACKEND_NETWORK}      - worker_low_priority.docker.container
+
+  worker_long_running_tasks:
+  ${USE_KPI_DEV_MODE}  build: ${KPI_PATH}
+  ${USE_KPI_DEV_MODE}  image: kpi:dev.${KPI_DEV_BUILD_ID}
+  ${USE_KPI_DEV_MODE}  volumes:
+  ${USE_KPI_DEV_MODE}    - ${KPI_PATH}:/srv/src/kpi
+    environment:
+      - WSGI=${WSGI}
+    ${USE_DEV_MODE}  - DJANGO_SETTINGS_MODULE=kobo.settings.dev
+    ${USE_HTTPS}  - SECURE_PROXY_SSL_HEADER=HTTP_X_FORWARDED_PROTO,https
+    ${USE_EXTRA_HOSTS}extra_hosts:
+    ${USE_FAKE_DNS}  - ${KOBOFORM_SUBDOMAIN}.${PUBLIC_DOMAIN_NAME}:${LOCAL_INTERFACE_IP}
+    ${USE_FAKE_DNS}  - ${KOBOCAT_SUBDOMAIN}.${PUBLIC_DOMAIN_NAME}:${LOCAL_INTERFACE_IP}
+    ${USE_FAKE_DNS}  - ${ENKETO_SUBDOMAIN}.${PUBLIC_DOMAIN_NAME}:${LOCAL_INTERFACE_IP}
+    ${ADD_BACKEND_EXTRA_HOSTS}  - postgres.${PRIVATE_DOMAIN_NAME}:${PRIMARY_BACKEND_IP}
+    ${ADD_BACKEND_EXTRA_HOSTS}  - mongo.${PRIVATE_DOMAIN_NAME}:${PRIMARY_BACKEND_IP}
+    ${ADD_BACKEND_EXTRA_HOSTS}  - redis-main.${PRIVATE_DOMAIN_NAME}:${PRIMARY_BACKEND_IP}
+    ${ADD_BACKEND_EXTRA_HOSTS}  - redis-cache.${PRIVATE_DOMAIN_NAME}:${PRIMARY_BACKEND_IP}
+    ${USE_BACKEND_NETWORK}networks:
+    ${USE_BACKEND_NETWORK}  kobo-be-network:
+    ${USE_BACKEND_NETWORK}    aliases:
+    ${USE_BACKEND_NETWORK}      - worker_long_running_tasks
+    ${USE_BACKEND_NETWORK}      - worker_long_running_tasks.docker.container
 
   beat:
   ${USE_KPI_DEV_MODE}  build: ${KPI_PATH}
