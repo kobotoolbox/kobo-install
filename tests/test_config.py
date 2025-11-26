@@ -771,7 +771,6 @@ def test_use_boolean():
         'use_backup',
         'use_letsencrypt',
         'use_private_dns',
-        'use_wal_e',
         'uwsgi_settings',
     ]
     expected_dict = {}

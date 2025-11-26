@@ -209,7 +209,6 @@ class Upgrading:
             'use_backup',
             'use_letsencrypt',
             'use_private_dns',
-            'use_wal_e',
             'uwsgi_settings',
         ]
         for property_ in boolean_properties:
