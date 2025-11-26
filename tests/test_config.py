@@ -312,10 +312,9 @@ def test_proxy_letsencrypt():
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
         # Use default options
-        mock_colored_input.side_effect = iter([CHOICE_YES,
-                                               'test@test.com',
-                                               CHOICE_YES,
-                                               Config.DEFAULT_NGINX_PORT])
+        mock_colored_input.side_effect = iter(
+            [CHOICE_YES, 'test@test.com', CHOICE_YES, Config.DEFAULT_NGINX_PORT]
+        )
         config._Config__questions_reverse_proxy()
         dict_ = config.get_dict()
         assert config.proxy

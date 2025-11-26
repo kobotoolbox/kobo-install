@@ -62,7 +62,7 @@ class MockCommand:
     """
     @classmethod
     def run_command(cls, command, cwd=None, polling=False):
-        if 'docker-compose' != command[0]:
+        if not ('docker' == command[0] and len(command) > 1 and command[1] == 'compose'):
             message = f'Command: `{command[0]}` is not implemented!'
             raise Exception(message)
 
@@ -78,8 +78,8 @@ class MockDocker(metaclass=Singleton):
         'redis_main',
         'redis_cache',
     ]
-    FRONTEND_CONTAINERS = ['nginx', 'kobocat', 'kpi', 'enketo_express']
-    MAINTENANCE_CONTAINERS = ['maintenance', 'kobocat', 'kpi', 'enketo_express']
+    FRONTEND_CONTAINERS = ['nginx', 'kpi', 'enketo_express']
+    MAINTENANCE_CONTAINERS = ['maintenance', 'kpi', 'enketo_express']
     LETSENCRYPT = ['letsencrypt_nginx', 'certbot']
 
     def __init__(self):
@@ -99,24 +99,24 @@ class MockDocker(metaclass=Singleton):
         if command[-2] == 'up':
             if letsencrypt:
                 self.__containers += self.LETSENCRYPT
-            elif 'backend' in command[2]:
+            elif 'backend' in command[3]:
                 self.__containers += self.BACKEND_CONTAINERS
-            elif 'maintenance' in command[2]:
+            elif 'maintenance' in command[3]:
                 self.__containers += self.MAINTENANCE_CONTAINERS
-            elif 'frontend' in command[2]:
+            elif 'frontend' in command[3]:
                 self.__containers += self.FRONTEND_CONTAINERS
         elif command[-1] == 'down':
             try:
                 if letsencrypt:
                     for container in self.LETSENCRYPT:
                         self.__containers.remove(container)
-                elif 'backend' in command[2]:
+                elif 'backend' in command[3]:
                     for container in self.BACKEND_CONTAINERS:
                         self.__containers.remove(container)
-                elif 'maintenance' in command[2]:
+                elif 'maintenance' in command[3]:
                     for container in self.MAINTENANCE_CONTAINERS:
                         self.__containers.remove(container)
-                elif 'frontend' in command[2]:
+                elif 'frontend' in command[3]:
                     for container in self.FRONTEND_CONTAINERS:
                         self.__containers.remove(container)
             except ValueError:
