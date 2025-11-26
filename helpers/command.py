@@ -312,7 +312,7 @@ class Command:
         if config.frontend:
 
             # If this was previously a shared-database setup, migrate to
-            # separate databases for KPI and KoBoCAT
+            # separate databases for KPI and KoboCAT
             Upgrading.migrate_single_to_two_databases(config)
 
             frontend_command = run_docker_compose(dict_, [

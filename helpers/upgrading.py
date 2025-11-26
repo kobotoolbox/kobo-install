@@ -15,7 +15,7 @@ class Upgrading:
     def migrate_single_to_two_databases(config: 'helpers.Config'):
         """
         Check the contents of the databases. If KPI's is empty or doesn't exist
-        while KoBoCAT's has user data, then we are migrating from a
+        while KoboCAT's has user data, then we are migrating from a
         single-database setup
 
         Args
@@ -67,7 +67,7 @@ class Upgrading:
             # KPI empty but KC is not: run the two-database upgrade script
             CLI.colored_print(
                 'Upgrading from single-database setup to separate databases '
-                'for KPI and KoBoCAT',
+                'for KPI and KoboCAT',
                 CLI.COLOR_INFO
             )
             message = (
@@ -101,8 +101,8 @@ class Upgrading:
                 sys.exit(0)
 
             backend_command = run_docker_compose(dict_, [
-                '-f', f'docker-compose.backend.{backend_role}.yml',
-                '-f', f'docker-compose.backend.{backend_role}.override.yml',
+                '-f', f'docker-compose.backend.yml',
+                '-f', f'docker-compose.backend.override.yml',
                 '-p', config.get_prefix('backend'),
                 'exec', 'postgres', 'bash',
                 '/kobo-docker-scripts/scripts/clone_data_from_kc_to_kpi.sh',
@@ -152,8 +152,8 @@ class Upgrading:
         try:
             current_dict['kc_postgres_db']
         except KeyError:
-            # Configuration does not have names of KPI and KoBoCAT databases.
-            # Let's copy old single database name to KoBoCAT database name
+            # Configuration does not have names of KPI and KoboCAT databases.
+            # Let's copy old single database name to KoboCAT database name
             upgraded_dict['kc_postgres_db'] = current_dict['postgres_db']
 
             # Force this property to False. It helps to detect whether the
@@ -209,7 +209,6 @@ class Upgrading:
             'use_backup',
             'use_letsencrypt',
             'use_private_dns',
-            'use_wal_e',
             'uwsgi_settings',
         ]
         for property_ in boolean_properties:

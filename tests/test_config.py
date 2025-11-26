@@ -312,10 +312,9 @@ def test_proxy_letsencrypt():
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
         # Use default options
-        mock_colored_input.side_effect = iter([CHOICE_YES,
-                                               'test@test.com',
-                                               CHOICE_YES,
-                                               Config.DEFAULT_NGINX_PORT])
+        mock_colored_input.side_effect = iter(
+            [CHOICE_YES, 'test@test.com', CHOICE_YES, Config.DEFAULT_NGINX_PORT]
+        )
         config._Config__questions_reverse_proxy()
         dict_ = config.get_dict()
         assert config.proxy
@@ -624,6 +623,8 @@ def test_update_mongo_passwords():
     config = read_config()
     with patch('helpers.cli.CLI.colored_input') as mock_ci:
         config._Config__first_time = False
+        # Test with unsecured MongoDB is covered in test_secure_mongo_advanced_options
+        config._Config__dict['mongo_secured'] = True
         config._Config__dict['mongo_root_username'] = 'root'
         config._Config__dict['mongo_user_username'] = 'user'
         mock_ci.side_effect = iter([
@@ -771,7 +772,6 @@ def test_use_boolean():
         'use_backup',
         'use_letsencrypt',
         'use_private_dns',
-        'use_wal_e',
         'uwsgi_settings',
     ]
     expected_dict = {}

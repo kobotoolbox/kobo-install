@@ -141,7 +141,6 @@ class Config(metaclass=Singleton):
                     self.__questions_google()
                     self.__questions_raven()
                     self.__questions_uwsgi()
-                    self.__questions_service_account()
                     self.__questions_session_cookies()
 
                 self.__questions_custom_yml()
@@ -418,7 +417,6 @@ class Config(metaclass=Singleton):
             'redis_password': Config.generate_password(),
             'review_host': True,
             'server_role': 'frontend',
-            'service_account_whitelisted_hosts': True,
             'smtp_host': '',
             'smtp_password': '',
             'smtp_port': '25',
@@ -1378,7 +1376,7 @@ class Config(metaclass=Singleton):
         while kpi_postgres_db == kc_postgres_db:
             kpi_postgres_db = CLI.colored_input(
                 'KPI must use its own PostgreSQL database, not share one with '
-                'KoBoCAT. Please enter another database',
+                'KoboCAT. Please enter another database',
                 CLI.COLOR_ERROR,
                 Config.get_template()['kpi_postgres_db'],
             )
@@ -1391,7 +1389,7 @@ class Config(metaclass=Singleton):
                 'PostgreSQL database names have changed!\n'
                 'kobo-install does not support database name changes after '
                 'database initialization.\n'
-                'Data will not appear in KPI and/or KoBoCAT.'
+                'Data will not appear in KPI and/or KoboCAT.'
             )
             CLI.framed_print(message)
 
@@ -1899,18 +1897,6 @@ class Config(metaclass=Singleton):
                 to_lower=False,
                 error_msg='Too short. 10 characters minimum.')
 
-    def __questions_service_account(self):
-        if not self.local_install:
-            self.__dict['service_account_whitelisted_hosts'] = (
-                CLI.yes_no_question(
-                    'Do you want to restrict API calls between KPI and KoboCAT '
-                    'to their internal domain names?',
-                    default=self.__dict['service_account_whitelisted_hosts'],
-                )
-            )
-        else:
-            self.__dict['service_account_whitelisted_hosts'] = False
-
     def __questions_session_cookies(self):
         # convert seconds to hours
         session_length_in_hours = (
@@ -2091,7 +2077,6 @@ class Config(metaclass=Singleton):
 
         if no_backups or all_:
             self.__dict['use_backup'] = False
-            self.__dict['use_wal_e'] = False
 
     def __secure_mongo(self):
         """

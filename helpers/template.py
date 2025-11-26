@@ -236,7 +236,6 @@ class Template:
             'REDIS_CACHE_PORT': dict_['redis_cache_port'],
             'REDIS_CACHE_MAX_MEMORY': dict_['redis_cache_max_memory'],
             'USE_BACKUP': '' if dict_['use_backup'] else '#',
-            'USE_WAL_E': _get_value('use_wal_e'),
             'USE_AWS_BACKUP': (
                 ''
                 if (
@@ -324,11 +323,6 @@ class Template:
                 comparison_value='',
             ),
             'USE_LETSENSCRYPT': '#' if config.use_letsencrypt else '',
-            'USE_SERVICE_ACCOUNT_WHITELISTED_HOSTS': (
-                '#'
-                if config.local_install
-                else _get_value('service_account_whitelisted_hosts')
-            ),
             'DOCKER_COMPOSE_CMD': 'docker',
             # Keep leading space in front of suffix if any
             'DOCKER_COMPOSE_SUFFIX': ' compose'

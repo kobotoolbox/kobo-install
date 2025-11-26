@@ -73,14 +73,6 @@ Start maintenance mode:
 Stop maintenance mode:  
 `$kobo-install> python3 run.py --stop-maintenance`
 
-## React files: Hot Module Reload (HMR) by Webpack
-For frontend file changes to take effect, run watch in terminal and open/refresh http://kf.kobo.local to see your changes hot reloaded (don’t worry about first timeout error, it’s still building):
-```
-./run.py -cf run --rm --publish 3000:3000 kpi npm run watch && ./run.py -cf restart kpi
-```
-The script creates a new docker container for frontend in `npm run watch` mode within the same docker network with the same (internal) port. Using the same port will overshadow the original kpi container’s ports and nginx will instantly serve the new container instead. Unfortunately the port overshadowing doesn’t nicely undo itself and a restart of `kpi` is required. Once the container exits (hit CTRL+C **once**), the container will automatically remove itself and initiate kpi restart which will take up to few minutes.
-
-It should as well handle dependency changes, maybe except for webpack itself.
 
 ## Build the configuration
 User can choose between 2 types of installations:
@@ -106,7 +98,7 @@ User can choose between 2 types of installations:
 | Option                                          |Default|Workstation|Server
 |-------------------------------------------------|---|---|---|
 | Webserver port                                  | **80**  | ✓ |  |
-| Reverse proxy interal port                      | **8080**  |  | ✓ (front end only) |
+| Reverse proxy internal port                     | **8080**  |  | ✓ (front end only) |
 | Network interface                               |  **Autodetected**  | ✓ | ✓ (front end only) |
 | Use separate servers                            | **No**  |  | ✓ |
 | Use DNS for private routes                      | **No**  |  | ✓ (front end only) |
@@ -148,8 +140,6 @@ User can choose between 2 types of installations:
 
 <sup>5)</sup> _If AWS storage is selected, credentials must be provided if backups are activated_
 
-ℹ  Intercom App ID [must now](https://github.com/kobotoolbox/kpi/pull/2285) be configured through "Per user settings" in the Django admin interface of KPI.
-
 ## Requirements
 
 - Linux <sup>5</sup> / macOS <sup>6</sup>
@@ -178,7 +168,25 @@ User can choose between 2 types of installations:
 <sup>8)</sup> _These are defaults but can be customized with advanced options_
 
 
-## Tests
+## Development
+
+### React files: Hot Module Reload (HMR) by Webpack
+For frontend file changes to take effect, run watch in terminal and open/refresh http://kf.kobo.local to see your changes hot reloaded (don’t worry about first timeout error, it’s still building):
+
+```shell
+./run.py -cf run --rm --publish 3000:3000 kpi npm run watch && ./run.py -cf restart kpi
+```
+
+The script creates a new docker container for frontend in `npm run watch` mode within the same docker network with the same (internal) port. 
+Using the same port will overshadow the original kpi container’s ports and nginx will instantly serve the new container instead. 
+Unfortunately the port overshadowing doesn’t nicely undo itself and a restart of `kpi` is required. 
+Once the container exits (hit CTRL+C **once**), the container will automatically remove itself and initiate kpi restart which will take up to few minutes.
+
+It should as well handle dependency changes, maybe except for webpack itself.
+
+You can also [this gist](https://gist.github.com/jnm/dd323e0ff5be0d79e12e76bb9dfb7aed) to refresh front-end files without rebuilding the container.
+
+### Tests
 
 Tests can be run with `tox`.  
 Be sure it is installed before running the tests.
