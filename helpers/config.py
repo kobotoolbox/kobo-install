@@ -1295,54 +1295,44 @@ class Config(metaclass=Singleton):
                 )
             )
 
-            if (
-                not self.__dict.get('mongo_secured')
-                or mongo_user_username != self.__dict['mongo_user_username']
-                or mongo_user_password != self.__dict['mongo_user_password']
-                or mongo_root_username != self.__dict['mongo_root_username']
-                or mongo_root_password != self.__dict['mongo_root_password']
-            ) and not self.first_time:
-
-                # Because chances are high we cannot communicate with DB
-                # (e.g ports not exposed, containers down), we delegate the task
-                # to MongoDB container to update (create/delete) users.
-                # (see. `kobo-docker/mongo/upsert_users.sh`)
-                # We have to transmit old users (and their respective DB) to
-                # MongoDB to let it know which users need to be deleted.
-
-                # `content` will be read by MongoDB container at next boot
-                # It should contains users to delete if any.
-                # Its format should be: `<user><TAB><database>`
-                content = ''
-
-                if (
-                    mongo_user_username != self.__dict['mongo_user_username']
+            # Handle MongoDB user changes using common helper
+            # Check both root and regular user credentials
+            if not self.first_time:
+                # Check if any credentials have changed
+                credentials_changed = (
+                    not self.__dict.get('mongo_secured')
+                    or mongo_user_username != self.__dict['mongo_user_username']
+                    or mongo_user_password != self.__dict['mongo_user_password']
                     or mongo_root_username != self.__dict['mongo_root_username']
-                ):
-
-                    message = (
-                        'WARNING!\n\n'
-                        "MongoDB root's and/or user's usernames have changed!"
-                    )
-                    CLI.framed_print(message)
-                    question = 'Do you want to remove old users?'
-                    response = CLI.yes_no_question(question)
-                    if response is True:
+                    or mongo_root_password != self.__dict['mongo_root_password']
+                )
+                
+                if credentials_changed:
+                    # Check if usernames changed (requires special handling)
+                    if (mongo_user_username != self.__dict['mongo_user_username']
+                        or mongo_root_username != self.__dict['mongo_root_username']):
+                        
                         usernames_by_db = {
                             mongo_user_username: 'formhub',
                             mongo_root_username: 'admin'
                         }
-                        for username, db in usernames_by_db.items():
-                            if username != '':
-                                content += '{cr}{username}\t{db}'.format(
-                                    cr='\n' if content else '',
-                                    username=username,
-                                    db=db
-                                )
-
-                self.__write_upsert_db_users_trigger_file(content, 'mongo')
-
-            self.__dict['mongo_secured'] = True
+                        # Use helper for combined username changes
+                        self.__handle_db_user_changes(
+                            'mongo', 
+                            mongo_user_username,
+                            self.__dict['mongo_user_username'],
+                            mongo_user_password,
+                            self.__dict['mongo_user_password'],
+                            user_db_mapping=usernames_by_db
+                        )
+                    elif not self.__dict.get('mongo_secured'):
+                        # Only password changed or first time securing
+                        self.__write_upsert_db_users_trigger_file('', 'mongo')
+                        self.__dict['mongo_secured'] = True
+                    else:
+                        self.__dict['mongo_secured'] = True
+            else:
+                self.__dict['mongo_secured'] = True
 
     def __questions_multi_servers(self):
         """
@@ -1431,37 +1421,25 @@ class Config(metaclass=Singleton):
             postgres_password != self.__dict['postgres_password']) and \
                 not self.first_time:
 
-            # Because chances are high we cannot communicate with DB
-            # (e.g ports not exposed, containers down), we delegate the task
-            # to PostgreSQL container to update (create/delete) users.
-            # (see. `kobo-docker/postgres/shared/upsert_users.sh`)
-            # We need to transmit old user to PostgreSQL to let it know
-            # what was the previous username to log in before performing any
-            # action.
-
-            # `content` will be read by PostgreSQL container at next boot
-            # It should always contain previous username and a boolean
-            # for deletion.
-            # Its format should be: `<user><TAB><boolean>`
-            content = f'{postgres_user}\tfalse'
-
+            # Use common helper to handle PostgreSQL user changes
+            # Note: PostgreSQL requires special handling for initial user deletion
             if postgres_user != self.__dict['postgres_user']:
-
-                CLI.colored_print("PostgreSQL user's username has changed!",
-                                  CLI.COLOR_WARNING)
-                question = 'Do you want to remove old user?',
-                response = CLI.yes_no_question(question)
-                if response is True:
-                    content = f'{postgres_user}\ttrue'
-                    message = (
-                        'WARNING!\n\n'
-                        'User cannot be deleted if it has been used to '
-                        'initialize PostgreSQL server.\n'
-                        'You will need to do it manually!'
-                    )
-                    CLI.framed_print(message)
-
-            self.__write_upsert_db_users_trigger_file(content, 'postgres')
+                # Username changed - show additional warning for PostgreSQL
+                message = (
+                    'WARNING!\n\n'
+                    'User cannot be deleted if it has been used to '
+                    'initialize PostgreSQL server.\n'
+                    'You will need to do it manually!'
+                )
+                CLI.framed_print(message)
+            
+            self.__handle_db_user_changes(
+                'postgres',
+                postgres_user,
+                self.__dict['postgres_user'],
+                postgres_password,
+                self.__dict['postgres_password']
+            )
 
         if self.backend:
             # Postgres settings
@@ -1804,10 +1782,27 @@ class Config(metaclass=Singleton):
                 self.__dict['proxy'] = False
 
         if self.proxy:
-            # When proxy is enabled, public port is 80 or 443.
-            # @TODO Give the user the possibility to customize it too.
-            self.__dict[
-                'exposed_nginx_docker_port'] = Config.DEFAULT_NGINX_PORT
+            # When proxy is enabled, public port is typically 80 or 443.
+            # In advanced mode, users can customize the exposed port if needed.
+            if self.advanced_options:
+                CLI.colored_print(
+                    'External port for HTTP/HTTPS traffic?',
+                    CLI.COLOR_QUESTION
+                )
+                CLI.colored_print(
+                    'This is the port users will use to access your server '
+                    '(usually 80 for HTTP or 443 for HTTPS)',
+                    CLI.COLOR_INFO
+                )
+                self.__dict['exposed_nginx_docker_port'] = CLI.get_response(
+                    r'~^\d+$',
+                    self.__dict['exposed_nginx_docker_port']
+                )
+            else:
+                # Default to port 80 (or 443 for HTTPS) when not in advanced mode
+                self.__dict[
+                    'exposed_nginx_docker_port'] = Config.DEFAULT_NGINX_PORT
+            
             if self.advanced_options:
                 if not self.use_letsencrypt:
                     response = CLI.yes_no_question(
@@ -2093,12 +2088,77 @@ class Config(metaclass=Singleton):
             self.__dict['use_backup'] = False
             self.__dict['use_wal_e'] = False
 
+    def __handle_db_user_changes(self, db_type, old_username, new_username, 
+                                  old_password, new_password, 
+                                  user_db_mapping=None):
+        """
+        Common logic for handling database user changes for MongoDB and PostgreSQL.
+        
+        Args:
+            db_type (str): Either 'mongo' or 'postgres'
+            old_username (str): Previous username
+            new_username (str): New username
+            old_password (str): Previous password
+            new_password (str): New password
+            user_db_mapping (dict): Optional mapping of usernames to databases (for MongoDB)
+        
+        Returns:
+            bool: True if users need to be updated
+        """
+        secured_key = f'{db_type}_secured'
+        
+        # Check if credentials have changed
+        credentials_changed = (
+            old_username != new_username or
+            old_password != new_password
+        )
+        
+        if not self.__dict.get(secured_key) or credentials_changed:
+            if not self.first_time:
+                content = ''
+                
+                # For username changes, ask if old users should be deleted
+                if old_username != new_username:
+                    message = (
+                        'WARNING!\n\n'
+                        f"{db_type.upper()} username has changed!"
+                    )
+                    CLI.framed_print(message)
+                    question = 'Do you want to remove old user?'
+                    response = CLI.yes_no_question(question)
+                    
+                    if response is True:
+                        if user_db_mapping:
+                            # MongoDB format: user\tdatabase
+                            for username, db in user_db_mapping.items():
+                                if username != '':
+                                    content += '{cr}{username}\t{db}'.format(
+                                        cr='\n' if content else '',
+                                        username=username,
+                                        db=db
+                                    )
+                        else:
+                            # PostgreSQL format: user\tdelete_flag
+                            content = f'{old_username}\ttrue'
+                    elif db_type == 'postgres':
+                        # For username change but user chose not to delete
+                        content = f'{old_username}\tfalse'
+                elif db_type == 'postgres' and old_password != new_password:
+                    # For password-only changes in PostgreSQL (username unchanged)
+                    content = f'{old_username}\tfalse'
+                
+                self.__write_upsert_db_users_trigger_file(content, db_type)
+            
+            self.__dict[secured_key] = True
+            return True
+        
+        return False
+
     def __secure_mongo(self):
         """
         Force creations of MongoDB users/passwords when users upgrade from
         a non secure version of kobo-install
         """
-        # ToDo remove duplicated code with `__questions_mongo`
         if not self.__dict.get('mongo_secured') and not self.first_time:
             self.__write_upsert_db_users_trigger_file('', 'mongo')
 
@@ -2123,15 +2183,9 @@ class Config(metaclass=Singleton):
                 postgres_dir_path) and os.path.isdir(postgres_dir_path)
 
             if mongo_data_exists or postgres_data_exists:
-                # Not a reliable way to detect whether folder contains
-                # kobo-install files. We assume that if
-                # `docker-compose.backend.template.yml` is there, Docker
-                # images are the good ones.
-                # TODO Find a better way
-                docker_composer_file_path = os.path.join(
-                    self.__dict['kobodocker_path'],
-                    'docker-compose.backend.template.yml')
-                if not os.path.exists(docker_composer_file_path):
+                # Validate if this is a proper kobo-install directory by checking
+                # for multiple kobo-docker specific files
+                if not self.__is_valid_kobo_install_directory():
                     message = (
                         'WARNING!\n\n'
                         'You are installing over existing data.\n'
@@ -2168,6 +2222,35 @@ class Config(metaclass=Singleton):
                         os.system(
                             f'echo $(date) | sudo tee -a {filepath} > /dev/null'
                         )
+
+    def __is_valid_kobo_install_directory(self):
+        """
+        Check if the kobodocker_path contains a valid kobo-docker installation
+        by verifying the presence of key files.
+        
+        Returns:
+            bool: True if directory appears to be a valid kobo-docker installation
+        """
+        kobo_docker_path = self.__dict['kobodocker_path']
+        
+        # List of key files that should exist in a proper kobo-docker installation
+        required_files = [
+            'docker-compose.backend.template.yml',
+            'docker-compose.frontend.template.yml',
+            '.uniqid',  # Unique ID file created by kobo-install
+        ]
+        
+        # Check if at least 2 of the required files exist
+        found_files = sum(
+            1 for file in required_files
+            if os.path.exists(os.path.join(kobo_docker_path, file))
+        )
+        
+        # Also check for the .git directory which indicates a proper clone
+        has_git_repo = os.path.exists(os.path.join(kobo_docker_path, '.git'))
+        
+        # Consider it valid if we have git repo and at least 2 key files
+        return has_git_repo and found_files >= 2
 
     @staticmethod
     def __welcome():
