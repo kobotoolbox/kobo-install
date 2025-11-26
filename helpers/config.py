@@ -1376,7 +1376,7 @@ class Config(metaclass=Singleton):
         while kpi_postgres_db == kc_postgres_db:
             kpi_postgres_db = CLI.colored_input(
                 'KPI must use its own PostgreSQL database, not share one with '
-                'KoBoCAT. Please enter another database',
+                'KoboCAT. Please enter another database',
                 CLI.COLOR_ERROR,
                 Config.get_template()['kpi_postgres_db'],
             )
@@ -1389,7 +1389,7 @@ class Config(metaclass=Singleton):
                 'PostgreSQL database names have changed!\n'
                 'kobo-install does not support database name changes after '
                 'database initialization.\n'
-                'Data will not appear in KPI and/or KoBoCAT.'
+                'Data will not appear in KPI and/or KoboCAT.'
             )
             CLI.framed_print(message)
 
