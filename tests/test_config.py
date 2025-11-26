@@ -335,8 +335,9 @@ def test_proxy_no_letsencrypt_advanced():
     proxy_port = Config.DEFAULT_NGINX_PORT
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        # Added extra response for new "External port for HTTP/HTTPS traffic?" question
         mock_colored_input.side_effect = iter(
-            [CHOICE_NO, CHOICE_NO, proxy_port])
+            [CHOICE_NO, Config.DEFAULT_NGINX_PORT, CHOICE_NO, proxy_port])
         config._Config__questions_reverse_proxy()
         dict_ = config.get_dict()
         assert config.proxy
@@ -415,8 +416,9 @@ def test_proxy_no_ssl_advanced():
         # Proxy - not on the same server
         proxy_port = Config.DEFAULT_NGINX_PORT
         with patch('helpers.cli.CLI.colored_input') as mock_colored_input_1:
+            # Added extra response for new "External port for HTTP/HTTPS traffic?" question
             mock_colored_input_1.side_effect = iter(
-                [CHOICE_YES, CHOICE_NO, proxy_port])
+                [CHOICE_YES, Config.DEFAULT_NGINX_PORT, CHOICE_NO, proxy_port])
             config._Config__questions_reverse_proxy()
             dict_ = config.get_dict()
             assert config.proxy
@@ -427,8 +429,9 @@ def test_proxy_no_ssl_advanced():
         # Proxy - on the same server
         proxy_port = Config.DEFAULT_PROXY_PORT
         with patch('helpers.cli.CLI.colored_input') as mock_colored_input_2:
+            # Added extra response for new "External port for HTTP/HTTPS traffic?" question
             mock_colored_input_2.side_effect = iter(
-                [CHOICE_YES, CHOICE_YES, proxy_port])
+                [CHOICE_YES, Config.DEFAULT_NGINX_PORT, CHOICE_YES, proxy_port])
             config._Config__questions_reverse_proxy()
             dict_ = config.get_dict()
             assert config.proxy
