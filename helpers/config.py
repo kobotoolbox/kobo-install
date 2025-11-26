@@ -32,7 +32,7 @@ class Config(metaclass=Singleton):
     DEFAULT_NGINX_PORT = '80'
     DEFAULT_NGINX_HTTPS_PORT = '443'
     KOBO_DOCKER_BRANCH = '2.025.43e'
-    KOBO_INSTALL_VERSION = '10.0.1'
+    KOBO_INSTALL_VERSION = '10.1.0'
     MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
     ALLOWED_PASSWORD_CHARACTERS = (
         string.ascii_letters
