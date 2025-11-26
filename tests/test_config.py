@@ -623,6 +623,8 @@ def test_update_mongo_passwords():
     config = read_config()
     with patch('helpers.cli.CLI.colored_input') as mock_ci:
         config._Config__first_time = False
+        # Test with unsecured MongoDB is covered in test_secure_mongo_advanced_options
+        config._Config__dict['mongo_secured'] = True
         config._Config__dict['mongo_root_username'] = 'root'
         config._Config__dict['mongo_user_username'] = 'user'
         mock_ci.side_effect = iter([
