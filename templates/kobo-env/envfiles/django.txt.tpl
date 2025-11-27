@@ -13,9 +13,6 @@ CELERY_BROKER_URL=redis://{% if REDIS_PASSWORD %}:${REDIS_PASSWORD}@{% endif RED
 CELERY_AUTOSCALE_MIN=2
 CELERY_AUTOSCALE_MAX=6
 
-# Comma separated domains
-${USE_SERVICE_ACCOUNT_WHITELISTED_HOSTS}SERVICE_ACCOUNT_WHITELISTED_HOSTS=${KOBOFORM_SUBDOMAIN}.${INTERNAL_DOMAIN_NAME},${KOBOCAT_SUBDOMAIN}.${INTERNAL_DOMAIN_NAME}
-
 # See "api key" here: https://github.com/kobotoolbox/enketo-express/tree/master/config#linked-form-and-data-server.
 ENKETO_API_KEY=${ENKETO_API_KEY}
 

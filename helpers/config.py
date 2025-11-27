@@ -93,7 +93,7 @@ class Config(metaclass=Singleton):
         """
         if not Network.get_primary_ip():
             message = (
-                'No valid networks detected. Can not continue!\n'
+                'No valid networks detected. Cannot continue!\n'
                 'Please connect to a network and re-run the command.'
             )
             CLI.framed_print(message, color=CLI.COLOR_ERROR)

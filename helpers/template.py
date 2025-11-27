@@ -50,13 +50,16 @@ class Template:
         cls.__write_unique_id(environment_directory, dict_['unique_id'])
 
         # Environment
-        templates_path_parent, templates_path = cls._get_template_paths()
-
+        templates_path_parent = cls._get_templates_path_parent()
+        templates_path = os.path.join(
+            templates_path_parent, Config.ENV_FILES_DIR, ''
+        )
         for root, dirnames, filenames in os.walk(templates_path):
             destination_directory = cls.__create_directory(
                 environment_directory,
                 root,
-                templates_path)
+                templates_path
+            )
             cls.__write_templates(
                 template_variables, root, destination_directory, filenames
             )
@@ -64,7 +67,7 @@ class Template:
         # kobo-docker
         templates_path = os.path.join(templates_path_parent, 'kobo-docker')
         for root, dirnames, filenames in os.walk(templates_path):
-            destination_directory = dict_['kobodocker_path']
+            destination_directory = cls.__create_directory(dict_['kobodocker_path'])
             cls.__write_templates(
                 template_variables, root, destination_directory, filenames
             )
@@ -120,7 +123,7 @@ class Template:
                 os.makedirs(destination_directory)
             except OSError:
                 CLI.colored_print(
-                    f'Can not create {destination_directory}. '
+                    f'Cannot create {destination_directory}. '
                     'Please verify permissions!',
                     CLI.COLOR_ERROR)
                 sys.exit(1)
@@ -325,12 +328,10 @@ class Template:
         }
 
     @staticmethod
-    def _get_template_paths():
+    def _get_templates_path_parent():
         base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
         templates_path_parent = os.path.join(base_dir, 'templates')
-        return templates_path_parent, os.path.join(
-            templates_path_parent, Config.ENV_FILES_DIR, ''
-        )
+        return templates_path_parent
 
     @staticmethod
     def __read_unique_id(destination_directory):
@@ -354,13 +355,15 @@ class Template:
         return unique_id
 
     @staticmethod
-    def __write_templates(template_variables_, root_, destination_directory_,
-                          filenames_):
+    def __write_templates(
+        template_variables_, root_, destination_directory_, filenames_
+    ):
         for filename in fnmatch.filter(filenames_, '*.tpl'):
             with open(os.path.join(root_, filename), 'r') as template:
                 t = ExtendedPyTemplate(template.read(), template_variables_)
-                with open(os.path.join(destination_directory_, filename[:-4]),
-                          'w') as f:
+                with open(
+                    os.path.join(destination_directory_, filename[:-4]), 'w'
+                ) as f:
                     f.write(t.substitute(template_variables_))
 
     @classmethod
