@@ -29,6 +29,7 @@ class Template:
 
         environment_directory = config.get_env_files_path()
         unique_id = cls.__read_unique_id(environment_directory)
+
         if (
             not force and unique_id
             and str(dict_.get('unique_id', '')) != str(unique_id)
@@ -48,36 +49,34 @@ class Template:
 
         cls.__write_unique_id(environment_directory, dict_['unique_id'])
 
-        base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-        templates_path_parent = os.path.join(base_dir, 'templates')
-
         # Environment
-        templates_path = os.path.join(templates_path_parent,
-                                      Config.ENV_FILES_DIR,
-                                      '')
+        templates_path_parent = cls._get_templates_path_parent()
+        templates_path = os.path.join(
+            templates_path_parent, Config.ENV_FILES_DIR, ''
+        )
         for root, dirnames, filenames in os.walk(templates_path):
             destination_directory = cls.__create_directory(
                 environment_directory,
                 root,
-                templates_path)
-            cls.__write_templates(template_variables,
-                                  root,
-                                  destination_directory,
-                                  filenames)
+                templates_path
+            )
+            cls.__write_templates(
+                template_variables, root, destination_directory, filenames
+            )
 
         # kobo-docker
         templates_path = os.path.join(templates_path_parent, 'kobo-docker')
         for root, dirnames, filenames in os.walk(templates_path):
-            destination_directory = dict_['kobodocker_path']
-            cls.__write_templates(template_variables,
-                                  root,
-                                  destination_directory,
-                                  filenames)
+            destination_directory = cls.__create_directory(dict_['kobodocker_path'])
+            cls.__write_templates(
+                template_variables, root, destination_directory, filenames
+            )
 
         # nginx-certbox
         if config.use_letsencrypt:
-            templates_path = os.path.join(templates_path_parent,
-                                          Config.LETSENCRYPT_DOCKER_DIR, '')
+            templates_path = os.path.join(
+                templates_path_parent, Config.LETSENCRYPT_DOCKER_DIR, ''
+            )
             for root, dirnames, filenames in os.walk(templates_path):
                 destination_directory = cls.__create_directory(
                     config.get_letsencrypt_repo_path(),
@@ -124,7 +123,7 @@ class Template:
                 os.makedirs(destination_directory)
             except OSError:
                 CLI.colored_print(
-                    f'Can not create {destination_directory}. '
+                    f'Cannot create {destination_directory}. '
                     'Please verify permissions!',
                     CLI.COLOR_ERROR)
                 sys.exit(1)
@@ -329,6 +328,12 @@ class Template:
         }
 
     @staticmethod
+    def _get_templates_path_parent():
+        base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+        templates_path_parent = os.path.join(base_dir, 'templates')
+        return templates_path_parent
+
+    @staticmethod
     def __read_unique_id(destination_directory):
         """
         Reads unique id from file `Template.UNIQUE_ID_FILE`
@@ -350,13 +355,15 @@ class Template:
         return unique_id
 
     @staticmethod
-    def __write_templates(template_variables_, root_, destination_directory_,
-                          filenames_):
+    def __write_templates(
+        template_variables_, root_, destination_directory_, filenames_
+    ):
         for filename in fnmatch.filter(filenames_, '*.tpl'):
             with open(os.path.join(root_, filename), 'r') as template:
                 t = ExtendedPyTemplate(template.read(), template_variables_)
-                with open(os.path.join(destination_directory_, filename[:-4]),
-                          'w') as f:
+                with open(
+                    os.path.join(destination_directory_, filename[:-4]), 'w'
+                ) as f:
                     f.write(t.substitute(template_variables_))
 
     @classmethod

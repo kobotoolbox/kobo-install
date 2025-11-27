@@ -6,7 +6,7 @@ from helpers.config import Config
 from helpers.singleton import Singleton
 
 
-def read_config(overrides=None):
+def mock_read_config(overrides=None):
 
     config_dict = dict(Config.get_template())
     config_dict['kobodocker_path'] = '/tmp'
@@ -40,15 +40,15 @@ def read_config(overrides=None):
 
     return config
 
-
-def reset_config(config):
+def mock_reset_config(config):
 
     dict_ = dict(Config.get_template())
     dict_['kobodocker_path'] = '/tmp'
     config.__dict = dict_
 
 
-def write_trigger_upsert_db_users(*args):
+def mock_write_trigger_upsert_db_users(*args):
+
     content = args[1]
     with open('/tmp/upsert_db_users', 'w') as f:
         f.write(content)

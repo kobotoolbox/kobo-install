@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 
 from helpers.command import Command
 from .utils import (
-    read_config,
+    mock_read_config as read_config,
     MockCommand,
     MockDocker,
     MockUpgrading,

@@ -10,8 +10,8 @@ from unittest.mock import patch, MagicMock
 from helpers.cli import CLI
 from helpers.config import Config
 from .utils import (
-    read_config,
-    write_trigger_upsert_db_users,
+    mock_read_config as read_config,
+    mock_write_trigger_upsert_db_users,
     MockAWSValidation
 )
 
@@ -20,7 +20,7 @@ CHOICE_NO = '2'
 
 
 def test_read_config():
-    config = read_config()
+    read_config()
 
 
 def test_advanced_options():
@@ -560,7 +560,7 @@ def test_force_secure_mongo():
 
 
 @patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',
-       new=write_trigger_upsert_db_users)
+       new=mock_write_trigger_upsert_db_users)
 def test_secure_mongo_advanced_options():
     config = read_config()
     config._Config__dict['advanced'] = True
@@ -618,7 +618,7 @@ def test_secure_mongo_advanced_options():
 
 
 @patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',
-       new=write_trigger_upsert_db_users)
+       new=mock_write_trigger_upsert_db_users)
 def test_update_mongo_passwords():
     config = read_config()
     with patch('helpers.cli.CLI.colored_input') as mock_ci:
@@ -640,7 +640,7 @@ def test_update_mongo_passwords():
 
 
 @patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',
-       new=write_trigger_upsert_db_users)
+       new=mock_write_trigger_upsert_db_users)
 def test_update_mongo_usernames():
     config = read_config()
     with patch('helpers.cli.CLI.colored_input') as mock_ci:
@@ -664,7 +664,7 @@ def test_update_mongo_usernames():
 
 
 @patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',
-       new=write_trigger_upsert_db_users)
+       new=mock_write_trigger_upsert_db_users)
 def test_update_postgres_password():
     """
     Does **NOT** test if user is updated in PostgreSQL but the file creation
@@ -695,7 +695,7 @@ def test_update_postgres_password():
 
 
 @patch('helpers.config.Config._Config__write_upsert_db_users_trigger_file',
-       new=write_trigger_upsert_db_users)
+       new=mock_write_trigger_upsert_db_users)
 def test_update_postgres_username():
     """
     Does **NOT** test if user is updated in PostgreSQL but the file creation
