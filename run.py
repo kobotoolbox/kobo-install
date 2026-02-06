@@ -28,7 +28,7 @@ from helpers.template import Template
 from helpers.updater import Updater
 
 
-def run(force_setup=False):
+def run(force_setup=False, start=True):
 
     if not platform.system() in ['Linux', 'Darwin']:
         CLI.colored_print('Not compatible with this OS', CLI.COLOR_ERROR)
@@ -49,8 +49,27 @@ def run(force_setup=False):
                 Setup.update_hosts(dict_)
 
         config.validate_passwords()
-        Command.start(force_setup=force_setup)
+        if start:
+            Command.start(force_setup=force_setup)
+            return
+        
+        CLI.colored_print('Setup complete.', CLI.COLOR_SUCCESS)
 
+        # Edge warning case for --setup-only and letsencrypt on first run
+        # See start(force_setup=True) in command.py.
+        if (config.use_letsencrypt and force_setup):
+            CLI.colored_print(
+                'Configured with --setup-only and using Let\'s Encrypt.'
+                'On first run, launch with --setup to initialize the'
+                'Let\'s Encrypt NGINX container.',
+                CLI.COLOR_WARNING)
+
+
+def setup_and_start():
+    run(force_setup=True)
+
+def setup_only():
+    run(force_setup=True, start=False)
 
 if __name__ == '__main__':
     try:
@@ -90,8 +109,10 @@ if __name__ == '__main__':
                 Updater.run(cron=True, update_self=update_self)
             elif sys.argv[1] == '-i' or sys.argv[1] == '--info':
                 Command.info(0)
+            elif sys.argv[1] == '-so' or sys.argv[1] == '--setup-only':
+                setup_only()
             elif sys.argv[1] == '-s' or sys.argv[1] == '--setup':
-                run(force_setup=True)
+                setup_and_start()
             elif sys.argv[1] == '-S' or sys.argv[1] == '--stop':
                 Command.stop()
             elif sys.argv[1] == '-l' or sys.argv[1] == '--logs':
