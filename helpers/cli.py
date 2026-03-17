@@ -28,6 +28,9 @@ class CLI:
 
     @classmethod
     def colored_input(cls, message, color=NO_COLOR, default=None):
+        from helpers.config import Config
+        app_name = Config().get_dict().get('app_name', 'KoboToolbox')
+        message = message.replace('KoboToolbox', app_name)
         text = cls.get_message_with_default(message, default)
         input_ = input(cls.colorize(text, color))
 
@@ -40,6 +43,9 @@ class CLI:
 
     @classmethod
     def colored_print(cls, message, color=NO_COLOR):
+        from helpers.config import Config
+        app_name = Config().get_dict().get('app_name', 'KoboToolbox')
+        message = message.replace('KoboToolbox', app_name)
         print(cls.colorize(message, color))
 
     @classmethod
