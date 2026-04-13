@@ -111,11 +111,17 @@ class Template:
     def __create_directory(cls, template_root_directory, path='', base_dir=''):
 
         # Handle case when path is root and equals ''.
-        path = os.path.join(path, '')
+        path = os.path.normpath(path)
+        base_dir = os.path.normpath(base_dir) if base_dir else ''
+
+        if base_dir and path.startswith(base_dir):
+            relative_path = path[len(base_dir):].lstrip(os.sep)
+        else:
+            relative_path = ''
 
         destination_directory = os.path.realpath(os.path.join(
             template_root_directory,
-            path.replace(base_dir, '')
+            relative_path
         ))
 
         if not os.path.isdir(destination_directory):
@@ -130,8 +136,8 @@ class Template:
 
         return destination_directory
 
-    @staticmethod
-    def __get_template_variables(config):
+    @classmethod
+    def __get_template_variables(cls, config):
         """
         Write configuration files based on `config`
 
@@ -156,6 +162,9 @@ class Template:
 
         return {
             'PUBLIC_REQUEST_SCHEME': _get_value('https', 'https', 'http'),
+            'APP_NAME': dict_['app_name'],
+            'APP_SUPPORT_EMAIL': dict_['app_support_email'],
+            'APP_DEFAULT_FROM_EMAIL': dict_['app_default_from_email'],
             'USE_HTTPS': _get_value('https'),
             'USE_AWS': _get_value('use_aws'),
             'AWS_ACCESS_KEY_ID': dict_['aws_access_key'],
