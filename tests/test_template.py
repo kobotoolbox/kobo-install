@@ -99,6 +99,23 @@ def test_aws_template_tokens_aws_disabled():
     assert vars_['USE_CLOUD_PROFILE_VOLUMES'] == '#'
 
 
+def test_aws_upgrade_without_profile_keys():
+    """Config loaded from old .run.conf without aws_use_profile keys should
+    fall back to credentials mode without raising KeyError."""
+    config = read_config({'use_aws': True, 'aws_access_key': 'key', 'aws_secret_key': 'secret'})
+    del config._Config__dict['aws_use_profile']
+    del config._Config__dict['aws_profile_name']
+    del config._Config__dict['aws_host_aws_dir']
+    with patch(
+        'helpers.template.Template._Template__read_unique_id',
+        MagicMock(return_value='123456789')
+    ):
+        vars_ = Template._Template__get_template_variables(config)
+    assert vars_['USE_AWS_CREDENTIALS'] == ''
+    assert vars_['USE_AWS_PROFILE'] == '#'
+    assert vars_['USE_CLOUD_PROFILE_VOLUMES'] == '#'
+
+
 def test_cloud_profile_volumes_active_in_kpi_dev_mode():
     vars_ = _get_template_vars({
         'use_aws': False,

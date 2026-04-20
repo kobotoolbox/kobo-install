@@ -160,18 +160,18 @@ class Template:
             'USE_AWS': _get_value('use_aws'),
             'USE_AWS_CREDENTIALS': (
                 ''
-                if (dict_['use_aws'] and not dict_['aws_use_profile'])
+                if (dict_['use_aws'] and not dict_.get('aws_use_profile', False))
                 else '#'
             ),
             'USE_AWS_PROFILE': (
                 ''
-                if (dict_['use_aws'] and dict_['aws_use_profile'])
+                if (dict_['use_aws'] and dict_.get('aws_use_profile', False))
                 else '#'
             ),
             'AWS_ACCESS_KEY_ID': dict_['aws_access_key'],
             'AWS_SECRET_ACCESS_KEY': dict_['aws_secret_key'],
-            'AWS_PROFILE': dict_['aws_profile_name'],
-            'AWS_HOST_AWS_DIR': dict_['aws_host_aws_dir'],
+            'AWS_PROFILE': dict_.get('aws_profile_name', ''),
+            'AWS_HOST_AWS_DIR': dict_.get('aws_host_aws_dir', ''),
             'AWS_BUCKET_NAME': dict_['aws_bucket_name'],
             'AWS_S3_REGION_NAME': dict_['aws_s3_region_name'],
             'GOOGLE_UA': dict_['google_ua'],
@@ -213,7 +213,7 @@ class Template:
             ),
             'USE_CLOUD_PROFILE_VOLUMES': (
                 ''
-                if (dict_['kpi_path'] != '' or dict_['aws_use_profile'])
+                if (dict_['kpi_path'] != '' or dict_.get('aws_use_profile', False))
                 else '#'
             ),
             'KPI_DEV_BUILD_ID': dict_['kpi_dev_build_id'],
