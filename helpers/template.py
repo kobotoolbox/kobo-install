@@ -158,8 +158,20 @@ class Template:
             'PUBLIC_REQUEST_SCHEME': _get_value('https', 'https', 'http'),
             'USE_HTTPS': _get_value('https'),
             'USE_AWS': _get_value('use_aws'),
+            'USE_AWS_CREDENTIALS': (
+                ''
+                if (dict_['use_aws'] and not dict_['aws_use_profile'])
+                else '#'
+            ),
+            'USE_AWS_PROFILE': (
+                ''
+                if (dict_['use_aws'] and dict_['aws_use_profile'])
+                else '#'
+            ),
             'AWS_ACCESS_KEY_ID': dict_['aws_access_key'],
             'AWS_SECRET_ACCESS_KEY': dict_['aws_secret_key'],
+            'AWS_PROFILE': dict_['aws_profile_name'],
+            'AWS_HOST_AWS_DIR': dict_['aws_host_aws_dir'],
             'AWS_BUCKET_NAME': dict_['aws_bucket_name'],
             'AWS_S3_REGION_NAME': dict_['aws_s3_region_name'],
             'GOOGLE_UA': dict_['google_ua'],
@@ -198,6 +210,11 @@ class Template:
             'KPI_PATH': dict_['kpi_path'],
             'USE_KPI_DEV_MODE': _get_value(
                 'kpi_path', true_value='#', false_value='', comparison_value=''
+            ),
+            'USE_CLOUD_PROFILE_VOLUMES': (
+                ''
+                if (dict_['kpi_path'] != '' or dict_['aws_use_profile'])
+                else '#'
             ),
             'KPI_DEV_BUILD_ID': dict_['kpi_dev_build_id'],
             'NGINX_PUBLIC_PORT': (
