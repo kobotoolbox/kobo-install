@@ -301,11 +301,14 @@ class Config(metaclass=Singleton):
             'aws_backup_yearly_retention': '2',
             'aws_bucket_name': '',
             'aws_credentials_valid': False,
+            'aws_host_aws_dir': os.path.expanduser('~/.aws'),
             'aws_mongo_backup_minimum_size': '50',
             'aws_postgres_backup_minimum_size': '50',
+            'aws_profile_name': 'default',
             'aws_redis_backup_minimum_size': '5',
             'aws_s3_region_name': 'us-east-1',
             'aws_secret_key': '',
+            'aws_use_profile': False,
             'aws_validate_credentials': True,
             'block_common_http_ports': True,
             'custom_secret_keys': False,
@@ -819,12 +822,29 @@ class Config(metaclass=Singleton):
     def __questions_aws_configuration(self):
 
         if self.__dict['use_aws']:
-            self.__dict['aws_access_key'] = CLI.colored_input(
-                'AWS Access Key', CLI.COLOR_QUESTION,
-                self.__dict['aws_access_key'])
-            self.__dict['aws_secret_key'] = CLI.colored_input(
-                'AWS Secret Key', CLI.COLOR_QUESTION,
-                self.__dict['aws_secret_key'])
+            self.__dict['aws_use_profile'] = CLI.yes_no_question(
+                'Use AWS profile instead of credentials (access key/secret)?',
+                default=self.__dict['aws_use_profile']
+            )
+            if self.__dict['aws_use_profile']:
+                self.__dict['aws_profile_name'] = CLI.colored_input(
+                    'AWS Profile Name', CLI.COLOR_QUESTION,
+                    self.__dict['aws_profile_name'])
+                self.__dict['aws_host_aws_dir'] = CLI.colored_input(
+                    'AWS credentials directory on host',
+                    CLI.COLOR_QUESTION,
+                    self.__dict['aws_host_aws_dir'])
+                self.__dict['aws_access_key'] = ''
+                self.__dict['aws_secret_key'] = ''
+            else:
+                self.__dict['aws_profile_name'] = ''
+                self.__dict['aws_host_aws_dir'] = ''
+                self.__dict['aws_access_key'] = CLI.colored_input(
+                    'AWS Access Key', CLI.COLOR_QUESTION,
+                    self.__dict['aws_access_key'])
+                self.__dict['aws_secret_key'] = CLI.colored_input(
+                    'AWS Secret Key', CLI.COLOR_QUESTION,
+                    self.__dict['aws_secret_key'])
             self.__dict['aws_bucket_name'] = CLI.colored_input(
                 'AWS Bucket Name', CLI.COLOR_QUESTION,
                 self.__dict['aws_bucket_name'])
@@ -836,6 +856,9 @@ class Config(metaclass=Singleton):
             self.__dict['aws_secret_key'] = ''
             self.__dict['aws_bucket_name'] = ''
             self.__dict['aws_s3_region_name'] = ''
+            self.__dict['aws_use_profile'] = False
+            self.__dict['aws_profile_name'] = ''
+            self.__dict['aws_host_aws_dir'] = ''
 
     def __questions_aws_validate_credentials(self):
         """
@@ -846,13 +869,17 @@ class Config(metaclass=Singleton):
         self.__dict['aws_credentials_valid'] = False
         aws_credential_attempts = 0
 
-        if self.__dict['use_aws']:
+        if self.__dict['use_aws'] and not self.__dict['aws_use_profile']:
             self.__dict['aws_validate_credentials'] = CLI.yes_no_question(
                 'Would you like to validate your AWS credentials?',
                 default=self.__dict['aws_validate_credentials'],
             )
 
-        if self.__dict['use_aws'] and self.__dict['aws_validate_credentials']:
+        if (
+            self.__dict['use_aws']
+            and not self.__dict['aws_use_profile']
+            and self.__dict['aws_validate_credentials']
+        ):
             while (
                 not self.__dict['aws_credentials_valid']
                 and aws_credential_attempts

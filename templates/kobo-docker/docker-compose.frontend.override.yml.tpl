@@ -4,8 +4,10 @@ services:
   kpi:
   ${USE_KPI_DEV_MODE}  build: ${KPI_PATH}
   ${USE_KPI_DEV_MODE}  image: kpi:dev.${KPI_DEV_BUILD_ID}
-  ${USE_KPI_DEV_MODE}  volumes:
+  ${USE_CLOUD_PROFILE_VOLUMES}  volumes:
   ${USE_KPI_DEV_MODE}    - ${KPI_PATH}:/srv/src/kpi
+  ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/home/kobo/.aws/:ro
+  ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/root/.aws/:ro
     environment:
       - UWSGI_WORKERS_COUNT=${UWSGI_WORKERS_MAX}
       - UWSGI_CHEAPER_WORKERS_COUNT=${UWSGI_WORKERS_START}
@@ -35,8 +37,10 @@ services:
   worker:
   ${USE_KPI_DEV_MODE}  build: ${KPI_PATH}
   ${USE_KPI_DEV_MODE}  image: kpi:dev.${KPI_DEV_BUILD_ID}
-  ${USE_KPI_DEV_MODE}  volumes:
+  ${USE_CLOUD_PROFILE_VOLUMES}  volumes:
   ${USE_KPI_DEV_MODE}    - ${KPI_PATH}:/srv/src/kpi
+  ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/home/kobo/.aws/:ro
+  ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/root/.aws/:ro
     environment:
       - WSGI=${WSGI}
     ${USE_DEV_MODE}  - DJANGO_SETTINGS_MODULE=kobo.settings.dev
@@ -58,8 +62,10 @@ services:
   worker_kobocat:
   ${USE_KPI_DEV_MODE}  build: ${KPI_PATH}
   ${USE_KPI_DEV_MODE}  image: kpi:dev.${KPI_DEV_BUILD_ID}
-  ${USE_KPI_DEV_MODE}  volumes:
+  ${USE_CLOUD_PROFILE_VOLUMES}  volumes:
   ${USE_KPI_DEV_MODE}    - ${KPI_PATH}:/srv/src/kpi
+  ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/home/kobo/.aws/:ro
+  ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/root/.aws/:ro
     environment:
       - WSGI=${WSGI}
     ${USE_DEV_MODE}  - DJANGO_SETTINGS_MODULE=kobo.settings.dev
@@ -81,8 +87,10 @@ services:
   worker_low_priority:
   ${USE_KPI_DEV_MODE}  build: ${KPI_PATH}
   ${USE_KPI_DEV_MODE}  image: kpi:dev.${KPI_DEV_BUILD_ID}
-  ${USE_KPI_DEV_MODE}  volumes:
+  ${USE_CLOUD_PROFILE_VOLUMES}  volumes:
   ${USE_KPI_DEV_MODE}    - ${KPI_PATH}:/srv/src/kpi
+  ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/home/kobo/.aws/:ro
+  ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/root/.aws/:ro
     environment:
       - WSGI=${WSGI}
     ${USE_DEV_MODE}  - DJANGO_SETTINGS_MODULE=kobo.settings.dev
@@ -104,8 +112,10 @@ services:
   worker_long_running_tasks:
   ${USE_KPI_DEV_MODE}  build: ${KPI_PATH}
   ${USE_KPI_DEV_MODE}  image: kpi:dev.${KPI_DEV_BUILD_ID}
-  ${USE_KPI_DEV_MODE}  volumes:
+  ${USE_CLOUD_PROFILE_VOLUMES}  volumes:
   ${USE_KPI_DEV_MODE}    - ${KPI_PATH}:/srv/src/kpi
+  ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/home/kobo/.aws/:ro
+  ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/root/.aws/:ro
     environment:
       - WSGI=${WSGI}
     ${USE_DEV_MODE}  - DJANGO_SETTINGS_MODULE=kobo.settings.dev
@@ -127,8 +137,10 @@ services:
   beat:
   ${USE_KPI_DEV_MODE}  build: ${KPI_PATH}
   ${USE_KPI_DEV_MODE}  image: kpi:dev.${KPI_DEV_BUILD_ID}
-  ${USE_KPI_DEV_MODE}  volumes:
+  ${USE_CLOUD_PROFILE_VOLUMES}  volumes:
   ${USE_KPI_DEV_MODE}    - ${KPI_PATH}:/srv/src/kpi
+  ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/home/kobo/.aws/:ro
+  ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/root/.aws/:ro
     environment:
       - WSGI=${WSGI}
     ${USE_DEV_MODE}  - DJANGO_SETTINGS_MODULE=kobo.settings.dev

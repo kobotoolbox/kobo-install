@@ -6,6 +6,15 @@ from helpers.template import Template
 from .utils import mock_read_config as read_config
 
 
+def _get_template_vars(overrides=None):
+    config = read_config(overrides)
+    with patch(
+        'helpers.template.Template._Template__read_unique_id',
+        MagicMock(return_value='123456789')
+    ):
+        return Template._Template__get_template_variables(config)
+
+
 WORK_DIR = '/tmp/kobo-install-tests'
 
 @patch(
@@ -51,6 +60,70 @@ def test_render_templates():
         assert os.path.exists(f'{WORK_DIR}/kobo-env/envfiles/django.txt')
     finally:
         shutil.rmtree(WORK_DIR)
+
+
+def test_aws_template_tokens_credentials_mode():
+    vars_ = _get_template_vars({
+        'use_aws': True,
+        'aws_use_profile': False,
+        'aws_access_key': 'key',
+        'aws_secret_key': 'secret',
+        'aws_profile_name': '',
+        'aws_host_aws_dir': '',
+    })
+    assert vars_['USE_AWS_CREDENTIALS'] == ''
+    assert vars_['USE_AWS_PROFILE'] == '#'
+    assert vars_['USE_CLOUD_PROFILE_VOLUMES'] == '#'
+
+
+def test_aws_template_tokens_profile_mode():
+    vars_ = _get_template_vars({
+        'use_aws': True,
+        'aws_use_profile': True,
+        'aws_access_key': '',
+        'aws_secret_key': '',
+        'aws_profile_name': 'my_profile',
+        'aws_host_aws_dir': '/home/user/.aws',
+    })
+    assert vars_['USE_AWS_CREDENTIALS'] == '#'
+    assert vars_['USE_AWS_PROFILE'] == ''
+    assert vars_['USE_CLOUD_PROFILE_VOLUMES'] == ''
+    assert vars_['AWS_PROFILE'] == 'my_profile'
+    assert vars_['AWS_HOST_AWS_DIR'] == '/home/user/.aws'
+
+
+def test_aws_template_tokens_aws_disabled():
+    vars_ = _get_template_vars({'use_aws': False, 'aws_use_profile': False})
+    assert vars_['USE_AWS_CREDENTIALS'] == '#'
+    assert vars_['USE_AWS_PROFILE'] == '#'
+    assert vars_['USE_CLOUD_PROFILE_VOLUMES'] == '#'
+
+
+def test_aws_upgrade_without_profile_keys():
+    """Config loaded from old .run.conf without aws_use_profile keys should
+    fall back to credentials mode without raising KeyError."""
+    config = read_config({'use_aws': True, 'aws_access_key': 'key', 'aws_secret_key': 'secret'})
+    del config._Config__dict['aws_use_profile']
+    del config._Config__dict['aws_profile_name']
+    del config._Config__dict['aws_host_aws_dir']
+    with patch(
+        'helpers.template.Template._Template__read_unique_id',
+        MagicMock(return_value='123456789')
+    ):
+        vars_ = Template._Template__get_template_variables(config)
+    assert vars_['USE_AWS_CREDENTIALS'] == ''
+    assert vars_['USE_AWS_PROFILE'] == '#'
+    assert vars_['USE_CLOUD_PROFILE_VOLUMES'] == '#'
+
+
+def test_cloud_profile_volumes_active_in_kpi_dev_mode():
+    vars_ = _get_template_vars({
+        'use_aws': False,
+        'aws_use_profile': False,
+        'kpi_path': '/path/to/kpi',
+    })
+    assert vars_['USE_CLOUD_PROFILE_VOLUMES'] == ''
+    assert vars_['USE_AWS_PROFILE'] == '#'
 
 
 def _copy_templates(src: str = None, dst: str = None):

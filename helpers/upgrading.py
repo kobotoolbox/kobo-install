@@ -187,6 +187,7 @@ class Upgrading:
         boolean_properties = [
             'advanced',
             'aws_backup_bucket_deletion_rule_enabled',
+            'aws_use_profile',
             'backup_from_primary',
             'block_common_http_ports',
             'custom_secret_keys',
