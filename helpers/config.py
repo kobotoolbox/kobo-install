@@ -104,6 +104,7 @@ class Config(metaclass=Singleton):
             self.__dict = self.get_upgraded_dict()
 
             self.__create_directory()
+            self.__questions_branding()
             self.__questions_advanced_options()
             self.__questions_installation_type()
             self.__detect_network()
@@ -291,6 +292,9 @@ class Config(metaclass=Singleton):
         # Keep properties sorted alphabetically
         return {
             'advanced': False,
+            'app_name': 'KoboToolbox',
+            'app_support_email': 'support@kobo.local',
+            'app_default_from_email': 'support@kobo.local',
             'aws_access_key': '',
             'aws_backup_bucket_deletion_rule_enabled': False,
             'aws_backup_bucket_name': '',
@@ -803,6 +807,27 @@ class Config(metaclass=Singleton):
         self.__dict['advanced'] = CLI.yes_no_question(
             'Do you want to see advanced options?',
             default=self.__dict['advanced'])
+
+    def __questions_branding(self):
+        """
+        Asks for branding information
+        """
+        CLI.colored_print('Branding Configuration', CLI.COLOR_INFO)
+
+        self.__dict['app_name'] = CLI.colored_input(
+            'What is the name of your platform?',
+            CLI.COLOR_QUESTION,
+            self.__dict['app_name'])
+
+        self.__dict['app_support_email'] = CLI.colored_input(
+            'Contact/Support email?',
+            CLI.COLOR_QUESTION,
+            self.__dict['app_support_email'])
+
+        self.__dict['app_default_from_email'] = CLI.colored_input(
+            'Default "From" email for notifications?',
+            CLI.COLOR_QUESTION,
+            self.__dict['app_default_from_email'])
 
     def __questions_aws(self):
         """

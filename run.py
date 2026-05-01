@@ -35,8 +35,10 @@ def run(force_setup=False):
     else:
         config = Config()
         dict_ = config.get_dict()
+        app_name = dict_.get('app_name', 'KoboToolbox')
         if config.first_time:
             force_setup = True
+            CLI.framed_print(f'Welcome to {app_name} setup!')
 
         if force_setup:
             dict_ = config.build()
