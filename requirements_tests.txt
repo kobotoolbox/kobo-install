@@ -8,6 +8,6 @@ pathlib2==2.3.2
 pluggy==1.0.0
 py==1.11.0
 pyparsing==3.0.8
-pytest==7.1.1
+pytest==9.0.3
 six==1.16.0
 tomli==2.0.1
