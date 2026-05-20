@@ -1,2 +1,2 @@
 netifaces==0.11.0
-pytest==8.4.2
+pytest==9.0.3
