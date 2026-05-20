@@ -38,6 +38,28 @@ class Upgrading:
            'run', '--rm', 'kpi'
         ])
 
+        # In dev mode, install pip requirements before any manage.py call.
+        # Without this, switching KPI versions with updated dependencies causes
+        # ImportError because the last-built image still has the old packages.
+        # See: https://github.com/kobotoolbox/kobo-install/issues/169
+        if dict_.get('dev_mode'):
+            CLI.colored_print(
+                'Installing/updating Python dependencies...',
+                CLI.COLOR_INFO
+            )
+            pip_cmd = kpi_run_command + [
+                'bash', '-c',
+                'if [ -f dependencies/pip/dev_requirements.txt ]; then'
+                ' uv pip sync dependencies/pip/dev_requirements.txt; fi'
+            ]
+            try:
+                CLI.run_command(pip_cmd, dict_['kobodocker_path'])
+            except Exception:
+                CLI.colored_print(
+                    'Warning: Could not update dependencies. Continuing...',
+                    CLI.COLOR_WARNING
+                )
+
         # Make sure Postgres is running
         # We add this message to users because when AWS backups are activated,
         # it takes a long time to install the virtualenv in PostgreSQL
