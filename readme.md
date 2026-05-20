@@ -143,7 +143,7 @@ User can choose between 2 types of installations:
 ## Requirements
 
 - Linux <sup>5</sup> / macOS <sup>6</sup>
-- Python 3.10+
+- Python 3.12+
 - [Docker](https://www.docker.com/get-started "") <sup>7</sup>
 - Available TCP Ports: <sup>8</sup>
 
@@ -159,7 +159,7 @@ User can choose between 2 types of installations:
     - _If you use a firewall, be sure to open traffic publicly on NGINX port, otherwise kobo-install cannot work_
     - _By default, additional ports are not exposed except when using multi servers configuration. If you choose to expose them, **be sure to not expose them publicly** (e.g. use a firewall and allow traffic between front-end and back-end containers only. NGINX port still has to stay publicly opened though)._
 
-<sup>5)</sup> _It has been tested with Ubuntu 20.04, 22.04 and 24.04_
+<sup>5)</sup> _It has been tested with Ubuntu 22.04 and 24.04_
 
 <sup>6)</sup> _Docker on macOS is slow. First boot usually takes a while to be ready. You may have to answer `Yes` once or twice to question `Wait for another 600 seconds?` when prompted_
 
@@ -188,17 +188,9 @@ You can also [this gist](https://gist.github.com/jnm/dd323e0ff5be0d79e12e76bb9df
 
 ### Tests
 
-Tests can be run with `tox`.  
-Be sure it is installed before running the tests.
+Tests require Python 3.12+ and can be run with `pytest`:
 
-```
-$kobo-install> sudo apt install python3-pip
-$kobo-install> pip3 install tox
-$kobo-install> tox
-```
-or
-
-```
-$kobo-install> sudo apt install tox
-$kobo-install> tox
+```shell
+$kobo-install> pip install -r requirements_tests.txt
+$kobo-install> pytest -vv
 ```
