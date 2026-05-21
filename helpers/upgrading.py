@@ -52,9 +52,12 @@ class Upgrading:
                 'if [ -f dependencies/pip/dev_requirements.txt ]; then'
                 ' uv pip sync dependencies/pip/dev_requirements.txt; fi'
             ]
-            try:
-                CLI.run_command(pip_cmd, dict_['kobodocker_path'])
-            except Exception:
+            result = subprocess.run(
+                pip_cmd,
+                cwd=dict_['kobodocker_path'],
+                capture_output=True,
+            )
+            if result.returncode != 0:
                 CLI.colored_print(
                     'Warning: Could not update dependencies. Continuing...',
                     CLI.COLOR_WARNING
