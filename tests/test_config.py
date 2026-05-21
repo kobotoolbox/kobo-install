@@ -376,6 +376,38 @@ def test_aws_credentials_mode_clears_profile():
     assert config._Config__dict['aws_secret_key'] == 'my_secret'
 
 
+def test_aws_switch_to_profile_during_validation_retry():
+    """
+    User starts in credentials mode, fails validation, then switches to profile
+    mode on retry. Should not loop forever or call sys.exit(1).
+    """
+    config = _aws_validation_setup()
+
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        mock_colored_input.side_effect = iter([
+            CHOICE_YES,        # Yes, use AWS S3 storage
+            CHOICE_NO,         # No, use credentials (1st config call)
+            '',                # Empty Access Key
+            '',                # Empty Secret Key
+            '',                # Empty Bucket Name
+            '',                # Empty Region Name
+            CHOICE_YES,        # Yes, validate credentials
+            CHOICE_YES,        # Switch to profile on retry (aws_use_profile)
+            'my_profile',      # AWS Profile Name
+            '/home/user/.aws', # AWS credentials directory on host
+            'my_bucket',       # AWS Bucket Name
+            'us-east-1',       # AWS Region Name
+        ])
+        config._Config__questions_aws()
+
+    assert config._Config__dict['aws_use_profile'] is True
+    assert config._Config__dict['aws_profile_name'] == 'my_profile'
+    assert config._Config__dict['aws_host_aws_dir'] == '/home/user/.aws'
+    assert config._Config__dict['aws_access_key'] == ''
+    assert config._Config__dict['aws_secret_key'] == ''
+    assert not config._Config__dict['aws_credentials_valid']
+
+
 @patch('helpers.config.Config._Config__clone_repo',
        MagicMock(return_value=True))
 def test_proxy_letsencrypt():

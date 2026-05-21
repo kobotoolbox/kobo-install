@@ -882,6 +882,7 @@ class Config(metaclass=Singleton):
         ):
             while (
                 not self.__dict['aws_credentials_valid']
+                and not self.__dict['aws_use_profile']
                 and aws_credential_attempts
                 <= self.MAXIMUM_AWS_CREDENTIAL_ATTEMPTS
             ):
@@ -907,7 +908,9 @@ class Config(metaclass=Singleton):
                     )
                     self.__questions_aws_configuration()
             else:
-                if not self.__dict['aws_credentials_valid']:
+                if self.__dict['aws_use_profile']:
+                    pass
+                elif not self.__dict['aws_credentials_valid']:
                     CLI.colored_print(
                         'Please restart configuration', CLI.COLOR_ERROR
                     )
