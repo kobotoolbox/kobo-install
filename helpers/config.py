@@ -103,52 +103,58 @@ class Config(metaclass=Singleton):
             self.__welcome()
             self.__dict = self.get_upgraded_dict()
 
-            self.__create_directory()
-            self.__questions_advanced_options()
-            self.__questions_installation_type()
-            self.__detect_network()
+            # Step 1: Mode — dev / staging / production
+            self.__questions_install_mode()
 
-            if not self.local_install:
-                if self.advanced_options:
-                    self.__questions_multi_servers()
-                    if self.multi_servers:
-                        self.__questions_roles()
-                        if self.frontend:
-                            self.__questions_private_routes()
-                    else:
-                        self.__reset(fake_dns=True)
+            # Step 2: Complexity — simple / advanced
+            self.__questions_complexity()
 
-                if self.frontend:
-                    self.__questions_public_routes()
-                    self.__questions_https()
-                    self.__questions_reverse_proxy()
+            # Step 3: Install directory (auto in simple, ask in advanced)
+            self.__setup_directory()
 
+            # Step 4: Auto-detect network IP (no interface question here)
+            self.__auto_detect_network()
+
+            # Step 5: Server topology must be resolved before public routes
+            # (determines frontend/backend role in multi-server setups)
+            if not self.local_install and self.advanced_options:
+                self.__questions_multi_servers()
+                if self.multi_servers:
+                    self.__questions_roles()
+                    if self.frontend:
+                        self.__questions_private_routes()
+                else:
+                    self.__reset(fake_dns=True)
+
+            # Step 6: Public routes, HTTPS, reverse proxy (frontend server only)
+            if not self.local_install and self.frontend:
+                self.__questions_public_routes()
+                self.__questions_https()
+                self.__questions_reverse_proxy()
+
+            # Step 7: SMTP + superuser (frontend)
             if self.frontend:
-                self.__questions_smtp()
+                if self.dev_mode and not self.advanced_options:
+                    # Simple dev: use Django console email backend, no config needed
+                    self.__dict['use_console_email_backend'] = True
+                else:
+                    self.__dict['use_console_email_backend'] = False
+                    self.__questions_smtp()
                 self.__questions_super_user_credentials()
 
-            if self.advanced_options:
-                self.__questions_docker_prefix()
-                self.__questions_dev_mode()
-                self.__questions_postgres()
-                self.__questions_mongo()
-                self.__questions_redis()
-                self.__questions_ports()
+            # Step 8: Custom YAML (everyone)
+            self.__questions_custom_yml()
 
-                if self.frontend:
-                    self.__questions_secret_keys()
-                    self.__questions_aws()
-                    self.__questions_google()
-                    self.__questions_raven()
-                    self.__questions_uwsgi()
-                    self.__questions_session_cookies()
-
-                self.__questions_custom_yml()
-
-            else:
+            if not self.advanced_options:
                 self.__secure_mongo()
+                self.write_config()
+                return self.__dict
 
-            self.__questions_backup()
+            # Step 9: Checkbox menu — user picks which advanced sections to configure
+            selected = self.__questions_advanced_sections()
+
+            # Step 10: Run only the selected sections
+            self.__run_selected_advanced_sections(selected)
 
             self.write_config()
 
@@ -330,6 +336,7 @@ class Config(metaclass=Singleton):
             'google_api_key': '',
             'google_ua': '',
             'https': True,
+            'install_mode': 'production',
             'internal_domain_name': 'docker.internal',
             'kc_dev_build_id': '',
             'kc_postgres_db': 'kobocat',
@@ -433,6 +440,7 @@ class Config(metaclass=Singleton):
             'use_backup': False,
             'use_backend_custom_yml': False,
             'use_celery': True,
+            'use_console_email_backend': False,
             'use_frontend_custom_yml': False,
             'use_letsencrypt': True,
             'use_private_dns': False,
@@ -730,58 +738,72 @@ class Config(metaclass=Singleton):
                 CLI.run_command(git_command,
                                 cwd=os.path.dirname(full_repo_path))
 
-    def __detect_network(self):
-
+    def __auto_detect_network(self):
+        """
+        Detects primary network IP without prompting.
+        Called from build() so IP is always available before any questions.
+        """
         self.__dict['local_interface_ip'] = Network.get_primary_ip()
-
         if self.frontend:
             self.__dict['primary_backend_ip'] = self.__dict[
                 'local_interface_ip']
 
+    def __detect_network(self):
+        """
+        Detects network and asks for interface selection when in advanced mode.
+        Kept for backwards compatibility (used by auto_detect_network property).
+        """
+        self.__auto_detect_network()
         if self.advanced_options:
-            CLI.colored_print(
-                'Please choose which network interface you want to use?',
-                CLI.COLOR_QUESTION)
-            interfaces = Network.get_local_interfaces()
-            all_interfaces = Network.get_local_interfaces(all_=True)
-            docker_interface = 'docker0'
-            interfaces.update({'other': 'Other'})
+            self.__questions_network_interface()
 
-            if self.__dict['local_interface'] == docker_interface and \
-                    docker_interface in all_interfaces:
-                interfaces.update(
-                    {docker_interface: all_interfaces.get(docker_interface)})
+    def __questions_network_interface(self):
+        """
+        Asks the user which network interface to bind to (advanced mode).
+        """
+        CLI.colored_print(
+            'Please choose which network interface you want to use?',
+            CLI.COLOR_QUESTION)
+        interfaces = Network.get_local_interfaces()
+        all_interfaces = Network.get_local_interfaces(all_=True)
+        docker_interface = 'docker0'
+        interfaces.update({'other': 'Other'})
 
+        if self.__dict['local_interface'] == docker_interface and \
+                docker_interface in all_interfaces:
+            interfaces.update(
+                {docker_interface: all_interfaces.get(docker_interface)})
+
+        for interface, ip_address in interfaces.items():
+            CLI.colored_print(f'\t{interface}) {ip_address}')
+
+        choices = [str(interface) for interface in interfaces.keys()]
+        choices.append('other')
+        response = CLI.get_response(
+            choices,
+            default=self.__dict['local_interface'],
+            to_lower=False
+        )
+
+        if response == 'other':
+            interfaces = Network.get_local_interfaces(all_=True)
             for interface, ip_address in interfaces.items():
                 CLI.colored_print(f'\t{interface}) {ip_address}')
 
             choices = [str(interface) for interface in interfaces.keys()]
-            choices.append('other')
-            response = CLI.get_response(
+            self.__dict['local_interface'] = CLI.get_response(
                 choices,
-                default=self.__dict['local_interface'],
-                to_lower=False
+                self.__dict['local_interface']
             )
+        else:
+            self.__dict['local_interface'] = response
 
-            if response == 'other':
-                interfaces = Network.get_local_interfaces(all_=True)
-                for interface, ip_address in interfaces.items():
-                    CLI.colored_print(f'\t{interface}) {ip_address}')
+        self.__dict['local_interface_ip'] = interfaces[
+            self.__dict['local_interface']]
 
-                choices = [str(interface) for interface in interfaces.keys()]
-                self.__dict['local_interface'] = CLI.get_response(
-                    choices,
-                    self.__dict['local_interface']
-                )
-            else:
-                self.__dict['local_interface'] = response
-
-            self.__dict['local_interface_ip'] = interfaces[
-                self.__dict['local_interface']]
-
-            if self.frontend:
-                self.__dict['primary_backend_ip'] = self.__dict[
-                    'local_interface_ip']
+        if self.frontend:
+            self.__dict['primary_backend_ip'] = self.__dict[
+                'local_interface_ip']
 
     def __get_password_validation_pattern(
         self, chars=8, allow_empty=False, add_prefix=True
@@ -2183,6 +2205,351 @@ class Config(metaclass=Singleton):
                         os.system(
                             f'echo $(date) | sudo tee -a {filepath} > /dev/null'
                         )
+
+    def __detect_install_mode(self):
+        """
+        Derives install_mode from legacy flags for backwards compatibility
+        with existing .run.conf files that predate the install_mode key.
+        """
+        if self.__dict.get('local_installation') and self.__dict.get('dev_mode'):
+            return 'dev'
+        if self.__dict.get('staging_mode'):
+            return 'staging'
+        return 'production'
+
+    def __questions_advanced_sections(self):
+        """
+        Shows a curses checkbox menu so the user can select which advanced
+        sections to configure. Pre-checks sections that already have
+        non-default values in the current config.
+
+        Returns:
+            list: Selected section keys (strings).
+        """
+        d = self.__dict
+        mode = d.get('install_mode', 'production')
+
+        sections = []
+
+        sections.append({
+            'key': 'network',
+            'label': 'Network interface',
+            'checked': d.get('local_interface', '') not in (
+                '', Network.get_primary_interface()
+            ),
+        })
+
+        if mode in ('dev', 'staging'):
+            sections.append({
+                'key': 'kpi_path',
+                'label': 'KPI source files (local override)',
+                'checked': bool(d.get('kpi_path')),
+            })
+
+        if mode == 'dev':
+            sections.append({
+                'key': 'celery_npm',
+                'label': 'Celery & npm',
+                'checked': (
+                    not d.get('use_celery', True)
+                    or not d.get('npm_container', True)
+                ),
+            })
+            sections.append({
+                'key': 'smtp',
+                'label': 'SMTP (custom, replaces console email backend)',
+                'checked': bool(d.get('smtp_host')),
+            })
+
+        if self.backend:
+            sections.append({
+                'key': 'postgresql',
+                'label': 'PostgreSQL' + (
+                    ' (password only)' if mode == 'dev'
+                    else ' (password & tuning)'
+                ),
+                'checked': d.get('postgres_settings', False),
+            })
+            sections.append({
+                'key': 'mongodb',
+                'label': 'MongoDB (credentials)',
+                'checked': False,
+            })
+            sections.append({
+                'key': 'redis',
+                'label': 'Redis (password & memory)',
+                'checked': bool(d.get('redis_password')),
+            })
+
+        if self.backend and not self.local_install:
+            sections.append({
+                'key': 'ports',
+                'label': 'Backend service ports',
+                'checked': d.get('expose_backend_ports', False),
+            })
+
+        if self.frontend:
+            sections.append({
+                'key': 'aws',
+                'label': 'AWS S3 storage',
+                'checked': d.get('use_aws', False),
+            })
+            sections.append({
+                'key': 'backups',
+                'label': 'Backups',
+                'checked': d.get('use_backup', False),
+            })
+            if mode != 'dev':
+                sections.append({
+                    'key': 'google',
+                    'label': 'Google Analytics & Maps',
+                    'checked': bool(
+                        d.get('google_ua') or d.get('google_api_key')
+                    ),
+                })
+                sections.append({
+                    'key': 'sentry',
+                    'label': 'Sentry error tracking',
+                    'checked': d.get('raven_settings', False),
+                })
+                sections.append({
+                    'key': 'uwsgi',
+                    'label': 'uWSGI tuning',
+                    'checked': d.get('uwsgi_settings', False),
+                })
+            sections.append({
+                'key': 'secret_keys',
+                'label': 'Application secret keys',
+                'checked': d.get('custom_secret_keys', False),
+            })
+            if mode != 'dev':
+                sections.append({
+                    'key': 'session',
+                    'label': 'Session duration',
+                    'checked': (
+                        d.get('django_session_cookie_age', 604800) != 604800
+                    ),
+                })
+
+        sections.append({
+            'key': 'docker_prefix',
+            'label': 'Docker Compose prefix',
+            'checked': bool(d.get('docker_prefix')),
+        })
+
+        choices = [
+            {'label': s['label'], 'checked': s['checked']}
+            for s in sections
+        ]
+        selected_labels = CLI.checkbox_menu(
+            'Select advanced sections to configure:',
+            choices,
+        )
+
+        if selected_labels is None:
+            return []
+
+        label_to_key = {s['label']: s['key'] for s in sections}
+        return [label_to_key[label] for label in selected_labels]
+
+    def __questions_celery_npm(self):
+        """
+        Asks for Celery and npm configuration (dev advanced mode).
+        """
+        self.__dict['use_celery'] = CLI.yes_no_question(
+            'Use Celery for background tasks?',
+            default=self.__dict['use_celery']
+        )
+        self.__dict['npm_container'] = CLI.yes_no_question(
+            'How do you want to run `npm`?',
+            default=self.__dict['npm_container'],
+            labels=[
+                'From within the container',
+                'Locally',
+            ]
+        )
+
+    def __questions_complexity(self):
+        """
+        Asks whether to use simple or advanced setup.
+        """
+        self.__dict['advanced'] = CLI.yes_no_question(
+            'Setup complexity?',
+            default=self.__dict.get('advanced', False),
+            labels=['Simple', 'Advanced'],
+        )
+
+    def __questions_install_mode(self):
+        """
+        Asks for install mode (dev / staging / production) and sets the
+        corresponding internal flags. Replaces the old installation-type
+        and advanced-options questions.
+        """
+        current_mode = (
+            self.__dict.get('install_mode') or self.__detect_install_mode()
+        )
+        default = {'dev': '1', 'staging': '2', 'production': '3'}.get(
+            current_mode, '3'
+        )
+
+        CLI.colored_print(
+            'What kind of installation do you need?', CLI.COLOR_QUESTION
+        )
+        CLI.colored_print('\t1) Development  (local workstation, DEBUG on)')
+        CLI.colored_print('\t2) Staging      (server, test environment)')
+        CLI.colored_print('\t3) Production   (server)')
+
+        response = CLI.get_response(['1', '2', '3'], default=default)
+        mode = {'1': 'dev', '2': 'staging', '3': 'production'}[response]
+        previous_mode = current_mode
+        self.__dict['install_mode'] = mode
+
+        if mode == 'dev':
+            self.__dict['local_installation'] = True
+            self.__dict['dev_mode'] = True
+            self.__dict['staging_mode'] = False
+            self.__dict['debug'] = True
+        elif mode == 'staging':
+            self.__dict['local_installation'] = False
+            self.__dict['dev_mode'] = False
+            self.__dict['staging_mode'] = True
+            self.__dict['debug'] = False
+            self.__dict['use_celery'] = True
+        else:
+            self.__dict['local_installation'] = False
+            self.__dict['dev_mode'] = False
+            self.__dict['staging_mode'] = False
+            self.__dict['debug'] = False
+            self.__dict['use_celery'] = True
+
+        if previous_mode != mode:
+            if mode == 'dev':
+                self.__reset(http=True, fake_dns=True)
+            else:
+                self.__reset(
+                    production=(mode == 'production'),
+                    nginx_default=True,
+                )
+
+        if mode == 'dev':
+            message = (
+                'WARNING!\n\n'
+                'SSRF protection is disabled with local installation'
+            )
+            CLI.framed_print(message, color=CLI.COLOR_WARNING)
+
+    def __questions_kpi_path(self):
+        """
+        Asks for KPI source files location (dev/staging advanced mode).
+        """
+        message = (
+            'Where are the files located locally? It can be absolute '
+            'or relative to the directory of `kobo-docker`.\n\n'
+            'Leave empty if you do not need to overload the repository.'
+        )
+        CLI.framed_print(message, color=CLI.COLOR_INFO)
+
+        kpi_path = self.__dict['kpi_path']
+        self.__dict['kpi_path'] = CLI.colored_input(
+            'KPI files location?', CLI.COLOR_QUESTION,
+            self.__dict['kpi_path']
+        )
+        self.__clone_repo(self.__dict['kpi_path'], 'kpi')
+
+        if (
+            not self.__dict['kpi_dev_build_id']
+            or self.__dict['kpi_path'] != kpi_path
+        ):
+            prefix = self.get_prefix('frontend')
+            timestamp = int(time.time())
+            self.__dict['kpi_dev_build_id'] = f'{prefix}{timestamp}'
+
+    def __run_selected_advanced_sections(self, selected):
+        """
+        Dispatches to the question method for each selected advanced section.
+
+        Args:
+            selected (list): Section keys from __questions_advanced_sections.
+        """
+        if 'network' in selected:
+            self.__questions_network_interface()
+
+        if 'kpi_path' in selected:
+            self.__questions_kpi_path()
+
+        if 'celery_npm' in selected:
+            self.__questions_celery_npm()
+
+        if 'smtp' in selected:
+            self.__dict['use_console_email_backend'] = False
+            self.__questions_smtp()
+
+        if 'postgresql' in selected:
+            self.__questions_postgres()
+
+        # Always secure Mongo; only ask credentials if section selected
+        if 'mongodb' in selected:
+            self.__questions_mongo()
+        else:
+            self.__secure_mongo()
+
+        if 'redis' in selected:
+            self.__questions_redis()
+
+        if 'ports' in selected:
+            self.__questions_ports()
+
+        if 'aws' in selected:
+            self.__questions_aws()
+
+        if 'backups' in selected:
+            self.__questions_backup()
+
+        if 'google' in selected:
+            self.__questions_google()
+
+        if 'sentry' in selected:
+            self.__questions_raven()
+
+        if 'uwsgi' in selected:
+            self.__questions_uwsgi()
+
+        if 'secret_keys' in selected:
+            self.__questions_secret_keys()
+
+        if 'session' in selected:
+            self.__questions_session_cookies()
+
+        if 'docker_prefix' in selected:
+            self.__questions_docker_prefix()
+
+    def __setup_directory(self):
+        """
+        Sets up the kobodocker directory.
+        Simple mode: auto-sets to ../kobo-docker (no questions, no confirmation).
+        Advanced mode: asks the user (same behaviour as before).
+        """
+        if not self.advanced_options:
+            base_dir = os.path.dirname(
+                os.path.dirname(os.path.realpath(__file__))
+            )
+            kobodocker_path = os.path.realpath(
+                os.path.normpath(os.path.join(base_dir, '..', 'kobo-docker'))
+            )
+            if not os.path.isdir(kobodocker_path):
+                try:
+                    os.makedirs(kobodocker_path)
+                except OSError:
+                    CLI.colored_print(
+                        f'Could not create directory {kobodocker_path}!',
+                        CLI.COLOR_ERROR
+                    )
+                    sys.exit(1)
+            self.__dict['kobodocker_path'] = kobodocker_path
+            self.write_unique_id()
+            self.__validate_installation()
+        else:
+            self.__create_directory()
 
     @staticmethod
     def __welcome():

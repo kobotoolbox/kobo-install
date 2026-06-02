@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import curses
 import subprocess
 import sys
 import re
@@ -171,3 +172,88 @@ class CLI:
             choice_number = index + 1
             cls.colored_print(f'\t{choice_number}) {label}')
         return cls.get_response(default=default)
+
+    @staticmethod
+    def checkbox_menu(question, choices):
+        """
+        Interactive checkbox menu navigable with the keyboard.
+
+        Args:
+            question (str): Title displayed at the top.
+            choices (list): List of dicts with keys:
+                - 'label' (str): displayed text
+                - 'checked' (bool): initial state
+
+        Returns:
+            list: Labels of selected items, or None if cancelled (Esc/q).
+        """
+        state = [dict(c) for c in choices]
+
+        def _init_colors():
+            curses.start_color()
+            curses.use_default_colors()
+            curses.init_pair(1, curses.COLOR_YELLOW, -1)   # question
+            curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_WHITE)  # cursor
+            curses.init_pair(3, curses.COLOR_GREEN, -1)    # checked
+            curses.init_pair(4, -1, -1)                    # normal
+            curses.init_pair(5, curses.COLOR_CYAN, -1)     # hint
+
+        def _draw(stdscr, current, scroll_offset):
+            stdscr.erase()
+            height, width = stdscr.getmaxyx()
+
+            stdscr.addstr(
+                0, 0,
+                question[:width - 1],
+                curses.color_pair(1) | curses.A_BOLD,
+            )
+            hint = '↑↓ navigate   SPACE toggle   ENTER confirm   q cancel'
+            stdscr.addstr(1, 0, hint[:width - 1], curses.color_pair(5))
+            stdscr.addstr(2, 0, '─' * min(width - 1, 60), curses.color_pair(4))
+
+            list_height = height - 4
+            for i, item in enumerate(state[scroll_offset:scroll_offset + list_height]):
+                row = i + 3
+                idx = i + scroll_offset
+                checkbox = '[x]' if item['checked'] else '[ ]'
+                line = f'  {checkbox}  {item["label"]}'
+                if idx == current:
+                    attr = curses.color_pair(2) | curses.A_BOLD
+                elif item['checked']:
+                    attr = curses.color_pair(3)
+                else:
+                    attr = curses.color_pair(4)
+                stdscr.addstr(row, 0, line[:width - 1], attr)
+
+            stdscr.refresh()
+
+        def _run(stdscr):
+            curses.curs_set(0)
+            _init_colors()
+            current = 0
+            scroll_offset = 0
+
+            while True:
+                height, _ = stdscr.getmaxyx()
+                list_height = max(1, height - 4)
+
+                if current < scroll_offset:
+                    scroll_offset = current
+                elif current >= scroll_offset + list_height:
+                    scroll_offset = current - list_height + 1
+
+                _draw(stdscr, current, scroll_offset)
+                key = stdscr.getch()
+
+                if key == curses.KEY_UP:
+                    current = max(0, current - 1)
+                elif key == curses.KEY_DOWN:
+                    current = min(len(state) - 1, current + 1)
+                elif key == ord(' '):
+                    state[current]['checked'] = not state[current]['checked']
+                elif key in (curses.KEY_ENTER, ord('\n'), ord('\r')):
+                    return [item['label'] for item in state if item['checked']]
+                elif key in (27, ord('q')):
+                    return None
+
+        return curses.wrapper(_run)
