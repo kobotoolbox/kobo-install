@@ -636,33 +636,17 @@ def test_exposed_ports():
 
 
 @patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
+@patch('helpers.config.Config._Config__setup_directory', new=lambda *a, **k: None)
 def test_force_secure_mongo():
     config = read_config()
-    dict_ = config.get_dict()
+    # Simulate a non-first-time run to trigger __secure_mongo upsert logic
+    config._Config__first_time = False
 
     with patch('helpers.cli.CLI.colored_input') as mock_ci:
-        # We need to run it like if user has already run the setup once to
-        # force MongoDB to 'upsert' users.
-        config._Config__first_time = False
-        # Run with no advanced options
-
+        # Simple mode: only mode (production=3) + complexity (simple=1) are asked
         mock_ci.side_effect = iter([
-            dict_['kobodocker_path'],
-            CHOICE_YES,  # Confirm path
-            CHOICE_NO,
-            CHOICE_NO,
-            dict_['public_domain_name'],
-            dict_['kpi_subdomain'],
-            dict_['kc_subdomain'],
-            dict_['ee_subdomain'],
-            CHOICE_NO,  # Do you want to use HTTPS?
-            dict_['smtp_host'],
-            dict_['smtp_port'],
-            dict_['smtp_user'],
-            'test@test.com',
-            dict_['super_user_username'],
-            dict_['super_user_password'],
-            CHOICE_NO,
+            '3',  # production mode
+            '1',  # simple complexity
         ])
         new_config = config.build()
         assert new_config['mongo_secured'] is True

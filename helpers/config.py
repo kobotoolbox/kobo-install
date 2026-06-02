@@ -109,51 +109,22 @@ class Config(metaclass=Singleton):
             # Step 2: Complexity — simple / advanced
             self.__questions_complexity()
 
-            # Step 3: Install directory (auto in simple, ask in advanced)
+            # Step 3: Auto-set directory and detect network (no questions)
             self.__setup_directory()
-
-            # Step 4: Auto-detect network IP (no interface question here)
             self.__auto_detect_network()
 
-            # Step 5: Server topology must be resolved before public routes
-            # (determines frontend/backend role in multi-server setups)
-            if not self.local_install and self.advanced_options:
-                self.__questions_multi_servers()
-                if self.multi_servers:
-                    self.__questions_roles()
-                    if self.frontend:
-                        self.__questions_private_routes()
-                else:
-                    self.__reset(fake_dns=True)
-
-            # Step 6: Public routes, HTTPS, reverse proxy (frontend server only)
-            if not self.local_install and self.frontend:
-                self.__questions_public_routes()
-                self.__questions_https()
-                self.__questions_reverse_proxy()
-
-            # Step 7: SMTP + superuser (frontend)
-            if self.frontend:
-                if self.dev_mode and not self.advanced_options:
-                    # Simple dev: use Django console email backend, no config needed
-                    self.__dict['use_console_email_backend'] = True
-                else:
-                    self.__dict['use_console_email_backend'] = False
-                    self.__questions_smtp()
-                self.__questions_super_user_credentials()
-
-            # Step 8: Custom YAML (everyone)
-            self.__questions_custom_yml()
-
+            # Simple: all defaults, done
             if not self.advanced_options:
+                if self.dev_mode:
+                    self.__dict['email_backend'] = (
+                        'django.core.mail.backends.console.EmailBackend'
+                    )
                 self.__secure_mongo()
                 self.write_config()
                 return self.__dict
 
-            # Step 9: Checkbox menu — user picks which advanced sections to configure
+            # Advanced: checkbox menu immediately, then run only selected sections
             selected = self.__questions_advanced_sections()
-
-            # Step 10: Run only the selected sections
             self.__run_selected_advanced_sections(selected)
 
             self.write_config()
@@ -440,7 +411,7 @@ class Config(metaclass=Singleton):
             'use_backup': False,
             'use_backend_custom_yml': False,
             'use_celery': True,
-            'use_console_email_backend': False,
+            'email_backend': '',
             'use_frontend_custom_yml': False,
             'use_letsencrypt': True,
             'use_private_dns': False,
@@ -2211,7 +2182,7 @@ class Config(metaclass=Singleton):
         Derives install_mode from legacy flags for backwards compatibility
         with existing .run.conf files that predate the install_mode key.
         """
-        if self.__dict.get('local_installation') and self.__dict.get('dev_mode'):
+        if self.__dict.get('local_installation'):
             return 'dev'
         if self.__dict.get('staging_mode'):
             return 'staging'
@@ -2220,34 +2191,109 @@ class Config(metaclass=Singleton):
     def __questions_advanced_sections(self):
         """
         Shows a curses checkbox menu so the user can select which advanced
-        sections to configure. Pre-checks sections that already have
-        non-default values in the current config.
+        sections to configure. Sections are grouped and sorted alphabetically
+        within each group. Pre-checks sections with non-default values.
+
+        __run_selected_advanced_sections uses `if key in selected` checks so
+        display order is independent of execution order.
 
         Returns:
-            list: Selected section keys (strings).
+            list: Selected section keys.
         """
         d = self.__dict
         mode = d.get('install_mode', 'production')
 
-        sections = []
+        auto_path = os.path.realpath(os.path.normpath(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.realpath(__file__))),
+            '..', 'kobo-docker'
+        )))
 
-        sections.append({
-            'key': 'network',
-            'label': 'Network interface',
-            'checked': d.get('local_interface', '') not in (
-                '', Network.get_primary_interface()
-            ),
-        })
+        # Each group: (separator_label, [section_dicts])
+        # Sections within a group are sorted alphabetically before display.
+        groups = []
 
+        # ── Infrastructure ───────────────────────────────────────────────────
+        infra = [
+            {
+                'key': 'install_dir',
+                'label': 'Install directory',
+                'checked': d.get('kobodocker_path', auto_path) != auto_path,
+            },
+            {
+                'key': 'network',
+                'label': 'Network interface',
+                'checked': d.get('local_interface', '') not in (
+                    '', Network.get_primary_interface()
+                ),
+            },
+            {
+                'key': 'docker_prefix',
+                'label': 'Docker Compose prefix',
+                'checked': bool(d.get('docker_prefix')),
+            },
+        ]
+        groups.append(('Infrastructure', infra))
+
+        # ── Server (staging / production only) ───────────────────────────────
+        if mode != 'dev':
+            server = [
+                {
+                    'key': 'multi_server',
+                    'label': 'Multi-server setup',
+                    'checked': d.get('multi', False),
+                },
+                {
+                    'key': 'public_routes',
+                    'label': 'Domain names',
+                    'checked': (
+                        self.first_time
+                        or d.get('public_domain_name', 'kobo.local') != 'kobo.local'
+                    ),
+                },
+                {
+                    'key': 'https_proxy',
+                    'label': 'HTTPS & certificates',
+                    'checked': self.first_time or d.get('use_letsencrypt', True),
+                },
+            ]
+            groups.append(('Server', server))
+
+        # ── Application ──────────────────────────────────────────────────────
+        app = [
+            {
+                'key': 'smtp',
+                'label': 'SMTP',
+                'checked': (
+                    (self.first_time and mode != 'dev')
+                    or bool(d.get('smtp_host'))
+                ),
+            },
+            {
+                'key': 'superuser',
+                'label': 'Superuser credentials',
+                'checked': self.first_time,
+            },
+            {
+                'key': 'custom_yaml',
+                'label': 'Custom YAML',
+                'checked': (
+                    d.get('use_frontend_custom_yml', False)
+                    or d.get('use_backend_custom_yml', False)
+                ),
+            },
+        ]
+        groups.append(('Application', app))
+
+        # ── Dev / Staging ─────────────────────────────────────────────────────
+        dev_staging = []
         if mode in ('dev', 'staging'):
-            sections.append({
+            dev_staging.append({
                 'key': 'kpi_path',
-                'label': 'KPI source files (local override)',
+                'label': 'KPI source files',
                 'checked': bool(d.get('kpi_path')),
             })
-
         if mode == 'dev':
-            sections.append({
+            dev_staging.append({
                 'key': 'celery_npm',
                 'label': 'Celery & npm',
                 'checked': (
@@ -2255,92 +2301,96 @@ class Config(metaclass=Singleton):
                     or not d.get('npm_container', True)
                 ),
             })
-            sections.append({
-                'key': 'smtp',
-                'label': 'SMTP (custom, replaces console email backend)',
-                'checked': bool(d.get('smtp_host')),
-            })
+        if dev_staging:
+            groups.append(('Dev / Staging', dev_staging))
 
+        # ── Databases ────────────────────────────────────────────────────────
+        databases = []
         if self.backend:
-            sections.append({
-                'key': 'postgresql',
-                'label': 'PostgreSQL' + (
-                    ' (password only)' if mode == 'dev'
-                    else ' (password & tuning)'
-                ),
-                'checked': d.get('postgres_settings', False),
-            })
-            sections.append({
-                'key': 'mongodb',
-                'label': 'MongoDB (credentials)',
-                'checked': False,
-            })
-            sections.append({
-                'key': 'redis',
-                'label': 'Redis (password & memory)',
-                'checked': bool(d.get('redis_password')),
-            })
-
+            databases += [
+                {
+                    'key': 'mongodb',
+                    'label': 'MongoDB',
+                    'checked': False,
+                },
+                {
+                    'key': 'postgresql',
+                    'label': 'PostgreSQL',
+                    'checked': d.get('postgres_settings', False),
+                },
+                {
+                    'key': 'redis',
+                    'label': 'Redis',
+                    'checked': bool(d.get('redis_password')),
+                },
+            ]
         if self.backend and not self.local_install:
-            sections.append({
+            databases.append({
                 'key': 'ports',
                 'label': 'Backend service ports',
                 'checked': d.get('expose_backend_ports', False),
             })
+        if databases:
+            groups.append(('Databases', databases))
 
+        # ── Integrations ─────────────────────────────────────────────────────
+        integrations = []
         if self.frontend:
-            sections.append({
+            integrations.append({
                 'key': 'aws',
                 'label': 'AWS S3 storage',
                 'checked': d.get('use_aws', False),
             })
-            sections.append({
+            integrations.append({
                 'key': 'backups',
                 'label': 'Backups',
                 'checked': d.get('use_backup', False),
             })
-            if mode != 'dev':
-                sections.append({
-                    'key': 'google',
-                    'label': 'Google Analytics & Maps',
-                    'checked': bool(
-                        d.get('google_ua') or d.get('google_api_key')
-                    ),
-                })
-                sections.append({
-                    'key': 'sentry',
-                    'label': 'Sentry error tracking',
-                    'checked': d.get('raven_settings', False),
-                })
-                sections.append({
-                    'key': 'uwsgi',
-                    'label': 'uWSGI tuning',
-                    'checked': d.get('uwsgi_settings', False),
-                })
-            sections.append({
+            integrations.append({
                 'key': 'secret_keys',
-                'label': 'Application secret keys',
+                'label': 'Secret keys',
                 'checked': d.get('custom_secret_keys', False),
             })
             if mode != 'dev':
-                sections.append({
-                    'key': 'session',
-                    'label': 'Session duration',
-                    'checked': (
-                        d.get('django_session_cookie_age', 604800) != 604800
-                    ),
-                })
+                integrations += [
+                    {
+                        'key': 'google',
+                        'label': 'Google Analytics & Maps',
+                        'checked': bool(
+                            d.get('google_ua') or d.get('google_api_key')
+                        ),
+                    },
+                    {
+                        'key': 'sentry',
+                        'label': 'Sentry',
+                        'checked': d.get('raven_settings', False),
+                    },
+                    {
+                        'key': 'session',
+                        'label': 'Session duration',
+                        'checked': (
+                            d.get('django_session_cookie_age', 604800) != 604800
+                        ),
+                    },
+                    {
+                        'key': 'uwsgi',
+                        'label': 'uWSGI tuning',
+                        'checked': d.get('uwsgi_settings', False),
+                    },
+                ]
+        if integrations:
+            groups.append(('Integrations', integrations))
 
-        sections.append({
-            'key': 'docker_prefix',
-            'label': 'Docker Compose prefix',
-            'checked': bool(d.get('docker_prefix')),
-        })
+        # Build flat choices list with separators; sort items within each group
+        all_sections = []
+        choices = []
+        for group_name, items in groups:
+            items.sort(key=lambda x: x['label'])
+            choices.append({'separator': group_name})
+            for item in items:
+                choices.append({'label': item['label'], 'checked': item['checked']})
+                all_sections.append(item)
 
-        choices = [
-            {'label': s['label'], 'checked': s['checked']}
-            for s in sections
-        ]
         selected_labels = CLI.checkbox_menu(
             'Select advanced sections to configure:',
             choices,
@@ -2349,7 +2399,7 @@ class Config(metaclass=Singleton):
         if selected_labels is None:
             return []
 
-        label_to_key = {s['label']: s['key'] for s in sections}
+        label_to_key = {s['label']: s['key'] for s in all_sections}
         return [label_to_key[label] for label in selected_labels]
 
     def __questions_celery_npm(self):
@@ -2373,9 +2423,11 @@ class Config(metaclass=Singleton):
         """
         Asks whether to use simple or advanced setup.
         """
-        self.__dict['advanced'] = CLI.yes_no_question(
+        # yes_no_question maps choice 1 → True, so Simple first means
+        # we negate both the default and the result.
+        self.__dict['advanced'] = not CLI.yes_no_question(
             'Setup complexity?',
-            default=self.__dict.get('advanced', False),
+            default=not self.__dict.get('advanced', False),
             labels=['Simple', 'Advanced'],
         )
 
@@ -2385,9 +2437,10 @@ class Config(metaclass=Singleton):
         corresponding internal flags. Replaces the old installation-type
         and advanced-options questions.
         """
-        current_mode = (
-            self.__dict.get('install_mode') or self.__detect_install_mode()
-        )
+        # Always derive from flags so existing .run.conf files without
+        # install_mode are detected correctly (template default 'production'
+        # would otherwise shadow dev/staging flags from old configs).
+        current_mode = self.__detect_install_mode()
         default = {'dev': '1', 'staging': '2', 'production': '3'}.get(
             current_mode, '3'
         )
@@ -2466,28 +2519,59 @@ class Config(metaclass=Singleton):
 
     def __run_selected_advanced_sections(self, selected):
         """
-        Dispatches to the question method for each selected advanced section.
+        Runs question methods for each selected advanced section.
+        Order matches the section list in __questions_advanced_sections.
 
         Args:
             selected (list): Section keys from __questions_advanced_sections.
         """
+        # Infrastructure
+        if 'install_dir' in selected:
+            self.__create_directory()
+
         if 'network' in selected:
             self.__questions_network_interface()
 
+        # Server topology — must run before public routes
+        if 'multi_server' in selected and not self.local_install:
+            self.__questions_multi_servers()
+            if self.multi_servers:
+                self.__questions_roles()
+                if self.frontend:
+                    self.__questions_private_routes()
+            else:
+                self.__reset(fake_dns=True)
+
+        # Public access
+        if 'public_routes' in selected and self.frontend and not self.local_install:
+            self.__questions_public_routes()
+
+        if 'https_proxy' in selected and self.frontend and not self.local_install:
+            self.__questions_https()
+            self.__questions_reverse_proxy()
+
+        # Application
+        if 'smtp' in selected and self.frontend:
+            self.__dict['email_backend'] = ''
+            self.__questions_smtp()
+
+        if 'superuser' in selected and self.frontend:
+            self.__questions_super_user_credentials()
+
+        if 'custom_yaml' in selected:
+            self.__questions_custom_yml()
+
+        # Dev/staging source files
         if 'kpi_path' in selected:
             self.__questions_kpi_path()
 
         if 'celery_npm' in selected:
             self.__questions_celery_npm()
 
-        if 'smtp' in selected:
-            self.__dict['use_console_email_backend'] = False
-            self.__questions_smtp()
-
+        # Databases
         if 'postgresql' in selected:
             self.__questions_postgres()
 
-        # Always secure Mongo; only ask credentials if section selected
         if 'mongodb' in selected:
             self.__questions_mongo()
         else:
@@ -2499,6 +2583,7 @@ class Config(metaclass=Singleton):
         if 'ports' in selected:
             self.__questions_ports()
 
+        # Storage & integrations
         if 'aws' in selected:
             self.__questions_aws()
 
@@ -2525,31 +2610,25 @@ class Config(metaclass=Singleton):
 
     def __setup_directory(self):
         """
-        Sets up the kobodocker directory.
-        Simple mode: auto-sets to ../kobo-docker (no questions, no confirmation).
-        Advanced mode: asks the user (same behaviour as before).
+        Auto-sets kobodocker_path to ../kobo-docker (sibling of kobo-install).
+        The 'Install directory' checkbox section lets advanced users override it.
         """
-        if not self.advanced_options:
-            base_dir = os.path.dirname(
-                os.path.dirname(os.path.realpath(__file__))
-            )
-            kobodocker_path = os.path.realpath(
-                os.path.normpath(os.path.join(base_dir, '..', 'kobo-docker'))
-            )
-            if not os.path.isdir(kobodocker_path):
-                try:
-                    os.makedirs(kobodocker_path)
-                except OSError:
-                    CLI.colored_print(
-                        f'Could not create directory {kobodocker_path}!',
-                        CLI.COLOR_ERROR
-                    )
-                    sys.exit(1)
-            self.__dict['kobodocker_path'] = kobodocker_path
-            self.write_unique_id()
-            self.__validate_installation()
-        else:
-            self.__create_directory()
+        base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+        kobodocker_path = os.path.realpath(
+            os.path.normpath(os.path.join(base_dir, '..', 'kobo-docker'))
+        )
+        if not os.path.isdir(kobodocker_path):
+            try:
+                os.makedirs(kobodocker_path)
+            except OSError:
+                CLI.colored_print(
+                    f'Could not create directory {kobodocker_path}!',
+                    CLI.COLOR_ERROR
+                )
+                sys.exit(1)
+        self.__dict['kobodocker_path'] = kobodocker_path
+        self.write_unique_id()
+        self.__validate_installation()
 
     @staticmethod
     def __welcome():

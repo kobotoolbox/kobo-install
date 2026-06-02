@@ -199,6 +199,7 @@ class Template:
             'POSTGRES_USER': dict_['postgres_user'],
             'POSTGRES_PASSWORD': dict_['postgres_password'],
             'DEBUG': dict_['debug'],
+            'EMAIL_BACKEND': dict_.get('email_backend', ''),
             'SMTP_HOST': dict_['smtp_host'],
             'SMTP_PORT': dict_['smtp_port'],
             'SMTP_USER': dict_['smtp_user'],

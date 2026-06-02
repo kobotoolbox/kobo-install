@@ -180,34 +180,33 @@ class CLI:
 
         Args:
             question (str): Title displayed at the top.
-            choices (list): List of dicts with keys:
-                - 'label' (str): displayed text
-                - 'checked' (bool): initial state
+            choices (list): List of dicts, either:
+                {'label': str, 'checked': bool}  — selectable item
+                {'separator': str}               — non-selectable section header
 
         Returns:
             list: Labels of selected items, or None if cancelled (Esc/q).
         """
         state = [dict(c) for c in choices]
+        selectable = [i for i, s in enumerate(state) if 'label' in s]
 
         def _init_colors():
             curses.start_color()
             curses.use_default_colors()
-            curses.init_pair(1, curses.COLOR_YELLOW, -1)   # question
-            curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_WHITE)  # cursor
-            curses.init_pair(3, curses.COLOR_GREEN, -1)    # checked
-            curses.init_pair(4, -1, -1)                    # normal
-            curses.init_pair(5, curses.COLOR_CYAN, -1)     # hint
+            curses.init_pair(1, curses.COLOR_YELLOW, -1)
+            curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_WHITE)
+            curses.init_pair(3, curses.COLOR_GREEN, -1)
+            curses.init_pair(4, -1, -1)
+            curses.init_pair(5, curses.COLOR_CYAN, -1)
+            curses.init_pair(6, curses.COLOR_BLUE, -1)
 
         def _draw(stdscr, current, scroll_offset):
             stdscr.erase()
             height, width = stdscr.getmaxyx()
 
-            stdscr.addstr(
-                0, 0,
-                question[:width - 1],
-                curses.color_pair(1) | curses.A_BOLD,
-            )
-            hint = '↑↓ navigate   SPACE toggle   ENTER confirm   q cancel'
+            stdscr.addstr(0, 0, question[:width - 1],
+                          curses.color_pair(1) | curses.A_BOLD)
+            hint = '↑↓ navigate   SPACE toggle   A all/none   ENTER confirm   q cancel'
             stdscr.addstr(1, 0, hint[:width - 1], curses.color_pair(5))
             stdscr.addstr(2, 0, '─' * min(width - 1, 60), curses.color_pair(4))
 
@@ -215,22 +214,34 @@ class CLI:
             for i, item in enumerate(state[scroll_offset:scroll_offset + list_height]):
                 row = i + 3
                 idx = i + scroll_offset
-                checkbox = '[x]' if item['checked'] else '[ ]'
-                line = f'  {checkbox}  {item["label"]}'
-                if idx == current:
-                    attr = curses.color_pair(2) | curses.A_BOLD
-                elif item['checked']:
-                    attr = curses.color_pair(3)
+                if 'separator' in item:
+                    stdscr.addstr(row, 0, f"  {item['separator']}"[:width - 1],
+                                  curses.color_pair(6) | curses.A_BOLD)
                 else:
-                    attr = curses.color_pair(4)
-                stdscr.addstr(row, 0, line[:width - 1], attr)
+                    checkbox = '[x]' if item['checked'] else '[ ]'
+                    line = f'  {checkbox}  {item["label"]}'
+                    if idx == current:
+                        attr = curses.color_pair(2) | curses.A_BOLD
+                    elif item['checked']:
+                        attr = curses.color_pair(3)
+                    else:
+                        attr = curses.color_pair(4)
+                    stdscr.addstr(row, 0, line[:width - 1], attr)
 
             stdscr.refresh()
+
+        def _nearest_selectable(pos, direction):
+            idx = pos + direction
+            while 0 <= idx < len(state):
+                if 'label' in state[idx]:
+                    return idx
+                idx += direction
+            return pos
 
         def _run(stdscr):
             curses.curs_set(0)
             _init_colors()
-            current = 0
+            current = selectable[0] if selectable else 0
             scroll_offset = 0
 
             while True:
@@ -246,13 +257,18 @@ class CLI:
                 key = stdscr.getch()
 
                 if key == curses.KEY_UP:
-                    current = max(0, current - 1)
+                    current = _nearest_selectable(current, -1)
                 elif key == curses.KEY_DOWN:
-                    current = min(len(state) - 1, current + 1)
-                elif key == ord(' '):
+                    current = _nearest_selectable(current, 1)
+                elif key == ord(' ') and 'label' in state[current]:
                     state[current]['checked'] = not state[current]['checked']
+                elif key in (ord('a'), ord('A')):
+                    all_on = all(s['checked'] for s in state if 'label' in s)
+                    for s in state:
+                        if 'label' in s:
+                            s['checked'] = not all_on
                 elif key in (curses.KEY_ENTER, ord('\n'), ord('\r')):
-                    return [item['label'] for item in state if item['checked']]
+                    return [s['label'] for s in state if 'label' in s and s['checked']]
                 elif key in (27, ord('q')):
                     return None
 
