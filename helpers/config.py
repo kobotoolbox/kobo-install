@@ -2198,6 +2198,8 @@ class Config(metaclass=Singleton):
                                     after multi-server is confirmed)
         """
         mode = self.__dict.get('install_mode', 'production')
+        if mode == 'dev':
+            return
         factor = 0.5 if mode == 'staging' else 0.75
 
         cpus, ram_gb = self.__detect_system_resources()
