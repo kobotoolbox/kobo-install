@@ -113,6 +113,10 @@ class Config(metaclass=Singleton):
             self.__setup_directory()
             self.__auto_detect_network()
 
+            # Step 4: Auto-configure PostgreSQL and uWSGI on first run
+            if self.first_time and not self.dev_mode:
+                self.__auto_configure_resources()
+
             # Simple: all defaults, done
             if not self.advanced_options:
                 if self.dev_mode:
@@ -2177,6 +2181,109 @@ class Config(metaclass=Singleton):
                             f'echo $(date) | sudo tee -a {filepath} > /dev/null'
                         )
 
+    def __auto_configure_resources(self):
+        """
+        Detects hardware resources and sets PostgreSQL and uWSGI values
+        automatically on first run. Never goes below template defaults.
+
+        CPU/RAM allocation multipliers (single-server assumption):
+          staging    → 50%  (server shared with other services)
+          production → 75%
+
+        uWSGI soft_limit (max RAM across all workers):
+          staging single-server    → 25% of total RAM
+          production single-server → 50% of total RAM
+          multi-server frontend    → 75% (DBs are on a separate machine;
+                                    recalculated in __run_selected_advanced_sections
+                                    after multi-server is confirmed)
+        """
+        mode = self.__dict.get('install_mode', 'production')
+        factor = 0.5 if mode == 'staging' else 0.75
+
+        cpus, ram_gb = self.__detect_system_resources()
+        allocated_cpus = max(1, round(cpus * factor))
+        allocated_ram  = max(2, round(ram_gb * factor))
+
+        CLI.colored_print(
+            f'Auto-configuring from detected hardware: '
+            f'{cpus} vCPUs, {ram_gb} GB RAM',
+            CLI.COLOR_INFO,
+        )
+
+        if self.backend:
+            CLI.colored_print(
+                f'  → PostgreSQL: {allocated_cpus} CPUs, {allocated_ram} GB RAM '
+                f'({int(factor * 100)}% — {mode})',
+                CLI.COLOR_INFO,
+            )
+            self.__dict['postgres_cpus']     = str(allocated_cpus)
+            self.__dict['postgres_ram']      = str(allocated_ram)
+            self.__dict['postgres_profile']  = 'Mixed'
+            self.__dict['postgres_settings'] = True
+
+            endpoint = (
+                'https://api.pgconfig.org/v1/tuning/get-config'
+                '?environment_name={profile}&format=conf'
+                '&include_pgbadger=false'
+                '&cpus={cpus}'
+                '&max_connections={max_connections}'
+                '&pg_version=14'
+                '&total_ram={ram}GB'
+                '&drive_type={drive_type}'
+                '&os_type=linux'
+            ).format(
+                profile=self.__dict['postgres_profile'],
+                cpus=allocated_cpus,
+                ram=allocated_ram,
+                max_connections=self.__dict['postgres_max_connections'],
+                drive_type=self.__dict['postgres_hard_drive_type'].upper(),
+            )
+            response = Network.curl(endpoint)
+            if response:
+                self.__dict['postgres_settings_content'] = re.sub(
+                    r'(\d+)KB', r'\1kB', response
+                )
+
+        if self.frontend:
+            workers_start = max(2, allocated_cpus)
+            workers_max   = max(4, allocated_cpus * 2)
+            # Single-server soft_limit: staging=25%, production=50%
+            soft_pct      = 0.25 if mode == 'staging' else 0.50
+            soft_limit_mb = max(1024, round(ram_gb * soft_pct * 1024))
+            CLI.colored_print(
+                f'  → uWSGI: {workers_start} workers (start), '
+                f'{workers_max} workers (max), '
+                f'{soft_limit_mb} MB soft limit '
+                f'({int(soft_pct * 100)}% RAM — single server)',
+                CLI.COLOR_INFO,
+            )
+            self.__dict['uwsgi_workers_start'] = str(workers_start)
+            self.__dict['uwsgi_workers_max']   = str(workers_max)
+            self.__dict['uwsgi_soft_limit']    = str(soft_limit_mb)
+            self.__dict['uwsgi_settings']      = True
+
+    @staticmethod
+    def __detect_system_resources():
+        """
+        Returns (cpus: int, ram_gb: int) from OS.
+        Falls back to (1, 2) if detection fails.
+        """
+        cpus = os.cpu_count() or 1
+        ram_gb = 2
+        try:
+            if sys.platform == 'darwin':
+                with os.popen('sysctl -n hw.memsize') as p:
+                    ram_gb = max(1, int(p.read().strip()) // (1024 ** 3))
+            else:
+                with open('/proc/meminfo') as f:
+                    for line in f:
+                        if line.startswith('MemTotal:'):
+                            ram_gb = max(1, int(line.split()[1]) // (1024 ** 2))
+                            break
+        except Exception:
+            pass
+        return cpus, ram_gb
+
     def __detect_install_mode(self):
         """
         Derives install_mode from legacy flags for backwards compatibility
@@ -2539,6 +2646,17 @@ class Config(metaclass=Singleton):
                 self.__questions_roles()
                 if self.frontend:
                     self.__questions_private_routes()
+                    # Recalculate uWSGI soft_limit: DBs are on a separate
+                    # machine so this server can use up to 75% of RAM.
+                    if self.first_time and self.__dict.get('uwsgi_settings'):
+                        _, ram_gb = self.__detect_system_resources()
+                        soft_limit_mb = max(1024, round(ram_gb * 0.75 * 1024))
+                        self.__dict['uwsgi_soft_limit'] = str(soft_limit_mb)
+                        CLI.colored_print(
+                            f'  → uWSGI soft limit updated: {soft_limit_mb} MB '
+                            f'(75% RAM — multi-server frontend)',
+                            CLI.COLOR_INFO,
+                        )
             else:
                 self.__reset(fake_dns=True)
 
