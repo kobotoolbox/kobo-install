@@ -181,8 +181,12 @@ class CLI:
         Args:
             question (str): Title displayed at the top.
             choices (list): List of dicts, either:
-                {'label': str, 'checked': bool}  — selectable item
+                {'label': str, 'checked': bool, 'description': str (optional)}
+                                                 — selectable item
                 {'separator': str}               — non-selectable section header
+
+            The optional 'description' is shown in a help line at the bottom
+            while the item is highlighted.
 
         Returns:
             list: Labels of selected items, or None if cancelled (Esc/q).
@@ -200,17 +204,22 @@ class CLI:
             curses.init_pair(5, curses.COLOR_CYAN, -1)
             curses.init_pair(6, curses.COLOR_BLUE, -1)
 
-        def _draw(stdscr, current, scroll_offset):
+        def _list_height(height, show_info):
+            # Reserve two bottom rows for the description only when info is shown.
+            return max(1, height - 3 - (2 if show_info else 0))
+
+        def _draw(stdscr, current, scroll_offset, show_info):
             stdscr.erase()
             height, width = stdscr.getmaxyx()
 
             stdscr.addstr(0, 0, question[:width - 1],
                           curses.color_pair(1) | curses.A_BOLD)
-            hint = '↑↓ navigate   SPACE toggle   A all/none   ENTER confirm   q cancel'
+            hint = ('↑↓ navigate   SPACE toggle   A all/none   '
+                    'i info   ENTER confirm   q cancel')
             stdscr.addstr(1, 0, hint[:width - 1], curses.color_pair(5))
             stdscr.addstr(2, 0, '─' * min(width - 1, 60), curses.color_pair(4))
 
-            list_height = height - 4
+            list_height = _list_height(height, show_info)
             for i, item in enumerate(state[scroll_offset:scroll_offset + list_height]):
                 row = i + 3
                 idx = i + scroll_offset
@@ -228,6 +237,16 @@ class CLI:
                         attr = curses.color_pair(4)
                     stdscr.addstr(row, 0, line[:width - 1], attr)
 
+            # Description help line for the highlighted item (toggled with 'i').
+            if show_info:
+                description = state[current].get('description', '') \
+                    if 'label' in state[current] else ''
+                description = description or '(no description)'
+                stdscr.addstr(height - 2, 0, '─' * min(width - 1, 60),
+                              curses.color_pair(4))
+                stdscr.addstr(height - 1, 0, description[:width - 1],
+                              curses.color_pair(5))
+
             stdscr.refresh()
 
         def _nearest_selectable(pos, direction):
@@ -243,23 +262,26 @@ class CLI:
             _init_colors()
             current = selectable[0] if selectable else 0
             scroll_offset = 0
+            show_info = False
 
             while True:
                 height, _ = stdscr.getmaxyx()
-                list_height = max(1, height - 4)
+                list_height = _list_height(height, show_info)
 
                 if current < scroll_offset:
                     scroll_offset = current
                 elif current >= scroll_offset + list_height:
                     scroll_offset = current - list_height + 1
 
-                _draw(stdscr, current, scroll_offset)
+                _draw(stdscr, current, scroll_offset, show_info)
                 key = stdscr.getch()
 
                 if key == curses.KEY_UP:
                     current = _nearest_selectable(current, -1)
                 elif key == curses.KEY_DOWN:
                     current = _nearest_selectable(current, 1)
+                elif key in (ord('i'), ord('I')):
+                    show_info = not show_info
                 elif key == ord(' ') and 'label' in state[current]:
                     state[current]['checked'] = not state[current]['checked']
                 elif key in (ord('a'), ord('A')):

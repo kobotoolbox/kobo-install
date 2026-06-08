@@ -1488,120 +1488,111 @@ class Config(metaclass=Singleton):
 
             self.__write_upsert_db_users_trigger_file(content, 'postgres')
 
-        if self.backend:
-            # Postgres settings
-            self.__dict['postgres_settings'] = CLI.yes_no_question(
-                'Do you want to tweak PostgreSQL settings?',
-                default=self.__dict['postgres_settings']
-            )
+    def __questions_postgres_tuning(self):
+        """
+        PostgreSQL performance tuning via the pgconfig.org API.
 
-            template = self.get_template()
+        Selecting this advanced section is the consent to tweak settings, so
+        there is no extra yes/no prompt: `postgres_settings` is forced to True
+        and the tuning questions are asked directly.
+        """
+        if not self.backend:
+            return
 
-            if self.__dict['postgres_settings']:
+        self.__dict['postgres_settings'] = True
+        template = self.get_template()
 
-                CLI.colored_print('Launching pgconfig.org API container...',
-                                  CLI.COLOR_INFO)
+        # From https://docs.pgconfig.org/api/#available-parameters
+        # Parameters are case-sensitive, for example
+        # `environment_name` must be one these values:
+        # - `WEB`
+        # - `OLTP`,
+        # - `DW`
+        # - `Mixed`
+        # - `Desktop`
+        # It's case-sensitive.
 
-                # From https://docs.pgconfig.org/api/#available-parameters
-                # Parameters are case-sensitive, for example
-                # `environment_name` must be one these values:
-                # - `WEB`
-                # - `OLTP`,
-                # - `DW`
-                # - `Mixed`
-                # - `Desktop`
-                # It's case-sensitive.
+        CLI.colored_print('Number of CPUs?', CLI.COLOR_QUESTION)
+        self.__dict['postgres_cpus'] = CLI.get_response(
+            r'~^\d+$',
+            self.__dict['postgres_cpus'])
 
-                CLI.colored_print('Number of CPUs?', CLI.COLOR_QUESTION)
-                self.__dict['postgres_cpus'] = CLI.get_response(
-                    r'~^\d+$',
-                    self.__dict['postgres_cpus'])
+        CLI.colored_print('Total Memory in GB?', CLI.COLOR_QUESTION)
+        self.__dict['postgres_ram'] = CLI.get_response(
+            r'~^\d+$',
+            self.__dict['postgres_ram'])
 
-                CLI.colored_print('Total Memory in GB?', CLI.COLOR_QUESTION)
-                self.__dict['postgres_ram'] = CLI.get_response(
-                    r'~^\d+$',
-                    self.__dict['postgres_ram'])
+        CLI.colored_print('Storage type?', CLI.COLOR_QUESTION)
+        CLI.colored_print('\thdd) Hard Disk Drive')
+        CLI.colored_print('\tssd) Solid State Drive')
+        CLI.colored_print('\tsan) Storage Area Network')
+        self.__dict['postgres_hard_drive_type'] = CLI.get_response(
+            ['hdd', 'ssd', 'san'],
+            self.__dict['postgres_hard_drive_type'].lower())
 
-                CLI.colored_print('Storage type?', CLI.COLOR_QUESTION)
-                CLI.colored_print('\thdd) Hard Disk Drive')
-                CLI.colored_print('\tssd) Solid State Drive')
-                CLI.colored_print('\tsan) Storage Area Network')
-                self.__dict['postgres_hard_drive_type'] = CLI.get_response(
-                    ['hdd', 'ssd', 'san'],
-                    self.__dict['postgres_hard_drive_type'].lower())
+        CLI.colored_print('Number of connections?', CLI.COLOR_QUESTION)
+        self.__dict['postgres_max_connections'] = CLI.get_response(
+            r'~^\d+$',
+            self.__dict['postgres_max_connections'])
 
-                CLI.colored_print('Number of connections?', CLI.COLOR_QUESTION)
-                self.__dict['postgres_max_connections'] = CLI.get_response(
-                    r'~^\d+$',
-                    self.__dict['postgres_max_connections'])
-
-                if self.multi_servers:
-                    multi_servers_profiles = ['web', 'oltp', 'dw', 'mixed']
-                    if (
-                        self.__dict['postgres_profile'].lower()
-                        not in multi_servers_profiles
-                    ):
-                        self.__dict['postgres_profile'] = template[
-                            'postgres_profile'
-                        ]
-
-                    CLI.colored_print('Application profile?', CLI.COLOR_QUESTION)
-                    CLI.colored_print('\tweb) General Web application')
-                    CLI.colored_print(
-                        '\toltp) ERP or long transaction applications')
-                    CLI.colored_print('\tdw) DataWare house')
-                    CLI.colored_print('\tmixed) DB and APP on the same server')
-
-                    self.__dict['postgres_profile'] = CLI.get_response(
-                        ['web', 'oltp', 'dw', 'mixed'],
-                        self.__dict['postgres_profile'].lower())
-
-                    self.__dict['postgres_profile'] = self.__dict[
-                        'postgres_profile'].upper()
-
-                elif self.dev_mode:
-                    self.__dict['postgres_profile'] = 'Desktop'
-                else:
-                    self.__dict['postgres_profile'] = 'Mixed'
-
-                # Use pgconfig.org API to get the configuration
-                # Notes: It has failed several times in the past.
-                endpoint = (
-                    'https://api.pgconfig.org/v1/tuning/get-config'
-                    '?environment_name={profile}&format=conf'
-                    '&include_pgbadger=false'
-                    '&cpus={cpus}'
-                    '&max_connections={max_connections}'
-                    '&pg_version=14'
-                    '&total_ram={ram}GB'
-                    '&drive_type={drive_type}'
-                    '&os_type=linux'
-                )
-                endpoint = endpoint.format(
-                    profile=self.__dict['postgres_profile'],
-                    ram=self.__dict['postgres_ram'],
-                    cpus=self.__dict['postgres_cpus'],
-                    max_connections=self.__dict['postgres_max_connections'],
-                    drive_type=self.__dict['postgres_hard_drive_type'].upper()
-                )
-                response = Network.curl(endpoint)
-                if response:
-                    # Patch response because of https://github.com/pgconfig/api/issues/13
-                    configuration = re.sub(r'(\d+)KB', r'\1kB', response)
-                    self.__dict['postgres_settings_content'] = configuration
-                else:
-                    CLI.colored_print('\nAn error has occurred. Current '
-                                      'PostgreSQL settings will be used',
-                                      CLI.COLOR_INFO)
-
-            else:
-                # Forcing the default settings to remain even if there
-                # is an existing value in .run.conf. Without this,
-                # the value for `postgres_settings_content` would not update
-
-                self.__dict['postgres_settings_content'] = template[
-                    'postgres_settings_content'
+        if self.multi_servers:
+            multi_servers_profiles = ['web', 'oltp', 'dw', 'mixed']
+            if (
+                self.__dict['postgres_profile'].lower()
+                not in multi_servers_profiles
+            ):
+                self.__dict['postgres_profile'] = template[
+                    'postgres_profile'
                 ]
+
+            CLI.colored_print('Application profile?', CLI.COLOR_QUESTION)
+            CLI.colored_print('\tweb) General Web application')
+            CLI.colored_print(
+                '\toltp) ERP or long transaction applications')
+            CLI.colored_print('\tdw) DataWare house')
+            CLI.colored_print('\tmixed) DB and APP on the same server')
+
+            self.__dict['postgres_profile'] = CLI.get_response(
+                ['web', 'oltp', 'dw', 'mixed'],
+                self.__dict['postgres_profile'].lower())
+
+            self.__dict['postgres_profile'] = self.__dict[
+                'postgres_profile'].upper()
+
+        elif self.dev_mode:
+            self.__dict['postgres_profile'] = 'Desktop'
+        else:
+            self.__dict['postgres_profile'] = 'Mixed'
+
+        # Use pgconfig.org API to get the configuration
+        # Notes: It has failed several times in the past.
+        endpoint = (
+            'https://api.pgconfig.org/v1/tuning/get-config'
+            '?environment_name={profile}&format=conf'
+            '&include_pgbadger=false'
+            '&cpus={cpus}'
+            '&max_connections={max_connections}'
+            '&pg_version=14'
+            '&total_ram={ram}GB'
+            '&drive_type={drive_type}'
+            '&os_type=linux'
+        )
+        endpoint = endpoint.format(
+            profile=self.__dict['postgres_profile'],
+            ram=self.__dict['postgres_ram'],
+            cpus=self.__dict['postgres_cpus'],
+            max_connections=self.__dict['postgres_max_connections'],
+            drive_type=self.__dict['postgres_hard_drive_type'].upper()
+        )
+        response = Network.curl(endpoint)
+        if response:
+            # Patch response because of https://github.com/pgconfig/api/issues/13
+            configuration = re.sub(r'(\d+)KB', r'\1kB', response)
+            self.__dict['postgres_settings_content'] = configuration
+        else:
+            CLI.colored_print('\nAn error has occurred. Current '
+                              'PostgreSQL settings will be used',
+                              CLI.COLOR_INFO)
 
     def __questions_ports(self):
         """
@@ -1764,14 +1755,21 @@ class Config(metaclass=Singleton):
             if response is False:
                 self.__questions_redis()
 
-        if self.backend:
-            CLI.colored_print(
-                'Max memory (MB) for Redis cache container?', CLI.COLOR_QUESTION
-            )
-            CLI.colored_print('Leave empty for no limits', CLI.COLOR_INFO)
-            self.__dict['redis_cache_max_memory'] = CLI.get_response(
-                r'~^(\d+|-)?$', self.__dict['redis_cache_max_memory']
-            )
+    def __questions_redis_tuning(self):
+        """
+        Redis cache memory limit (performance tuning, back end only).
+        """
+
+        if not self.backend:
+            return
+
+        CLI.colored_print(
+            'Max memory (MB) for Redis cache container?', CLI.COLOR_QUESTION
+        )
+        CLI.colored_print('Leave empty for no limits', CLI.COLOR_INFO)
+        self.__dict['redis_cache_max_memory'] = CLI.get_response(
+            r'~^(\d+|-)?$', self.__dict['redis_cache_max_memory']
+        )
 
     def __questions_reverse_proxy(self):
 
@@ -2005,58 +2003,53 @@ class Config(metaclass=Singleton):
         self.__dict['super_user_password'] = password
 
     def __questions_uwsgi(self):
+        """
+        uWSGI performance tuning.
 
-        if not self.dev_mode:
-            self.__dict['uwsgi_settings'] = CLI.yes_no_question(
-                'Do you want to tweak uWSGI settings?',
-                default=self.__dict['uwsgi_settings']
-            )
+        Selecting this advanced section is the consent to tweak settings, so
+        there is no extra yes/no prompt: `uwsgi_settings` is forced to True
+        and the tuning questions are asked directly. Not offered in dev mode.
+        """
+        if self.dev_mode:
+            return
 
-            if self.__dict['uwsgi_settings']:
-                CLI.colored_print('Number of uWSGI workers to start?',
-                                  CLI.COLOR_QUESTION)
-                self.__dict['uwsgi_workers_start'] = CLI.get_response(
-                    r'~^\d+$',
-                    self.__dict['uwsgi_workers_start'])
+        self.__dict['uwsgi_settings'] = True
 
-                CLI.colored_print('Maximum uWSGI workers?', CLI.COLOR_QUESTION)
-                self.__dict['uwsgi_workers_max'] = CLI.get_response(
-                    r'~^\d+$',
-                    self.__dict['uwsgi_workers_max'])
+        CLI.colored_print('Number of uWSGI workers to start?',
+                          CLI.COLOR_QUESTION)
+        self.__dict['uwsgi_workers_start'] = CLI.get_response(
+            r'~^\d+$',
+            self.__dict['uwsgi_workers_start'])
 
-                CLI.colored_print('Maximum number of requests per worker?',
-                                  CLI.COLOR_QUESTION)
-                self.__dict['uwsgi_max_requests'] = CLI.get_response(
-                    r'~^\d+$',
-                    self.__dict['uwsgi_max_requests'])
+        CLI.colored_print('Maximum uWSGI workers?', CLI.COLOR_QUESTION)
+        self.__dict['uwsgi_workers_max'] = CLI.get_response(
+            r'~^\d+$',
+            self.__dict['uwsgi_workers_max'])
 
-                CLI.colored_print('Stop spawning workers if uWSGI memory use '
-                                  'exceeds this many MB: ',
-                                  CLI.COLOR_QUESTION)
-                self.__dict['uwsgi_soft_limit'] = CLI.get_response(
-                    r'~^\d+$',
-                    self.__dict['uwsgi_soft_limit'])
+        CLI.colored_print('Maximum number of requests per worker?',
+                          CLI.COLOR_QUESTION)
+        self.__dict['uwsgi_max_requests'] = CLI.get_response(
+            r'~^\d+$',
+            self.__dict['uwsgi_max_requests'])
 
-                CLI.colored_print('Maximum time (in seconds) before killing an '
-                                  'unresponsive worker?', CLI.COLOR_QUESTION)
-                self.__dict['uwsgi_harakiri'] = CLI.get_response(
-                    r'~^\d+$',
-                    self.__dict['uwsgi_harakiri'])
+        CLI.colored_print('Stop spawning workers if uWSGI memory use '
+                          'exceeds this many MB: ',
+                          CLI.COLOR_QUESTION)
+        self.__dict['uwsgi_soft_limit'] = CLI.get_response(
+            r'~^\d+$',
+            self.__dict['uwsgi_soft_limit'])
 
-                CLI.colored_print('Maximum time (in seconds) a worker can take '
-                                  'to reload/shutdown?', CLI.COLOR_QUESTION)
-                self.__dict['uwsgi_worker_reload_mercy'] = CLI.get_response(
-                    r'~^\d+$',
-                    self.__dict['uwsgi_worker_reload_mercy'])
+        CLI.colored_print('Maximum time (in seconds) before killing an '
+                          'unresponsive worker?', CLI.COLOR_QUESTION)
+        self.__dict['uwsgi_harakiri'] = CLI.get_response(
+            r'~^\d+$',
+            self.__dict['uwsgi_harakiri'])
 
-                return
-
-        self.__dict['uwsgi_workers_start'] = '2'
-        self.__dict['uwsgi_workers_max'] = '4'
-        self.__dict['uwsgi_max_requests'] = '1024'
-        self.__dict['uwsgi_soft_limit'] = '1024'
-        self.__dict['uwsgi_harakiri'] = '120'
-        self.__dict['uwsgi_worker_reload_mercy'] = '120'
+        CLI.colored_print('Maximum time (in seconds) a worker can take '
+                          'to reload/shutdown?', CLI.COLOR_QUESTION)
+        self.__dict['uwsgi_worker_reload_mercy'] = CLI.get_response(
+            r'~^\d+$',
+            self.__dict['uwsgi_worker_reload_mercy'])
 
     def __is_port_allowed(self, port):
         return not (self.block_common_http_ports and port in [
@@ -2321,16 +2314,42 @@ class Config(metaclass=Singleton):
         # Sections within a group are sorted alphabetically before display.
         groups = []
 
+        # ── Dev / Staging (shown first — most frequently used) ───────────────
+        dev_staging = []
+        if mode in ('dev', 'staging'):
+            dev_staging.append({
+                'key': 'kpi_path',
+                'label': 'KPI source files',
+                'description': 'Mount a local KPI checkout for live code '
+                               'editing.',
+                'checked': bool(d.get('kpi_path')),
+            })
+        if mode == 'dev':
+            dev_staging.append({
+                'key': 'celery_npm',
+                'label': 'Celery & npm',
+                'description': 'Run Celery workers and the npm/webpack '
+                               'container for development.',
+                'checked': (
+                    not d.get('use_celery', True)
+                    or not d.get('npm_container', True)
+                ),
+            })
+        if dev_staging:
+            groups.append(('Dev / Staging', dev_staging))
+
         # ── Infrastructure ───────────────────────────────────────────────────
         infra = [
             {
                 'key': 'install_dir',
                 'label': 'Install directory',
+                'description': 'Where the kobo-docker repository lives on disk.',
                 'checked': d.get('kobodocker_path', auto_path) != auto_path,
             },
             {
                 'key': 'network',
                 'label': 'Network interface',
+                'description': 'Local network interface the containers bind to.',
                 'checked': d.get('local_interface', '') not in (
                     '', Network.get_primary_interface()
                 ),
@@ -2338,6 +2357,8 @@ class Config(metaclass=Singleton):
             {
                 'key': 'docker_prefix',
                 'label': 'Docker Compose prefix',
+                'description': 'Prefix for container names to run several '
+                               'instances on one host.',
                 'checked': bool(d.get('docker_prefix')),
             },
         ]
@@ -2349,11 +2370,15 @@ class Config(metaclass=Singleton):
                 {
                     'key': 'multi_server',
                     'label': 'Multi-server setup',
+                    'description': 'Split frontend and backend across separate '
+                                   'servers.',
                     'checked': d.get('multi', False),
                 },
                 {
                     'key': 'public_routes',
                     'label': 'Domain names',
+                    'description': 'Public domain and subdomains used to reach '
+                                   'KoboToolbox.',
                     'checked': (
                         self.first_time
                         or d.get('public_domain_name', 'kobo.local') != 'kobo.local'
@@ -2362,6 +2387,8 @@ class Config(metaclass=Singleton):
                 {
                     'key': 'https_proxy',
                     'label': 'HTTPS & certificates',
+                    'description': 'TLS certificates and reverse-proxy / '
+                                   "Let's Encrypt settings.",
                     'checked': self.first_time or d.get('use_letsencrypt', True),
                 },
             ]
@@ -2372,19 +2399,18 @@ class Config(metaclass=Singleton):
             {
                 'key': 'smtp',
                 'label': 'SMTP',
+                'description': 'Outgoing email server used to send '
+                               'notifications.',
                 'checked': (
                     (self.first_time and mode != 'dev')
                     or bool(d.get('smtp_host'))
                 ),
             },
             {
-                'key': 'superuser',
-                'label': 'Superuser credentials',
-                'checked': self.first_time,
-            },
-            {
                 'key': 'custom_yaml',
                 'label': 'Custom YAML',
+                'description': 'Add your own docker-compose overrides for '
+                               'frontend/backend.',
                 'checked': (
                     d.get('use_frontend_custom_yml', False)
                     or d.get('use_backend_custom_yml', False)
@@ -2393,25 +2419,61 @@ class Config(metaclass=Singleton):
         ]
         groups.append(('Application', app))
 
-        # ── Dev / Staging ─────────────────────────────────────────────────────
-        dev_staging = []
-        if mode in ('dev', 'staging'):
-            dev_staging.append({
-                'key': 'kpi_path',
-                'label': 'KPI source files',
-                'checked': bool(d.get('kpi_path')),
+        # ── Security ─────────────────────────────────────────────────────────
+        security = [
+            {
+                'key': 'superuser',
+                'label': 'Superuser credentials',
+                'description': 'Username and password of the initial Django '
+                               'admin account.',
+                'checked': self.first_time,
+            },
+        ]
+        if self.frontend:
+            security.append({
+                'key': 'secret_keys',
+                'label': 'Secret keys',
+                'description': 'Provide your own Django secret and encryption '
+                               'keys.',
+                'checked': d.get('custom_secret_keys', False),
             })
-        if mode == 'dev':
-            dev_staging.append({
-                'key': 'celery_npm',
-                'label': 'Celery & npm',
-                'checked': (
-                    not d.get('use_celery', True)
-                    or not d.get('npm_container', True)
-                ),
+            if mode != 'dev':
+                security.append({
+                    'key': 'session',
+                    'label': 'Session duration',
+                    'description': 'How long user login sessions stay valid.',
+                    'checked': (
+                        d.get('django_session_cookie_age', 604800) != 604800
+                    ),
+                })
+        groups.append(('Security', security))
+
+        # ── Performance ──────────────────────────────────────────────────────
+        performance = []
+        if self.backend and mode != 'dev':
+            performance.append({
+                'key': 'postgres_tuning',
+                'label': 'PostgreSQL tuning',
+                'description': 'CPU/RAM/connection sizing for PostgreSQL via '
+                               'pgconfig.org.',
+                'checked': d.get('postgres_settings', False),
             })
-        if dev_staging:
-            groups.append(('Dev / Staging', dev_staging))
+            performance.append({
+                'key': 'redis_tuning',
+                'label': 'Redis cache memory',
+                'description': 'Max memory (MB) for the Redis cache container.',
+                'checked': bool(d.get('redis_cache_max_memory')),
+            })
+        if self.frontend and mode != 'dev':
+            performance.append({
+                'key': 'uwsgi',
+                'label': 'uWSGI tuning',
+                'description': 'Worker, request and memory limits for the '
+                               'uWSGI app server.',
+                'checked': d.get('uwsgi_settings', False),
+            })
+        if performance:
+            groups.append(('Performance', performance))
 
         # ── Databases ────────────────────────────────────────────────────────
         databases = []
@@ -2420,16 +2482,21 @@ class Config(metaclass=Singleton):
                 {
                     'key': 'mongodb',
                     'label': 'MongoDB',
+                    'description': 'MongoDB credentials and database name.',
                     'checked': False,
                 },
                 {
                     'key': 'postgresql',
                     'label': 'PostgreSQL',
-                    'checked': d.get('postgres_settings', False),
+                    'description': 'PostgreSQL database names, user and '
+                                   'password.',
+                    'checked': False,
                 },
                 {
                     'key': 'redis',
                     'label': 'Redis',
+                    'description': 'Redis password and cache/main instance '
+                                   'settings.',
                     'checked': bool(d.get('redis_password')),
                 },
             ]
@@ -2437,34 +2504,29 @@ class Config(metaclass=Singleton):
             databases.append({
                 'key': 'ports',
                 'label': 'Backend service ports',
+                'description': 'Expose database ports on the host (for remote '
+                               'frontends).',
                 'checked': d.get('expose_backend_ports', False),
             })
         if databases:
             groups.append(('Databases', databases))
 
-        # ── Integrations ─────────────────────────────────────────────────────
-        integrations = []
+        # ── External services ────────────────────────────────────────────────
+        external = []
         if self.frontend:
-            integrations.append({
+            external.append({
                 'key': 'aws',
                 'label': 'AWS S3 storage',
+                'description': 'Store media and static files on Amazon S3.',
                 'checked': d.get('use_aws', False),
             })
-            integrations.append({
-                'key': 'backups',
-                'label': 'Backups',
-                'checked': d.get('use_backup', False),
-            })
-            integrations.append({
-                'key': 'secret_keys',
-                'label': 'Secret keys',
-                'checked': d.get('custom_secret_keys', False),
-            })
             if mode != 'dev':
-                integrations += [
+                external += [
                     {
                         'key': 'google',
                         'label': 'Google Analytics & Maps',
+                        'description': 'Google Analytics tracking ID and Maps '
+                                       'API key.',
                         'checked': bool(
                             d.get('google_ua') or d.get('google_api_key')
                         ),
@@ -2472,23 +2534,26 @@ class Config(metaclass=Singleton):
                     {
                         'key': 'sentry',
                         'label': 'Sentry',
+                        'description': 'Error reporting to a Sentry/Raven '
+                                       'instance.',
                         'checked': d.get('raven_settings', False),
                     },
-                    {
-                        'key': 'session',
-                        'label': 'Session duration',
-                        'checked': (
-                            d.get('django_session_cookie_age', 604800) != 604800
-                        ),
-                    },
-                    {
-                        'key': 'uwsgi',
-                        'label': 'uWSGI tuning',
-                        'checked': d.get('uwsgi_settings', False),
-                    },
                 ]
-        if integrations:
-            groups.append(('Integrations', integrations))
+        if external:
+            groups.append(('External services', external))
+
+        # ── Maintenance ──────────────────────────────────────────────────────
+        maintenance = []
+        if self.frontend:
+            maintenance.append({
+                'key': 'backups',
+                'label': 'Backups',
+                'description': 'Scheduled backups of databases and uploaded '
+                               'files.',
+                'checked': d.get('use_backup', False),
+            })
+        if maintenance:
+            groups.append(('Maintenance', maintenance))
 
         # Build flat choices list with separators; sort items within each group
         all_sections = []
@@ -2497,7 +2562,11 @@ class Config(metaclass=Singleton):
             items.sort(key=lambda x: x['label'])
             choices.append({'separator': group_name})
             for item in items:
-                choices.append({'label': item['label'], 'checked': item['checked']})
+                choices.append({
+                    'label': item['label'],
+                    'checked': item['checked'],
+                    'description': item.get('description', ''),
+                })
                 all_sections.append(item)
 
         selected_labels = CLI.checkbox_menu(
@@ -2692,6 +2761,9 @@ class Config(metaclass=Singleton):
         if 'postgresql' in selected:
             self.__questions_postgres()
 
+        if 'postgres_tuning' in selected:
+            self.__questions_postgres_tuning()
+
         if 'mongodb' in selected:
             self.__questions_mongo()
         else:
@@ -2699,6 +2771,9 @@ class Config(metaclass=Singleton):
 
         if 'redis' in selected:
             self.__questions_redis()
+
+        if 'redis_tuning' in selected:
+            self.__questions_redis_tuning()
 
         if 'ports' in selected:
             self.__questions_ports()
