@@ -123,6 +123,7 @@ class Config(metaclass=Singleton):
                     self.__dict['email_backend'] = (
                         'django.core.mail.backends.console.EmailBackend'
                     )
+                    self.__auto_detect_aws_profile()
                 self.__secure_mongo()
                 self.write_config()
                 return self.__dict
@@ -722,6 +723,29 @@ class Config(metaclass=Singleton):
         if self.frontend:
             self.__dict['primary_backend_ip'] = self.__dict[
                 'local_interface_ip']
+
+    def __auto_detect_aws_profile(self):
+        """
+        Dev simple-mode convenience: if an AWS config directory exists on the
+        host (~/.aws), enable profile-based authentication so the developer's
+        AWS credentials are available inside the containers.
+
+        This does NOT enable S3 storage (`use_aws`); switching the default
+        file storage to S3 stays an explicit opt-in via the advanced AWS
+        section ("Do you want to use AWS S3 storage?").
+        """
+        aws_dir = os.path.expanduser('~/.aws')
+        if not os.path.isdir(aws_dir):
+            return
+
+        self.__dict['aws_use_profile'] = True
+        self.__dict['aws_profile_name'] = 'default'
+        self.__dict['aws_host_aws_dir'] = aws_dir
+        CLI.colored_print(
+            f'  → Detected {aws_dir}: AWS profile "default" enabled '
+            f'(S3 storage left disabled)',
+            CLI.COLOR_INFO,
+        )
 
     def __detect_network(self):
         """

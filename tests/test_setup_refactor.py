@@ -558,3 +558,26 @@ def test_checkbox_menu_separator_skipped_by_nearest_selectable():
     assert nearest_selectable(2, -1) == 0
     # At boundary: going up from 0 stays at 0
     assert nearest_selectable(0, -1) == 0
+
+
+# ── __auto_detect_aws_profile (dev simple mode) ──────────────────────────────
+
+def test_auto_detect_aws_profile_enables_profile_when_dir_exists():
+    config = read_config({'use_aws': False, 'aws_use_profile': False})
+    with patch('helpers.config.os.path.isdir', return_value=True):
+        config._Config__auto_detect_aws_profile()
+    d = config._Config__dict
+    assert d['aws_use_profile'] is True
+    assert d['aws_profile_name'] == 'default'
+    assert d['aws_host_aws_dir'].endswith('.aws')
+    # S3 storage must NOT be forced on
+    assert d['use_aws'] is False
+
+
+def test_auto_detect_aws_profile_noop_when_dir_missing():
+    config = read_config({'use_aws': False, 'aws_use_profile': False})
+    with patch('helpers.config.os.path.isdir', return_value=False):
+        config._Config__auto_detect_aws_profile()
+    d = config._Config__dict
+    assert d['aws_use_profile'] is False
+    assert d['use_aws'] is False

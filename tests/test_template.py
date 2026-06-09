@@ -99,6 +99,24 @@ def test_aws_template_tokens_aws_disabled():
     assert vars_['USE_CLOUD_PROFILE_VOLUMES'] == '#'
 
 
+def test_aws_profile_decoupled_from_s3_storage():
+    """Profile auth can be enabled (mount ~/.aws, set AWS_PROFILE) without
+    turning on S3 storage."""
+    vars_ = _get_template_vars({
+        'use_aws': False,
+        'aws_use_profile': True,
+        'aws_profile_name': 'default',
+        'aws_host_aws_dir': '/home/user/.aws',
+    })
+    # Profile auth + volume mount active
+    assert vars_['USE_AWS_PROFILE'] == ''
+    assert vars_['USE_CLOUD_PROFILE_VOLUMES'] == ''
+    assert vars_['AWS_PROFILE'] == 'default'
+    # S3 storage stays off, no static credentials
+    assert vars_['USE_AWS_S3'] == '#'
+    assert vars_['USE_AWS_CREDENTIALS'] == '#'
+
+
 def test_aws_upgrade_without_profile_keys():
     """Config loaded from old .run.conf without aws_use_profile keys should
     fall back to credentials mode without raising KeyError."""

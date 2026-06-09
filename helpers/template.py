@@ -157,16 +157,17 @@ class Template:
         return {
             'PUBLIC_REQUEST_SCHEME': _get_value('https', 'https', 'http'),
             'USE_HTTPS': _get_value('https'),
-            'USE_AWS': _get_value('use_aws'),
+            'USE_AWS_S3': _get_value('use_aws'),
             'USE_AWS_CREDENTIALS': (
                 ''
                 if (dict_['use_aws'] and not dict_.get('aws_use_profile', False))
                 else '#'
             ),
+            # Profile-based auth is independent of S3 storage: the developer's
+            # `~/.aws` can be mounted (and AWS_PROFILE set) without switching
+            # the default file storage to S3 (`use_aws`).
             'USE_AWS_PROFILE': (
-                ''
-                if (dict_['use_aws'] and dict_.get('aws_use_profile', False))
-                else '#'
+                '' if dict_.get('aws_use_profile', False) else '#'
             ),
             'AWS_ACCESS_KEY_ID': dict_['aws_access_key'],
             'AWS_SECRET_ACCESS_KEY': dict_['aws_secret_key'],

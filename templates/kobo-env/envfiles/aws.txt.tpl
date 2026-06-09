@@ -13,13 +13,13 @@ ${USE_AWS_PROFILE}AWS_CONFIG_FILE=/home/kobo/.aws/config
 
 # To use S3, the specified buckets must already exist and the owner of your `AWS_ACCESS_KEY_ID` must have the appropriate S3 permissions.
 
-${USE_AWS}KOBOCAT_DEFAULT_FILE_STORAGE=storages.backends.s3boto3.S3Boto3Storage
-${USE_AWS}KOBOCAT_AWS_STORAGE_BUCKET_NAME=${AWS_BUCKET_NAME}
+${USE_AWS_S3}KOBOCAT_DEFAULT_FILE_STORAGE=storages.backends.s3boto3.S3Boto3Storage
+${USE_AWS_S3}KOBOCAT_AWS_STORAGE_BUCKET_NAME=${AWS_BUCKET_NAME}
 
-${USE_AWS}KPI_DEFAULT_FILE_STORAGE=storages.backends.s3boto3.S3Boto3Storage
-${USE_AWS}KPI_AWS_STORAGE_BUCKET_NAME=${AWS_BUCKET_NAME}
+${USE_AWS_S3}KPI_DEFAULT_FILE_STORAGE=storages.backends.s3boto3.S3Boto3Storage
+${USE_AWS_S3}KPI_AWS_STORAGE_BUCKET_NAME=${AWS_BUCKET_NAME}
 
-${USE_AWS}AWS_S3_REGION_NAME=${AWS_S3_REGION_NAME}
+${USE_AWS_S3}AWS_S3_REGION_NAME=${AWS_S3_REGION_NAME}
 
 ###################
 # Backup settings #
