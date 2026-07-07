@@ -103,16 +103,6 @@ class Config(metaclass=Singleton):
             self.__welcome()
             self.__dict = self.get_upgraded_dict()
 
-            # Confirm now, before asking any question or writing `.run.conf`
-            # (via `write_config()` at the end of this method), that the user
-            # really wants to overwrite an existing install. Declining here
-            # leaves every file on disk untouched. The setup flows then pass
-            # `force=True` to `Template.render()` to avoid asking twice.
-            # Local import avoids a circular dependency.
-            from helpers.template import Template
-            if not Template.confirm_overwrite(self):
-                sys.exit(0)
-
             self.__create_directory()
             self.__questions_advanced_options()
             self.__questions_installation_type()
@@ -159,6 +149,16 @@ class Config(metaclass=Singleton):
                 self.__secure_mongo()
 
             self.__questions_backup()
+
+            # Confirm before persisting anything. `write_config()` (below)
+            # writes `.run.conf`, and the setup flows then render the
+            # environment files with `force=True`. Asking here, after every
+            # question (including the install path) has been answered, ensures
+            # declining leaves every existing file on disk untouched. Local
+            # import avoids a circular dependency.
+            from helpers.template import Template
+            if not Template.confirm_overwrite(self):
+                sys.exit(0)
 
             self.write_config()
 

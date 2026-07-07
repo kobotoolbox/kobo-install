@@ -53,6 +53,43 @@ def test_installation():
     return config
 
 
+@patch('helpers.config.Network.get_primary_ip',
+       MagicMock(return_value='1.2.3.4'))
+def test_build_aborts_before_writing_when_overwrite_declined():
+    # Regression (dev-2191): the overwrite confirmation must run at the END of
+    # `build()`, after every question (including the install path), and must
+    # abort before `.run.conf` is written. Otherwise declining cannot protect
+    # `.run.conf`, and a path chosen mid-setup would be checked against a stale
+    # location.
+    config = read_config()
+    config._Config__dict['advanced'] = False
+    config._Config__dict['local_installation'] = True
+
+    noop = MagicMock()
+    write_config = MagicMock()
+    with patch.multiple(
+        'helpers.config.Config',
+        _Config__welcome=noop,
+        _Config__create_directory=noop,
+        _Config__questions_advanced_options=noop,
+        _Config__questions_installation_type=noop,
+        _Config__detect_network=noop,
+        _Config__questions_smtp=noop,
+        _Config__questions_super_user_credentials=noop,
+        _Config__secure_mongo=noop,
+        _Config__questions_backup=noop,
+        write_config=write_config,
+    ), patch(
+        'helpers.template.Template.confirm_overwrite',
+        MagicMock(return_value=False),
+    ) as mock_confirm:
+        with pytest.raises(SystemExit):
+            config.build()
+
+    mock_confirm.assert_called_once()
+    write_config.assert_not_called()
+
+
 @patch('helpers.config.Config._Config__clone_repo',
        MagicMock(return_value=True))
 def test_staging_mode():
