@@ -28,24 +28,9 @@ class Template:
         template_variables = cls.__get_template_variables(config)
 
         environment_directory = config.get_env_files_path()
-        unique_id = cls.__read_unique_id(environment_directory)
 
-        if (
-            not force and unique_id
-            and str(dict_.get('unique_id', '')) != str(unique_id)
-        ):
-            message = (
-                'WARNING!\n\n'
-                'Existing environment files are detected. Files will be '
-                'overwritten.'
-            )
-            CLI.framed_print(message)
-            response = CLI.yes_no_question(
-                'Do you want to continue?',
-                default=False
-            )
-            if not response:
-                sys.exit(0)
+        if not cls.confirm_overwrite(config, force=force):
+            sys.exit(0)
 
         cls.__write_unique_id(environment_directory, dict_['unique_id'])
 
@@ -86,6 +71,42 @@ class Template:
                                       root,
                                       destination_directory,
                                       filenames)
+
+    @classmethod
+    def confirm_overwrite(cls, config, force=False):
+        """
+        Warns the user when existing environment files would be overwritten
+        and asks them to confirm.
+
+        Must be called *before* anything is written to disk (including
+        `.run.conf`), so that declining leaves every existing file untouched.
+
+        Args:
+            config (helpers.config.Config)
+            force (bool): skip the check entirely when `True`
+
+        Returns:
+            bool: `True` if it is safe to proceed, `False` if declined.
+        """
+        if force:
+            return True
+
+        dict_ = config.get_dict()
+        unique_id = cls.__read_unique_id(config.get_env_files_path())
+
+        if unique_id and str(dict_.get('unique_id', '')) != str(unique_id):
+            message = (
+                'WARNING!\n\n'
+                'Existing environment files are detected. Files will be '
+                'overwritten.'
+            )
+            CLI.framed_print(message)
+            return CLI.yes_no_question(
+                'Do you want to continue?',
+                default=False
+            )
+
+        return True
 
     @classmethod
     def render_maintenance(cls, config):

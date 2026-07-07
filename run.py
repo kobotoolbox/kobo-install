@@ -41,7 +41,9 @@ def run(force_setup=False):
         if force_setup:
             dict_ = config.build()
             Setup.clone_kobodocker(config)
-            Template.render(config)
+            # `build()` already asked for overwrite confirmation before writing
+            # anything, so skip the duplicate prompt here.
+            Template.render(config, force=True)
             Setup.update_hosts(dict_)
         else:
             if config.auto_detect_network():
