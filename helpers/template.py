@@ -73,20 +73,12 @@ class Template:
                                       filenames)
 
     @classmethod
-    def confirm_overwrite(cls, config, force=False):
+    def confirm_overwrite(cls, config: Config, force: bool = False) -> bool:
         """
-        Warns the user when existing environment files would be overwritten
-        and asks them to confirm.
-
-        Must be called *before* anything is written to disk (including
-        `.run.conf`), so that declining leaves every existing file untouched.
-
-        Args:
-            config (helpers.config.Config)
-            force (bool): skip the check entirely when `True`
-
-        Returns:
-            bool: `True` if it is safe to proceed, `False` if declined.
+        Warn when existing environment files would be overwritten and ask the
+        user to confirm. Must be called before anything is written to disk
+        (including `.run.conf`) so that declining leaves every file untouched.
+        Returns `True` to proceed, `False` if the user declined.
         """
         if force:
             return True

@@ -154,9 +154,8 @@ class Config(metaclass=Singleton):
             # writes `.run.conf`, and the setup flows then render the
             # environment files with `force=True`. Asking here, after every
             # question (including the install path) has been answered, ensures
-            # declining leaves every existing file on disk untouched. Local
-            # import avoids a circular dependency.
-            from helpers.template import Template
+            # declining leaves every existing file on disk untouched.
+            from helpers.template import Template  # avoids circular import
             if not Template.confirm_overwrite(self):
                 sys.exit(0)
 
