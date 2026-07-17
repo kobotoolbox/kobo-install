@@ -150,6 +150,15 @@ class Config(metaclass=Singleton):
 
             self.__questions_backup()
 
+            # Confirm before persisting anything. `write_config()` (below)
+            # writes `.run.conf`, and the setup flows then render the
+            # environment files with `force=True`. Asking here, after every
+            # question (including the install path) has been answered, ensures
+            # declining leaves every existing file on disk untouched.
+            from helpers.template import Template  # avoids circular import
+            if not Template.confirm_overwrite(self):
+                sys.exit(0)
+
             self.write_config()
 
             return self.__dict
