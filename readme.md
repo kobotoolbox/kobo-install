@@ -3,6 +3,12 @@ It prompts the user to answer some questions to create configuration files autom
 
 ## :warning: You _must observe_ the following when upgrading:
 
+### …from any release older than [`2.026.27`](https://github.com/kobotoolbox/kobo-install/releases/tag/2.026.27) (July 2026)
+
+Running current releases of KoboToolbox requires you to upgrade your MongoDB database. Please follow [these instructions](https://github.com/kobotoolbox/kobo-docker/blob/master/doc/June-2026-Upgrade-MongoDB8.md).
+
+If you do not, the application may not start or your data may not be visible.
+
 ### …from any release older than [`2.022.44`](https://github.com/kobotoolbox/kobo-install/releases/tag/2.022.44) (November 2022)
 
 If you have already installed KoboToolbox between March 2019 and November 2022, you **must** complete [a manual upgrade process](https://github.com/kobotoolbox/kobo-docker/blob/master/doc/November-2022-Upgrade.md) before trying to upgrade. **If you do not, `kobo-install` will not be able to start.**
