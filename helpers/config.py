@@ -2135,9 +2135,12 @@ class Config(metaclass=Singleton):
             self.__dict['kpi_path'] = ''
             self.__dict['debug'] = False
             self.__dict['use_celery'] = True
-            if nginx_default:
-                self.__dict[
-                    'exposed_nginx_docker_port'] = Config.DEFAULT_NGINX_PORT
+
+        # Not nested in the block above: staging is not `production`, but it
+        # is still a server and must not keep a development web server port.
+        if nginx_default or all_:
+            self.__dict[
+                'exposed_nginx_docker_port'] = Config.DEFAULT_NGINX_PORT
 
         if fake_dns or all_:
             self.__dict['use_private_dns'] = False
@@ -2251,7 +2254,7 @@ class Config(metaclass=Singleton):
 
         cpus, ram_gb = self.__detect_system_resources()
         allocated_cpus = max(1, round(cpus * factor))
-        allocated_ram  = max(2, round(ram_gb * factor))
+        allocated_ram = max(2, round(ram_gb * factor))
 
         CLI.colored_print(
             f'Auto-configuring from detected hardware: '
@@ -2265,9 +2268,9 @@ class Config(metaclass=Singleton):
                 f'({int(factor * 100)}% — {mode})',
                 CLI.COLOR_INFO,
             )
-            self.__dict['postgres_cpus']     = str(allocated_cpus)
-            self.__dict['postgres_ram']      = str(allocated_ram)
-            self.__dict['postgres_profile']  = 'Mixed'
+            self.__dict['postgres_cpus'] = str(allocated_cpus)
+            self.__dict['postgres_ram'] = str(allocated_ram)
+            self.__dict['postgres_profile'] = 'Mixed'
             self.__dict['postgres_settings'] = True
             # Values come from hardware detection, not from the user: the
             # advanced menu must not present the section as customised.
@@ -2298,9 +2301,9 @@ class Config(metaclass=Singleton):
 
         if self.frontend:
             workers_start = max(2, allocated_cpus)
-            workers_max   = max(4, allocated_cpus * 2)
+            workers_max = max(4, allocated_cpus * 2)
             # Single-server soft_limit: staging=25%, production=50%
-            soft_pct      = 0.25 if mode == 'staging' else 0.50
+            soft_pct = 0.25 if mode == 'staging' else 0.50
             soft_limit_mb = max(1024, round(ram_gb * soft_pct * 1024))
             CLI.colored_print(
                 f'  → uWSGI: {workers_start} workers (start), '
@@ -2310,9 +2313,9 @@ class Config(metaclass=Singleton):
                 CLI.COLOR_INFO,
             )
             self.__dict['uwsgi_workers_start'] = str(workers_start)
-            self.__dict['uwsgi_workers_max']   = str(workers_max)
-            self.__dict['uwsgi_soft_limit']    = str(soft_limit_mb)
-            self.__dict['uwsgi_settings']      = True
+            self.__dict['uwsgi_workers_max'] = str(workers_max)
+            self.__dict['uwsgi_soft_limit'] = str(soft_limit_mb)
+            self.__dict['uwsgi_settings'] = True
             self.__dict['uwsgi_settings_auto'] = True
 
     @staticmethod
@@ -2797,6 +2800,8 @@ class Config(metaclass=Singleton):
                     production=(mode == 'production'),
                     nginx_default=True,
                 )
+                if previous_mode == 'dev':
+                    self.__reset_development_values()
 
         if mode == 'dev':
             message = (
@@ -2804,6 +2809,30 @@ class Config(metaclass=Singleton):
                 'SSRF protection is disabled with local installation'
             )
             CLI.framed_print(message, color=CLI.COLOR_WARNING)
+
+    def __reset_development_values(self):
+        """
+        Restores the settings that only make sense on a workstation to their
+        defaults, when an existing development install becomes a server.
+
+        `__reset()` does not cover these, and neither path of `build()` would
+        ask about them afterwards: simple mode asks nothing, and the advanced
+        menu only runs the sections that were ticked. Left alone they would
+        reach the generated server configuration — printing email to the
+        console, serving plain HTTP, or mounting host credential directories
+        that do not exist on a server.
+        """
+        template = self.get_template()
+        for key in (
+            'email_backend',
+            'https',
+            'use_letsencrypt',
+            'aws_use_profile',
+            'aws_host_aws_dir',
+            'gcloud_use_profile',
+            'gcloud_host_config_dir',
+        ):
+            self.__dict[key] = template[key]
 
     def __questions_kpi_path(self):
         """

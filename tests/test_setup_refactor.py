@@ -1126,3 +1126,109 @@ def test_first_run_dev_keeps_console_email_backend():
         config._Config__run_selected_advanced_sections([])
 
     assert config._Config__dict['email_backend'] == console_backend
+
+
+# ── Leaving development for a server ─────────────────────────────────────────
+
+DEV_LEFTOVERS = {
+    'kpi_path': '/home/dev/src/kpi',
+    'exposed_nginx_docker_port': '8080',
+    'https': False,
+    'use_letsencrypt': False,
+    'email_backend': 'django.core.mail.backends.console.EmailBackend',
+    'debug': True,
+    'use_celery': False,
+    'aws_use_profile': True,
+    'aws_host_aws_dir': '/home/dev/.aws',
+    'gcloud_use_profile': True,
+    'gcloud_host_config_dir': '/home/dev/.config/gcloud',
+}
+
+
+def _switch_mode(config, choice):
+    with patch.object(CLI, 'colored_input', return_value=choice), \
+         patch.object(CLI, 'framed_print'), \
+         patch.object(CLI, 'colored_print'):
+        config._Config__questions_install_mode()
+
+
+def _dev_install_with_leftovers():
+    config = read_config({'local_installation': True, 'dev_mode': True})
+    config._Config__dict.update(DEV_LEFTOVERS)
+    return config
+
+
+@pytest.mark.parametrize('choice,mode', [(STAGING, 'staging'),
+                                         (PRODUCTION, 'production')])
+def test_switching_to_a_server_clears_development_values(choice, mode):
+    """
+    Neither branch of build() asks about these afterwards, so anything left
+    behind reaches the generated server configuration.
+    """
+    config = _dev_install_with_leftovers()
+
+    _switch_mode(config, choice)
+
+    d = config._Config__dict
+    assert d['install_mode'] == mode
+    # A server sends real email and speaks HTTPS
+    assert d['email_backend'] == ''
+    assert d['https'] is True
+    assert d['use_letsencrypt'] is True
+    # The web server port is only configurable in dev, so it goes back to 80
+    assert d['exposed_nginx_docker_port'] == Config.DEFAULT_NGINX_PORT
+    # Host credential directories do not exist on a server
+    assert d['aws_use_profile'] is False
+    assert d['gcloud_use_profile'] is False
+    assert d['debug'] is False
+    assert d['use_celery'] is True
+
+
+def test_switching_to_staging_keeps_the_kpi_checkout():
+    """
+    Staging supports a local KPI checkout — the section is offered for both
+    dev and staging — so it must survive the switch. Production drops it.
+    """
+    config = _dev_install_with_leftovers()
+    _switch_mode(config, STAGING)
+    assert config._Config__dict['kpi_path'] == '/home/dev/src/kpi'
+
+    config = _dev_install_with_leftovers()
+    _switch_mode(config, PRODUCTION)
+    assert config._Config__dict['kpi_path'] == ''
+
+
+def test_switching_between_servers_keeps_the_chosen_settings():
+    """
+    Only leaving development clears these. A staging install turned into
+    production must keep the HTTPS setup its owner configured.
+    """
+    config = read_config({
+        'install_mode': 'staging', 'staging_mode': True,
+        'local_installation': False,
+        'https': False, 'use_letsencrypt': False,
+        'smtp_host': 'smtp.example.org',
+    })
+
+    _switch_mode(config, PRODUCTION)
+
+    d = config._Config__dict
+    assert d['install_mode'] == 'production'
+    assert d['https'] is False
+    assert d['use_letsencrypt'] is False
+    assert d['smtp_host'] == 'smtp.example.org'
+
+
+def test_staying_in_the_same_mode_changes_nothing():
+    config = _dev_install_with_leftovers()
+    before = dict(config._Config__dict)
+
+    _switch_mode(config, DEV)
+
+    after = config._Config__dict
+    # `install_mode` is normalised from `local_installation` for configs
+    # written before the key existed; nothing else may move.
+    assert after['install_mode'] == 'dev'
+    assert {k: v for k, v in after.items() if k != 'install_mode'} == {
+        k: v for k, v in before.items() if k != 'install_mode'
+    }
