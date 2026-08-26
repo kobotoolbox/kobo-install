@@ -820,14 +820,6 @@ class Config(metaclass=Singleton):
             pattern += '|'
         return rf'{prefix}^{pattern}$'
 
-    def __questions_advanced_options(self):
-        """
-        Asks if user wants to see advanced options
-        """
-        self.__dict['advanced'] = CLI.yes_no_question(
-            'Do you want to see advanced options?',
-            default=self.__dict['advanced'])
-
     def __questions_aws(self):
         """
         Asks if user wants to see AWS option
@@ -1108,83 +1100,6 @@ class Config(metaclass=Singleton):
                 default=self.__dict['use_backend_custom_yml']
             )
 
-    def __questions_dev_mode(self):
-        """
-        Asks for developer/staging mode.
-
-        Dev mode allows to modify nginx port and
-        Staging model
-
-        Reset to default in case of No
-        """
-
-        if self.frontend:
-
-            if self.local_install:
-                # NGINX different port
-                CLI.colored_print('Web server port?', CLI.COLOR_QUESTION)
-                self.__dict['exposed_nginx_docker_port'] = CLI.get_response(
-                    r'~^\d+$', self.__dict['exposed_nginx_docker_port'])
-                self.__dict['dev_mode'] = CLI.yes_no_question(
-                    'Use developer mode?',
-                    default=self.__dict['dev_mode']
-                )
-                self.__dict['staging_mode'] = False
-                if self.dev_mode:
-                    self.__dict['use_celery'] = CLI.yes_no_question(
-                        'Use Celery for background tasks?',
-                        default=self.__dict['use_celery']
-                    )
-
-            else:
-                self.__dict['staging_mode'] = CLI.yes_no_question(
-                    'Use staging mode?',
-                    default=self.__dict['staging_mode']
-                )
-                self.__dict['dev_mode'] = False
-                self.__dict['use_celery'] = True
-
-            if self.dev_mode or self.staging_mode:
-                message = (
-                    'Where are the files located locally? It can be absolute '
-                    'or relative to the directory of `kobo-docker`.\n\n'
-                    'Leave empty if you do not need to overload the repository.'
-                )
-                CLI.framed_print(message, color=CLI.COLOR_INFO)
-
-                kpi_path = self.__dict['kpi_path']
-                self.__dict['kpi_path'] = CLI.colored_input(
-                    'KPI files location?', CLI.COLOR_QUESTION,
-                    self.__dict['kpi_path'])
-                self.__clone_repo(self.__dict['kpi_path'], 'kpi')
-
-                if (
-                    not self.__dict['kpi_dev_build_id'] or
-                    self.__dict['kpi_path'] != kpi_path
-                ):
-                    prefix = self.get_prefix('frontend')
-                    timestamp = int(time.time())
-                    self.__dict['kpi_dev_build_id'] = f'{prefix}{timestamp}'
-
-                if self.dev_mode:
-                    self.__dict['debug'] = CLI.yes_no_question(
-                        'Enable DEBUG?',
-                        default=self.__dict['debug']
-                    )
-
-                    # Front-end development
-                    self.__dict['npm_container'] = CLI.yes_no_question(
-                        'How do you want to run `npm`?',
-                        default=self.__dict['npm_container'],
-                        labels=[
-                            'From within the container',
-                            'Locally',
-                        ]
-                    )
-            else:
-                # Force reset paths
-                self.__reset(production=True, nginx_default=self.staging_mode)
-
     def __questions_docker_prefix(self):
         """
         Asks for Docker compose prefix. It allows to start
@@ -1225,35 +1140,6 @@ class Config(metaclass=Singleton):
                 'kobo-install can install one, if needed.'
             )
             CLI.framed_print(message, color=CLI.COLOR_INFO)
-
-    def __questions_installation_type(self):
-        """
-        Asks for installation type
-        """
-        previous_installation_type = self.__dict['local_installation']
-
-        self.__dict['local_installation'] = CLI.yes_no_question(
-            'What kind of installation do you need?',
-            default=self.__dict['local_installation'],
-            labels=[
-                'On your workstation',
-                'On a server',
-            ]
-        )
-        if self.local_install:
-            message = (
-                'WARNING!\n\n'
-                'SSRF protection is disabled with local installation'
-            )
-            CLI.framed_print(message, color=CLI.COLOR_WARNING)
-
-        if previous_installation_type != self.__dict['local_installation']:
-            # Reset previous choices, in case server role is not the same.
-            self.__reset(
-                production=not self.local_install,
-                http=self.local_install,
-                fake_dns=self.local_install,
-            )
 
     def __questions_maintenance(self):
         if self.first_time:

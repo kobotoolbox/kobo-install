@@ -17,40 +17,30 @@ from .utils import (
 
 CHOICE_YES = '1'
 CHOICE_NO = '2'
+MODE_DEV = '1'
+MODE_STAGING = '2'
+MODE_PRODUCTION = '3'
 
 
 def test_read_config():
     read_config()
 
 
-def test_advanced_options():
+def _local_install_config():
+    """
+    Returns a config switched to dev mode, i.e. a local installation.
+    """
     config = read_config()
-    with patch.object(CLI, 'colored_input',
-                      return_value=CHOICE_YES) as mock_ci:
-        config._Config__questions_advanced_options()
-        assert config.advanced_options
-
-    with patch.object(CLI, 'colored_input',
-                      return_value=CHOICE_NO) as mock_ci:
-        config._Config__questions_advanced_options()
-        assert not config.advanced_options
-
-
-def test_installation():
-    config = read_config()
-    with patch.object(CLI, 'colored_input',
-                      return_value=CHOICE_NO) as mock_ci:
-        config._Config__questions_installation_type()
-        assert not config.local_install
-
-    with patch.object(CLI, 'colored_input',
-                      return_value=CHOICE_YES) as mock_ci:
-        config._Config__questions_installation_type()
-        assert config.local_install
-        assert not config.multi_servers
-        assert not config.use_letsencrypt
-
+    with patch.object(CLI, 'colored_input', return_value=MODE_DEV):
+        config._Config__questions_install_mode()
     return config
+
+
+def test_local_installation_disables_multi_server_and_letsencrypt():
+    config = _local_install_config()
+    assert config.local_install
+    assert not config.multi_servers
+    assert not config.use_letsencrypt
 
 
 @patch('helpers.config.Config._Config__clone_repo',
@@ -59,50 +49,54 @@ def test_staging_mode():
     config = read_config()
     kpi_repo_path = tempfile.mkdtemp()
 
-    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
-        mock_colored_input.side_effect = iter([CHOICE_YES, kpi_repo_path])
-        config._Config__questions_dev_mode()
-        dict_ = config.get_dict()
-        assert not config.dev_mode
-        assert config.staging_mode
-        assert dict_['kpi_path'] == kpi_repo_path
+    with patch.object(CLI, 'colored_input', return_value=MODE_STAGING):
+        config._Config__questions_install_mode()
+    assert not config.dev_mode
+    assert config.staging_mode
+
+    with patch.object(CLI, 'colored_input', return_value=kpi_repo_path):
+        config._Config__questions_kpi_path()
+    assert config.get_dict()['kpi_path'] == kpi_repo_path
+
     shutil.rmtree(kpi_repo_path)
 
 
 @patch('helpers.config.Config._Config__clone_repo', MagicMock(return_value=True))
 def test_dev_mode():
-    config = test_installation()
+    config = _local_install_config()
+    assert config.dev_mode
+    assert not config.staging_mode
 
     kpi_repo_path = tempfile.mkdtemp()
 
-    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
-        mock_colored_input.side_effect = iter(
-            [
-                '8080',
-                CHOICE_YES,
-                CHOICE_NO,
-                kpi_repo_path,
-                CHOICE_YES,
-                CHOICE_NO,
-            ]
-        )
+    with patch.object(CLI, 'colored_input', return_value='8080'):
+        config._Config__questions_web_server_port()
 
-        config._Config__questions_dev_mode()
-        dict_ = config.get_dict()
-        assert config.dev_mode
-        assert not config.staging_mode
-        assert config.get_dict().get('exposed_nginx_docker_port') == '8080'
-        assert dict_['kpi_path'] == kpi_repo_path
-        assert dict_['npm_container'] is False
-        assert dict_['use_celery'] is False
+    with patch.object(CLI, 'colored_input', return_value=kpi_repo_path):
+        config._Config__questions_kpi_path()
+
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        mock_colored_input.side_effect = iter([CHOICE_NO, CHOICE_NO])
+        config._Config__questions_celery_npm()
+
+    dict_ = config.get_dict()
+    assert dict_['exposed_nginx_docker_port'] == '8080'
+    assert dict_['kpi_path'] == kpi_repo_path
+    assert dict_['npm_container'] is False
+    assert dict_['use_celery'] is False
 
     shutil.rmtree(kpi_repo_path)
 
-    with patch.object(CLI, 'colored_input', return_value=CHOICE_NO) as mock_ci:
-        config._Config__questions_dev_mode()
-        dict_ = config.get_dict()
-        assert not config.dev_mode
-        assert dict_['kpi_path'] == ''
+
+def test_switching_away_from_dev_mode_resets_kpi_path():
+    config = _local_install_config()
+    config._Config__dict['kpi_path'] = '/some/local/checkout'
+
+    with patch.object(CLI, 'colored_input', return_value=MODE_PRODUCTION):
+        config._Config__questions_install_mode()
+
+    assert not config.dev_mode
+    assert config.get_dict()['kpi_path'] == ''
 
 
 def test_server_roles_questions():
@@ -151,9 +145,8 @@ def test_use_https():
         assert not config.local_install
         assert config.is_secure
 
-    with patch.object(CLI, 'colored_input',
-                      return_value=CHOICE_YES) as mock_ci:
-        config._Config__questions_installation_type()
+    with patch.object(CLI, 'colored_input', return_value=MODE_DEV) as mock_ci:
+        config._Config__questions_install_mode()
         assert config.local_install
         assert not config.is_secure
 
