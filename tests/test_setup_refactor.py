@@ -911,6 +911,52 @@ def test_database_sections_are_never_pre_checked():
         assert choices['Redis'] is False
 
 
+@patch('helpers.config.Network.curl', return_value='')
+@patch('helpers.config.Config._Config__detect_system_resources',
+       return_value=(8, 16))
+def test_tuning_sections_unchecked_after_auto_configuration(_detect, _curl):
+    """
+    `build()` runs __auto_configure_resources before opening the menu, and it
+    sets `postgres_settings` / `uwsgi_settings`. Those sections must still
+    come up unchecked: the values were computed, not chosen.
+    """
+    config = _first_run_config({'install_mode': 'production'})
+    config._Config__auto_configure_resources()
+
+    d = config._Config__dict
+    assert d['postgres_settings'] is True
+    assert d['uwsgi_settings'] is True
+
+    choices = _menu_choices(config)
+    assert choices['PostgreSQL tuning'] is False
+    assert choices['uWSGI tuning'] is False
+
+
+@patch('helpers.config.Network.curl', return_value='')
+@patch('helpers.config.Config._Config__detect_system_resources',
+       return_value=(8, 16))
+def test_tuning_sections_checked_once_answered(_detect, _curl):
+    """
+    Once the user has answered the tuning questions, the values are theirs and
+    the sections are pre-checked on the next run.
+    """
+    config = _later_run_config({'install_mode': 'production'})
+    config._Config__auto_configure_resources()
+
+    with patch.object(CLI, 'colored_input', side_effect=lambda m, c, default='': default), \
+         patch.object(CLI, 'get_response', side_effect=lambda v, default=None, **k: default):
+        config._Config__questions_postgres_tuning()
+        config._Config__questions_uwsgi()
+
+    d = config._Config__dict
+    assert d['postgres_settings_auto'] is False
+    assert d['uwsgi_settings_auto'] is False
+
+    choices = _menu_choices(config)
+    assert choices['PostgreSQL tuning'] is True
+    assert choices['uWSGI tuning'] is True
+
+
 def test_later_run_checks_sections_with_custom_values():
     config = _later_run_config({
         'install_mode': 'production',
