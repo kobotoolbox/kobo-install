@@ -2553,7 +2553,10 @@ class Config(metaclass=Singleton):
                     'label': 'Redis',
                     'description': 'Redis password and cache/main instance '
                                    'settings.',
-                    'checked': bool(d.get('redis_password')),
+                    # Like MongoDB and PostgreSQL above: `redis_password`
+                    # defaults to a generated value, so there is no way to
+                    # tell a customised one from an untouched default.
+                    'checked': False,
                 },
             ]
         if self.backend and not self.local_install:

@@ -858,8 +858,6 @@ def test_first_run_production_checks_only_the_essentials():
         'HTTPS & certificates',
         'SMTP',
         'Superuser credentials',
-        # `redis_password` defaults to a generated value
-        'Redis',
     }
 
 
@@ -876,8 +874,7 @@ def test_first_run_dev_checks_only_superuser():
     choices = _menu_choices(config)
 
     checked = {label for label, is_checked in choices.items() if is_checked}
-    # `redis_password` defaults to a generated value
-    assert checked == {'Superuser credentials', 'Redis'}
+    assert checked == {'Superuser credentials'}
     assert choices['SMTP'] is False
     assert choices['Web server port'] is False
     assert choices['KPI source files'] is False
@@ -894,8 +891,24 @@ def test_later_run_only_checks_sections_differing_from_defaults():
     choices = _menu_choices(config)
 
     checked = {label for label, is_checked in choices.items() if is_checked}
-    # `use_letsencrypt` and `redis_password` default to truthy values
-    assert checked == {'HTTPS & certificates', 'Redis'}
+    # `use_letsencrypt` defaults to True
+    assert checked == {'HTTPS & certificates'}
+
+
+def test_database_sections_are_never_pre_checked():
+    """
+    MongoDB, PostgreSQL and Redis all default to a generated password, so a
+    customised one is indistinguishable from an untouched default. None of
+    them may be pre-checked, on a first run or a later one.
+    """
+    for config in (
+        _first_run_config({'install_mode': 'production'}),
+        _later_run_config({'install_mode': 'production'}),
+    ):
+        choices = _menu_choices(config)
+        assert choices['MongoDB'] is False
+        assert choices['PostgreSQL'] is False
+        assert choices['Redis'] is False
 
 
 def test_later_run_checks_sections_with_custom_values():
