@@ -161,7 +161,7 @@ Checking a section is the consent to configure it — there is no second "do you
 
 `Google Cloud credentials` mounts your host `~/.config/gcloud` into the front-end containers so they authenticate with application default credentials. It is independent of the NLP settings: you can mount the credentials without turning NLP on.
 
-`NLP and qualitative analysis` collects `AWS_BEDROCK_REGION_NAME`, the two AutoQA model ARNs, `GS_BUCKET_NAME`, `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_QUOTA_PROJECT`. These no longer need to be added by hand to a custom YAML file.
+`NLP and qualitative analysis` collects `AWS_BEDROCK_REGION_NAME`, the two AutoQA model ARNs, `GS_BUCKET_NAME`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_QUOTA_PROJECT` and `CONSTANCE_ASR_MT_GOOGLE_PROJECT_ID`. These no longer need to be added by hand to a custom YAML file.
 
 <sup>1)</sup> _The host port the web server listens on, `80` by default. Useful when something else already uses port 80 on your workstation_
 

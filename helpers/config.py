@@ -297,6 +297,7 @@ class Config(metaclass=Singleton):
             'autoqa_claudesonnet_model_aip_arn': '',
             'autoqa_oss120_model_aip_arn': '',
             'advanced_sections_seen': [],
+            'asr_mt_google_project_id': '',
             'advanced_sections_selected': [],
             'aws_backup_bucket_name': '',
             'aws_backup_daily_retention': '30',
@@ -1264,6 +1265,11 @@ class Config(metaclass=Singleton):
         self.__dict['gcloud_quota_project'] = CLI.colored_input(
             'Google Cloud quota project', CLI.COLOR_QUESTION,
             self.__dict['gcloud_quota_project'])
+        self.__dict['asr_mt_google_project_id'] = CLI.colored_input(
+            'ASR/MT Google project ID', CLI.COLOR_QUESTION,
+            # Usually the same project; offer it rather than ask blind.
+            self.__dict['asr_mt_google_project_id']
+            or self.__dict['gcloud_project'])
 
     def __questions_https(self):
         """

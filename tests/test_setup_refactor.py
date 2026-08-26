@@ -757,6 +757,7 @@ def test_questions_nlp_stores_all_values():
         'my-bucket',
         'my-gcp-project',
         'my-quota-project',
+        'my-asr-project',
     ]
     with patch('helpers.cli.CLI.colored_input') as mock_input:
         mock_input.side_effect = iter(answers)
@@ -770,6 +771,23 @@ def test_questions_nlp_stores_all_values():
     assert d['gs_bucket_name'] == 'my-bucket'
     assert d['gcloud_project'] == 'my-gcp-project'
     assert d['gcloud_quota_project'] == 'my-quota-project'
+    assert d['asr_mt_google_project_id'] == 'my-asr-project'
+
+
+def test_questions_nlp_asr_project_defaults_to_the_gcloud_project():
+    """
+    The ASR/MT project is usually the same one, so it is offered rather than
+    asked blind — but it stays overridable.
+    """
+    config = read_config({
+        'gcloud_project': 'detected-project',
+        'asr_mt_google_project_id': '',
+    })
+    with patch.object(CLI, 'colored_input',
+                      side_effect=lambda m, c, default='': default):
+        config._Config__questions_nlp()
+    assert config._Config__dict['asr_mt_google_project_id'] == \
+        'detected-project'
 
 
 def test_questions_nlp_defaults_to_detected_gcloud_project():

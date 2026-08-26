@@ -204,6 +204,9 @@ class Template:
             'GS_BUCKET_NAME': dict_.get('gs_bucket_name', ''),
             'GOOGLE_CLOUD_PROJECT': dict_.get('gcloud_project', ''),
             'GOOGLE_CLOUD_QUOTA_PROJECT': dict_.get('gcloud_quota_project', ''),
+            'CONSTANCE_ASR_MT_GOOGLE_PROJECT_ID': dict_.get(
+                'asr_mt_google_project_id', ''
+            ),
             'AWS_S3_REGION_NAME': dict_['aws_s3_region_name'],
             'GOOGLE_UA': dict_['google_ua'],
             'GOOGLE_API_KEY': dict_['google_api_key'],

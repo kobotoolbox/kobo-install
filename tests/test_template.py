@@ -309,6 +309,7 @@ def test_nlp_template_tokens_enabled():
         'gs_bucket_name': 'my-bucket',
         'gcloud_project': 'my-gcp-project',
         'gcloud_quota_project': 'my-quota-project',
+        'asr_mt_google_project_id': 'my-asr-project',
     })
     assert vars_['USE_NLP'] == ''
     assert vars_['AWS_BEDROCK_REGION_NAME'] == 'us-west-2'
@@ -317,6 +318,7 @@ def test_nlp_template_tokens_enabled():
     assert vars_['GS_BUCKET_NAME'] == 'my-bucket'
     assert vars_['GOOGLE_CLOUD_PROJECT'] == 'my-gcp-project'
     assert vars_['GOOGLE_CLOUD_QUOTA_PROJECT'] == 'my-quota-project'
+    assert vars_['CONSTANCE_ASR_MT_GOOGLE_PROJECT_ID'] == 'my-asr-project'
 
 
 def test_nlp_template_tokens_disabled_by_default():
@@ -340,6 +342,7 @@ def test_gcloud_and_nlp_tokens_tolerate_old_config():
         'aws_bedrock_region_name',
         'autoqa_claudesonnet_model_aip_arn',
         'autoqa_oss120_model_aip_arn',
+        'asr_mt_google_project_id',
     ):
         del config._Config__dict[key]
 
