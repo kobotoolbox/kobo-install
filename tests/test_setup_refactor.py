@@ -681,6 +681,73 @@ def test_questions_gcloud_clears_host_dir_when_disabled():
     assert d['gcloud_host_config_dir'] == ''
 
 
+def _gcloud_question_default(config):
+    """
+    Runs __questions_gcloud and returns the default offered for the yes/no
+    question, plus the default offered for the host directory input.
+    """
+    seen = {}
+
+    def capture_yes_no(question, default=True, labels=None):
+        seen['yes_no'] = default
+        return default
+
+    def capture_input(message, color, default=''):
+        seen['host_dir'] = default
+        return default
+
+    with patch.object(CLI, 'yes_no_question', side_effect=capture_yes_no), \
+         patch.object(CLI, 'colored_input', side_effect=capture_input):
+        config._Config__questions_gcloud()
+
+    return seen
+
+
+def test_questions_gcloud_defaults_to_yes_when_dir_exists():
+    config = read_config({
+        'gcloud_use_profile': False,
+        'gcloud_host_config_dir': '',
+    })
+    with patch('helpers.config.os.path.isdir', return_value=True):
+        seen = _gcloud_question_default(config)
+    assert seen['yes_no'] is True
+
+
+def test_questions_gcloud_defaults_to_no_when_dir_missing():
+    config = read_config({
+        'gcloud_use_profile': False,
+        'gcloud_host_config_dir': '',
+    })
+    with patch('helpers.config.os.path.isdir', return_value=False):
+        seen = _gcloud_question_default(config)
+    assert seen['yes_no'] is False
+
+
+def test_questions_gcloud_stored_answer_wins_over_detection():
+    """An explicit previous "Yes" survives the directory moving away."""
+    config = read_config({
+        'gcloud_use_profile': True,
+        'gcloud_host_config_dir': '/opt/gcloud',
+    })
+    with patch('helpers.config.os.path.isdir', return_value=False):
+        seen = _gcloud_question_default(config)
+    assert seen['yes_no'] is True
+
+
+def test_questions_gcloud_offers_default_dir_after_previous_no():
+    """
+    Answering No resets the stored directory, so the next run must fall back
+    to ~/.config/gcloud instead of offering an empty path.
+    """
+    config = read_config({
+        'gcloud_use_profile': False,
+        'gcloud_host_config_dir': '',
+    })
+    with patch('helpers.config.os.path.isdir', return_value=True):
+        seen = _gcloud_question_default(config)
+    assert seen['host_dir'] == os.path.expanduser('~/.config/gcloud')
+
+
 def test_questions_nlp_stores_all_values():
     config = read_config({'use_nlp': False})
     answers = [

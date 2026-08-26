@@ -956,16 +956,28 @@ class Config(metaclass=Singleton):
         """
         Asks whether to mount the host gcloud configuration directory so
         containers authenticate with application default credentials.
+
+        `__auto_detect_gcloud_profile()` only runs in dev simple mode, so in
+        advanced mode nothing has looked at the host yet. Detect the directory
+        here too and default to "Yes" when it exists — an explicit previous
+        answer still wins over the detection.
         """
+        gcloud_dir = (
+            self.__dict['gcloud_host_config_dir']
+            or os.path.expanduser('~/.config/gcloud')
+        )
         self.__dict['gcloud_use_profile'] = CLI.yes_no_question(
             'Use Google Cloud application default credentials?',
-            default=self.__dict['gcloud_use_profile']
+            default=(
+                self.__dict['gcloud_use_profile']
+                or os.path.isdir(gcloud_dir)
+            )
         )
         if self.__dict['gcloud_use_profile']:
             self.__dict['gcloud_host_config_dir'] = CLI.colored_input(
                 'gcloud configuration directory on host',
                 CLI.COLOR_QUESTION,
-                self.__dict['gcloud_host_config_dir'])
+                gcloud_dir)
         else:
             self.__dict['gcloud_host_config_dir'] = ''
 
