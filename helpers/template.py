@@ -174,6 +174,23 @@ class Template:
             'AWS_PROFILE': dict_.get('aws_profile_name', ''),
             'AWS_HOST_AWS_DIR': dict_.get('aws_host_aws_dir', ''),
             'AWS_BUCKET_NAME': dict_['aws_bucket_name'],
+            # Google Cloud application default credentials: mounting the host
+            # gcloud directory is independent of the NLP settings below.
+            'USE_GCLOUD_PROFILE': (
+                '' if dict_.get('gcloud_use_profile', False) else '#'
+            ),
+            'GCLOUD_HOST_CONFIG_DIR': dict_.get('gcloud_host_config_dir', ''),
+            'USE_NLP': '' if dict_.get('use_nlp', False) else '#',
+            'AWS_BEDROCK_REGION_NAME': dict_.get('aws_bedrock_region_name', ''),
+            'AUTOQA_CLAUDESONNET_MODEL_AIP_ARN': dict_.get(
+                'autoqa_claudesonnet_model_aip_arn', ''
+            ),
+            'AUTOQA_OSS120_MODEL_AIP_ARN': dict_.get(
+                'autoqa_oss120_model_aip_arn', ''
+            ),
+            'GS_BUCKET_NAME': dict_.get('gs_bucket_name', ''),
+            'GOOGLE_CLOUD_PROJECT': dict_.get('gcloud_project', ''),
+            'GOOGLE_CLOUD_QUOTA_PROJECT': dict_.get('gcloud_quota_project', ''),
             'AWS_S3_REGION_NAME': dict_['aws_s3_region_name'],
             'GOOGLE_UA': dict_['google_ua'],
             'GOOGLE_API_KEY': dict_['google_api_key'],
@@ -215,7 +232,11 @@ class Template:
             ),
             'USE_CLOUD_PROFILE_VOLUMES': (
                 ''
-                if (dict_['kpi_path'] != '' or dict_.get('aws_use_profile', False))
+                if (
+                    dict_['kpi_path'] != ''
+                    or dict_.get('aws_use_profile', False)
+                    or dict_.get('gcloud_use_profile', False)
+                )
                 else '#'
             ),
             'KPI_DEV_BUILD_ID': dict_['kpi_dev_build_id'],

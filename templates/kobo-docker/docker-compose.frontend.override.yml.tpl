@@ -8,6 +8,8 @@ services:
   ${USE_KPI_DEV_MODE}    - ${KPI_PATH}:/srv/src/kpi
   ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/home/kobo/.aws/:ro
   ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/root/.aws/:ro
+  ${USE_GCLOUD_PROFILE}    - ${GCLOUD_HOST_CONFIG_DIR}:/home/kobo/.config/gcloud/:ro
+  ${USE_GCLOUD_PROFILE}    - ${GCLOUD_HOST_CONFIG_DIR}:/root/.config/gcloud/:ro
     environment:
       - UWSGI_WORKERS_COUNT=${UWSGI_WORKERS_MAX}
       - UWSGI_CHEAPER_WORKERS_COUNT=${UWSGI_WORKERS_START}
@@ -41,6 +43,8 @@ services:
   ${USE_KPI_DEV_MODE}    - ${KPI_PATH}:/srv/src/kpi
   ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/home/kobo/.aws/:ro
   ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/root/.aws/:ro
+  ${USE_GCLOUD_PROFILE}    - ${GCLOUD_HOST_CONFIG_DIR}:/home/kobo/.config/gcloud/:ro
+  ${USE_GCLOUD_PROFILE}    - ${GCLOUD_HOST_CONFIG_DIR}:/root/.config/gcloud/:ro
     environment:
       - WSGI=${WSGI}
     ${USE_DEV_MODE}  - DJANGO_SETTINGS_MODULE=kobo.settings.dev
@@ -66,6 +70,8 @@ services:
   ${USE_KPI_DEV_MODE}    - ${KPI_PATH}:/srv/src/kpi
   ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/home/kobo/.aws/:ro
   ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/root/.aws/:ro
+  ${USE_GCLOUD_PROFILE}    - ${GCLOUD_HOST_CONFIG_DIR}:/home/kobo/.config/gcloud/:ro
+  ${USE_GCLOUD_PROFILE}    - ${GCLOUD_HOST_CONFIG_DIR}:/root/.config/gcloud/:ro
     environment:
       - WSGI=${WSGI}
     ${USE_DEV_MODE}  - DJANGO_SETTINGS_MODULE=kobo.settings.dev
@@ -91,6 +97,8 @@ services:
   ${USE_KPI_DEV_MODE}    - ${KPI_PATH}:/srv/src/kpi
   ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/home/kobo/.aws/:ro
   ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/root/.aws/:ro
+  ${USE_GCLOUD_PROFILE}    - ${GCLOUD_HOST_CONFIG_DIR}:/home/kobo/.config/gcloud/:ro
+  ${USE_GCLOUD_PROFILE}    - ${GCLOUD_HOST_CONFIG_DIR}:/root/.config/gcloud/:ro
     environment:
       - WSGI=${WSGI}
     ${USE_DEV_MODE}  - DJANGO_SETTINGS_MODULE=kobo.settings.dev
@@ -116,6 +124,8 @@ services:
   ${USE_KPI_DEV_MODE}    - ${KPI_PATH}:/srv/src/kpi
   ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/home/kobo/.aws/:ro
   ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/root/.aws/:ro
+  ${USE_GCLOUD_PROFILE}    - ${GCLOUD_HOST_CONFIG_DIR}:/home/kobo/.config/gcloud/:ro
+  ${USE_GCLOUD_PROFILE}    - ${GCLOUD_HOST_CONFIG_DIR}:/root/.config/gcloud/:ro
     environment:
       - WSGI=${WSGI}
     ${USE_DEV_MODE}  - DJANGO_SETTINGS_MODULE=kobo.settings.dev
@@ -141,6 +151,8 @@ services:
   ${USE_KPI_DEV_MODE}    - ${KPI_PATH}:/srv/src/kpi
   ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/home/kobo/.aws/:ro
   ${USE_AWS_PROFILE}    - ${AWS_HOST_AWS_DIR}:/root/.aws/:ro
+  ${USE_GCLOUD_PROFILE}    - ${GCLOUD_HOST_CONFIG_DIR}:/home/kobo/.config/gcloud/:ro
+  ${USE_GCLOUD_PROFILE}    - ${GCLOUD_HOST_CONFIG_DIR}:/root/.config/gcloud/:ro
     environment:
       - WSGI=${WSGI}
     ${USE_DEV_MODE}  - DJANGO_SETTINGS_MODULE=kobo.settings.dev

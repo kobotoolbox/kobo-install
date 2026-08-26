@@ -163,3 +163,105 @@ def _copy_templates(src: str = None, dst: str = None):
         else:
             # Copy files (overwrite if exists)
             shutil.copy2(src_path, dst_path)
+
+
+# ── Google Cloud authentication ──────────────────────────────────────────────
+
+def test_gcloud_template_tokens_profile_enabled():
+    vars_ = _get_template_vars({
+        'gcloud_use_profile': True,
+        'gcloud_host_config_dir': '/home/user/.config/gcloud',
+    })
+    assert vars_['USE_GCLOUD_PROFILE'] == ''
+    assert vars_['GCLOUD_HOST_CONFIG_DIR'] == '/home/user/.config/gcloud'
+
+
+def test_gcloud_template_tokens_profile_disabled():
+    vars_ = _get_template_vars({'gcloud_use_profile': False})
+    assert vars_['USE_GCLOUD_PROFILE'] == '#'
+
+
+def test_gcloud_profile_alone_opens_volumes_key():
+    """
+    A gcloud-only mount must still uncomment the `volumes:` key, otherwise the
+    mount lines land under a key that does not exist.
+    """
+    vars_ = _get_template_vars({
+        'kpi_path': '',
+        'aws_use_profile': False,
+        'gcloud_use_profile': True,
+        'gcloud_host_config_dir': '/home/user/.config/gcloud',
+    })
+    assert vars_['USE_CLOUD_PROFILE_VOLUMES'] == ''
+    assert vars_['USE_AWS_PROFILE'] == '#'
+
+
+def test_gcloud_profile_independent_from_nlp():
+    """
+    Mounting the credentials directory must not enable the NLP settings.
+    """
+    vars_ = _get_template_vars({
+        'gcloud_use_profile': True,
+        'gcloud_project': 'my-gcp-project',
+        'use_nlp': False,
+    })
+    assert vars_['USE_GCLOUD_PROFILE'] == ''
+    assert vars_['USE_NLP'] == '#'
+    # The detected project is still carried over, just commented out
+    assert vars_['GOOGLE_CLOUD_PROJECT'] == 'my-gcp-project'
+
+
+# ── NLP / qualitative analysis ───────────────────────────────────────────────
+
+def test_nlp_template_tokens_enabled():
+    vars_ = _get_template_vars({
+        'use_nlp': True,
+        'aws_bedrock_region_name': 'us-west-2',
+        'autoqa_claudesonnet_model_aip_arn': 'arn:aws:bedrock:sonnet',
+        'autoqa_oss120_model_aip_arn': 'arn:aws:bedrock:oss120',
+        'gs_bucket_name': 'my-bucket',
+        'gcloud_project': 'my-gcp-project',
+        'gcloud_quota_project': 'my-quota-project',
+    })
+    assert vars_['USE_NLP'] == ''
+    assert vars_['AWS_BEDROCK_REGION_NAME'] == 'us-west-2'
+    assert vars_['AUTOQA_CLAUDESONNET_MODEL_AIP_ARN'] == 'arn:aws:bedrock:sonnet'
+    assert vars_['AUTOQA_OSS120_MODEL_AIP_ARN'] == 'arn:aws:bedrock:oss120'
+    assert vars_['GS_BUCKET_NAME'] == 'my-bucket'
+    assert vars_['GOOGLE_CLOUD_PROJECT'] == 'my-gcp-project'
+    assert vars_['GOOGLE_CLOUD_QUOTA_PROJECT'] == 'my-quota-project'
+
+
+def test_nlp_template_tokens_disabled_by_default():
+    vars_ = _get_template_vars()
+    assert vars_['USE_NLP'] == '#'
+    assert vars_['GS_BUCKET_NAME'] == ''
+
+
+def test_gcloud_and_nlp_tokens_tolerate_old_config():
+    """
+    A `.run.conf` written before these keys existed must not raise.
+    """
+    config = read_config()
+    for key in (
+        'gcloud_use_profile',
+        'gcloud_host_config_dir',
+        'gcloud_project',
+        'gcloud_quota_project',
+        'gs_bucket_name',
+        'use_nlp',
+        'aws_bedrock_region_name',
+        'autoqa_claudesonnet_model_aip_arn',
+        'autoqa_oss120_model_aip_arn',
+    ):
+        del config._Config__dict[key]
+
+    with patch(
+        'helpers.template.Template._Template__read_unique_id',
+        MagicMock(return_value='123456789')
+    ):
+        vars_ = Template._Template__get_template_variables(config)
+
+    assert vars_['USE_GCLOUD_PROFILE'] == '#'
+    assert vars_['USE_NLP'] == '#'
+    assert vars_['USE_CLOUD_PROFILE_VOLUMES'] == '#'

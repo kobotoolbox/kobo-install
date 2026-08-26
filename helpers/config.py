@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import binascii
+import configparser
 import json
 import os
 import re
@@ -124,6 +125,7 @@ class Config(metaclass=Singleton):
                         'django.core.mail.backends.console.EmailBackend'
                     )
                     self.__auto_detect_aws_profile()
+                    self.__auto_detect_gcloud_profile()
                 self.__secure_mongo()
                 self.write_config()
                 return self.__dict
@@ -275,12 +277,15 @@ class Config(metaclass=Singleton):
             'advanced': False,
             'aws_access_key': '',
             'aws_backup_bucket_deletion_rule_enabled': False,
+            'autoqa_claudesonnet_model_aip_arn': '',
+            'autoqa_oss120_model_aip_arn': '',
             'aws_backup_bucket_name': '',
             'aws_backup_daily_retention': '30',
             'aws_backup_monthly_retention': '12',
             'aws_backup_upload_chunk_size': '15',
             'aws_backup_weekly_retention': '4',
             'aws_backup_yearly_retention': '2',
+            'aws_bedrock_region_name': '',
             'aws_bucket_name': '',
             'aws_credentials_valid': False,
             'aws_host_aws_dir': os.path.expanduser('~/.aws'),
@@ -309,8 +314,13 @@ class Config(metaclass=Singleton):
             'enketo_less_secure_encryption_key': 'this $3cr3t key is crackable',
             'expose_backend_ports': False,
             'exposed_nginx_docker_port': Config.DEFAULT_NGINX_PORT,
+            'gcloud_host_config_dir': os.path.expanduser('~/.config/gcloud'),
+            'gcloud_project': '',
+            'gcloud_quota_project': '',
+            'gcloud_use_profile': False,
             'google_api_key': '',
             'google_ua': '',
+            'gs_bucket_name': '',
             'https': True,
             'install_mode': 'production',
             'internal_domain_name': 'docker.internal',
@@ -419,6 +429,7 @@ class Config(metaclass=Singleton):
             'email_backend': '',
             'use_frontend_custom_yml': False,
             'use_letsencrypt': True,
+            'use_nlp': False,
             'use_private_dns': False,
             'uwsgi_harakiri': '120',
             'uwsgi_max_requests': '1024',
@@ -747,6 +758,57 @@ class Config(metaclass=Singleton):
             CLI.COLOR_INFO,
         )
 
+    def __auto_detect_gcloud_profile(self):
+        """
+        Dev simple-mode convenience: if a gcloud configuration directory
+        exists on the host (~/.config/gcloud), mount it into the containers so
+        they pick up the developer's application default credentials.
+
+        The active project is also read from the gcloud config so the NLP
+        section comes pre-filled, but it is only stored: NLP settings stay
+        commented out until that section is explicitly selected.
+        """
+        gcloud_dir = os.path.expanduser('~/.config/gcloud')
+        if not os.path.isdir(gcloud_dir):
+            return
+
+        self.__dict['gcloud_use_profile'] = True
+        self.__dict['gcloud_host_config_dir'] = gcloud_dir
+        CLI.colored_print(
+            f'  \u2192 Detected {gcloud_dir}: Google Cloud application default '
+            f'credentials enabled',
+            CLI.COLOR_INFO,
+        )
+
+        project = self.__detect_gcloud_project(gcloud_dir)
+        if project:
+            self.__dict['gcloud_project'] = project
+            self.__dict['gcloud_quota_project'] = project
+            CLI.colored_print(
+                f'  \u2192 Active Google Cloud project: {project}',
+                CLI.COLOR_INFO,
+            )
+
+    @staticmethod
+    def __detect_gcloud_project(gcloud_dir):
+        """
+        Reads the active project from the default gcloud configuration.
+
+        Returns:
+            str: the project name, or '' when it cannot be determined.
+        """
+        config_file = os.path.join(
+            gcloud_dir, 'configurations', 'config_default'
+        )
+        parser = configparser.ConfigParser()
+        try:
+            parser.read(config_file)
+            return parser.get('core', 'project')
+        except (configparser.Error, OSError, UnicodeDecodeError):
+            # A missing, malformed or unreadable gcloud config must never
+            # break the setup: the project stays empty and can be typed in.
+            return ''
+
     def __detect_network(self):
         """
         Detects network and asks for interface selection when in advanced mode.
@@ -872,6 +934,23 @@ class Config(metaclass=Singleton):
             self.__dict['aws_use_profile'] = False
             self.__dict['aws_profile_name'] = ''
             self.__dict['aws_host_aws_dir'] = ''
+
+    def __questions_gcloud(self):
+        """
+        Asks whether to mount the host gcloud configuration directory so
+        containers authenticate with application default credentials.
+        """
+        self.__dict['gcloud_use_profile'] = CLI.yes_no_question(
+            'Use Google Cloud application default credentials?',
+            default=self.__dict['gcloud_use_profile']
+        )
+        if self.__dict['gcloud_use_profile']:
+            self.__dict['gcloud_host_config_dir'] = CLI.colored_input(
+                'gcloud configuration directory on host',
+                CLI.COLOR_QUESTION,
+                self.__dict['gcloud_host_config_dir'])
+        else:
+            self.__dict['gcloud_host_config_dir'] = ''
 
     def __questions_aws_validate_credentials(self):
         """
@@ -1124,6 +1203,34 @@ class Config(metaclass=Singleton):
             'Google API Key',
             CLI.COLOR_QUESTION,
             self.__dict['google_api_key'])
+
+    def __questions_nlp(self):
+        """
+        Asks for the NLP / qualitative analysis settings.
+
+        Selecting the section in the advanced menu is the consent, so there is
+        no extra yes/no gate here.
+        """
+        self.__dict['use_nlp'] = True
+
+        self.__dict['aws_bedrock_region_name'] = CLI.colored_input(
+            'AWS Bedrock region name', CLI.COLOR_QUESTION,
+            self.__dict['aws_bedrock_region_name'])
+        self.__dict['autoqa_claudesonnet_model_aip_arn'] = CLI.colored_input(
+            'AutoQA Claude Sonnet model ARN', CLI.COLOR_QUESTION,
+            self.__dict['autoqa_claudesonnet_model_aip_arn'])
+        self.__dict['autoqa_oss120_model_aip_arn'] = CLI.colored_input(
+            'AutoQA OSS-120 model ARN', CLI.COLOR_QUESTION,
+            self.__dict['autoqa_oss120_model_aip_arn'])
+        self.__dict['gs_bucket_name'] = CLI.colored_input(
+            'Google Cloud Storage bucket name', CLI.COLOR_QUESTION,
+            self.__dict['gs_bucket_name'])
+        self.__dict['gcloud_project'] = CLI.colored_input(
+            'Google Cloud project', CLI.COLOR_QUESTION,
+            self.__dict['gcloud_project'])
+        self.__dict['gcloud_quota_project'] = CLI.colored_input(
+            'Google Cloud quota project', CLI.COLOR_QUESTION,
+            self.__dict['gcloud_quota_project'])
 
     def __questions_https(self):
         """
@@ -2459,6 +2566,20 @@ class Config(metaclass=Singleton):
                         'checked': d.get('raven_settings', False),
                     },
                 ]
+            external.append({
+                'key': 'gcloud_profile',
+                'label': 'Google Cloud credentials',
+                'description': 'Mount ~/.config/gcloud so containers use '
+                               'application default credentials.',
+                'checked': d.get('gcloud_use_profile', False),
+            })
+            external.append({
+                'key': 'nlp',
+                'label': 'NLP and qualitative analysis',
+                'description': 'Bedrock region, AutoQA model ARNs and Google '
+                               'Cloud bucket/project.',
+                'checked': d.get('use_nlp', False),
+            })
         if external:
             groups.append(('External services', external))
 
@@ -2718,8 +2839,14 @@ class Config(metaclass=Singleton):
         if 'backups' in selected:
             self.__questions_backup()
 
+        if 'gcloud_profile' in selected:
+            self.__questions_gcloud()
+
         if 'google' in selected:
             self.__questions_google()
+
+        if 'nlp' in selected:
+            self.__questions_nlp()
 
         if 'sentry' in selected:
             self.__questions_raven()

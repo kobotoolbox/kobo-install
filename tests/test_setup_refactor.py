@@ -581,3 +581,302 @@ def test_auto_detect_aws_profile_noop_when_dir_missing():
     d = config._Config__dict
     assert d['aws_use_profile'] is False
     assert d['use_aws'] is False
+
+
+# ── __auto_detect_gcloud_profile (dev simple mode) ───────────────────────────
+
+def _gcloud_dir(tmp_path, project=None):
+    """
+    Builds a fake `~/.config/gcloud` directory, optionally holding an active
+    project in its default configuration.
+    """
+    gcloud_dir = tmp_path / '.config' / 'gcloud'
+    gcloud_dir.mkdir(parents=True)
+    if project is not None:
+        conf_dir = gcloud_dir / 'configurations'
+        conf_dir.mkdir()
+        (conf_dir / 'config_default').write_text(project)
+    return gcloud_dir
+
+
+def test_auto_detect_gcloud_profile_noop_when_dir_missing(tmp_path):
+    config = read_config({'gcloud_use_profile': False})
+    with patch('helpers.config.os.path.expanduser',
+               return_value=str(tmp_path / 'missing')):
+        config._Config__auto_detect_gcloud_profile()
+    d = config._Config__dict
+    assert d['gcloud_use_profile'] is False
+    assert d['gcloud_project'] == ''
+
+
+def test_auto_detect_gcloud_profile_enables_profile_without_project(tmp_path):
+    gcloud_dir = _gcloud_dir(tmp_path)
+    config = read_config({'gcloud_use_profile': False, 'gcloud_project': ''})
+    with patch('helpers.config.os.path.expanduser',
+               return_value=str(gcloud_dir)):
+        config._Config__auto_detect_gcloud_profile()
+    d = config._Config__dict
+    assert d['gcloud_use_profile'] is True
+    assert d['gcloud_host_config_dir'] == str(gcloud_dir)
+    assert d['gcloud_project'] == ''
+    # NLP settings stay an explicit opt-in
+    assert d['use_nlp'] is False
+
+
+def test_auto_detect_gcloud_profile_reads_active_project(tmp_path):
+    gcloud_dir = _gcloud_dir(
+        tmp_path,
+        project='[core]\naccount = someone@example.org\nproject = my-gcp-project\n',
+    )
+    config = read_config({'gcloud_use_profile': False})
+    with patch('helpers.config.os.path.expanduser',
+               return_value=str(gcloud_dir)):
+        config._Config__auto_detect_gcloud_profile()
+    d = config._Config__dict
+    assert d['gcloud_project'] == 'my-gcp-project'
+    assert d['gcloud_quota_project'] == 'my-gcp-project'
+
+
+def test_auto_detect_gcloud_profile_survives_malformed_config(tmp_path):
+    gcloud_dir = _gcloud_dir(tmp_path, project='not an ini file at all')
+    config = read_config({'gcloud_use_profile': False})
+    with patch('helpers.config.os.path.expanduser',
+               return_value=str(gcloud_dir)):
+        config._Config__auto_detect_gcloud_profile()
+    d = config._Config__dict
+    assert d['gcloud_use_profile'] is True
+    assert d['gcloud_project'] == ''
+
+
+def test_auto_detect_gcloud_profile_survives_config_without_project(tmp_path):
+    gcloud_dir = _gcloud_dir(tmp_path, project='[core]\naccount = a@b.org\n')
+    config = read_config({'gcloud_use_profile': False})
+    with patch('helpers.config.os.path.expanduser',
+               return_value=str(gcloud_dir)):
+        config._Config__auto_detect_gcloud_profile()
+    assert config._Config__dict['gcloud_project'] == ''
+
+
+# ── __questions_gcloud / __questions_nlp ─────────────────────────────────────
+
+def test_questions_gcloud_enables_and_stores_host_dir():
+    config = read_config({'gcloud_use_profile': False})
+    with patch('helpers.cli.CLI.colored_input') as mock_input:
+        mock_input.side_effect = iter([CHOICE_YES, '/opt/gcloud'])
+        config._Config__questions_gcloud()
+    d = config._Config__dict
+    assert d['gcloud_use_profile'] is True
+    assert d['gcloud_host_config_dir'] == '/opt/gcloud'
+
+
+def test_questions_gcloud_clears_host_dir_when_disabled():
+    config = read_config({
+        'gcloud_use_profile': True,
+        'gcloud_host_config_dir': '/opt/gcloud',
+    })
+    with patch.object(CLI, 'colored_input', return_value=CHOICE_NO):
+        config._Config__questions_gcloud()
+    d = config._Config__dict
+    assert d['gcloud_use_profile'] is False
+    assert d['gcloud_host_config_dir'] == ''
+
+
+def test_questions_nlp_stores_all_values():
+    config = read_config({'use_nlp': False})
+    answers = [
+        'us-west-2',
+        'arn:aws:bedrock:sonnet',
+        'arn:aws:bedrock:oss120',
+        'my-bucket',
+        'my-gcp-project',
+        'my-quota-project',
+    ]
+    with patch('helpers.cli.CLI.colored_input') as mock_input:
+        mock_input.side_effect = iter(answers)
+        config._Config__questions_nlp()
+    d = config._Config__dict
+    # Checking the section is the consent, no extra yes/no gate
+    assert d['use_nlp'] is True
+    assert d['aws_bedrock_region_name'] == 'us-west-2'
+    assert d['autoqa_claudesonnet_model_aip_arn'] == 'arn:aws:bedrock:sonnet'
+    assert d['autoqa_oss120_model_aip_arn'] == 'arn:aws:bedrock:oss120'
+    assert d['gs_bucket_name'] == 'my-bucket'
+    assert d['gcloud_project'] == 'my-gcp-project'
+    assert d['gcloud_quota_project'] == 'my-quota-project'
+
+
+def test_questions_nlp_defaults_to_detected_gcloud_project():
+    """
+    The project found by __auto_detect_gcloud_profile is offered as default.
+    """
+    config = read_config({'gcloud_project': 'detected-project'})
+    with patch('helpers.cli.CLI.colored_input') as mock_input:
+        mock_input.side_effect = lambda message, color, default='': default
+        config._Config__questions_nlp()
+    assert config._Config__dict['gcloud_project'] == 'detected-project'
+
+
+# ── __questions_web_server_port ──────────────────────────────────────────────
+
+def test_questions_web_server_port_updates_port():
+    config = read_config()
+    assert config._Config__dict['exposed_nginx_docker_port'] == '80'
+    with patch.object(CLI, 'colored_input', return_value='8080'):
+        config._Config__questions_web_server_port()
+    assert config._Config__dict['exposed_nginx_docker_port'] == '8080'
+
+
+# ── First-run pre-checking of the advanced sections ──────────────────────────
+
+def _menu_choices(config):
+    """
+    Runs the advanced section menu without curses and returns the choices it
+    would have displayed, as {label: checked}.
+    """
+    captured = {}
+
+    def fake_menu(title, choices):
+        captured.update({
+            c['label']: c['checked'] for c in choices if 'label' in c
+        })
+        return []
+
+    with patch.object(CLI, 'checkbox_menu', side_effect=fake_menu):
+        config._Config__questions_advanced_sections()
+
+    return captured
+
+
+def _menu_config(overrides=None):
+    """
+    Config for menu tests. `mock_read_config` forces `kobodocker_path` to
+    /tmp; restore the value `__setup_directory` would have set so the
+    'Install directory' section is not spuriously pre-checked.
+    """
+    overrides = dict(overrides or {})
+    overrides.setdefault('advanced', True)
+    overrides.setdefault(
+        'kobodocker_path', Config.get_template()['kobodocker_path']
+    )
+    return read_config(overrides)
+
+
+def _first_run_config(overrides=None):
+    config = _menu_config(overrides)
+    config._Config__dict.pop('date_created', None)
+    config._Config__first_time = None
+    return config
+
+
+def _later_run_config(overrides=None):
+    config = _menu_config(overrides)
+    config._Config__dict['date_created'] = 1735689600
+    config._Config__first_time = None
+    return config
+
+
+def test_first_run_production_checks_only_the_essentials():
+    """
+    A first advanced run must stay short: only the sections a fresh server
+    install genuinely cannot do without are pre-checked.
+    """
+    config = _first_run_config({'install_mode': 'production'})
+    assert config.first_time
+
+    choices = _menu_choices(config)
+
+    checked = {label for label, is_checked in choices.items() if is_checked}
+    assert checked == {
+        'Domain names',
+        'HTTPS & certificates',
+        'SMTP',
+        'Superuser credentials',
+        # `redis_password` defaults to a generated value
+        'Redis',
+    }
+
+
+def test_first_run_dev_checks_only_superuser():
+    """
+    In dev, SMTP stays unchecked so the console email backend survives, and
+    the server-only sections are not part of the menu at all.
+    """
+    config = _first_run_config({
+        'install_mode': 'dev', 'local_installation': True, 'dev_mode': True,
+    })
+    assert config.first_time
+
+    choices = _menu_choices(config)
+
+    checked = {label for label, is_checked in choices.items() if is_checked}
+    # `redis_password` defaults to a generated value
+    assert checked == {'Superuser credentials', 'Redis'}
+    assert choices['SMTP'] is False
+    assert choices['Web server port'] is False
+    assert choices['KPI source files'] is False
+
+
+def test_later_run_only_checks_sections_differing_from_defaults():
+    """
+    The first-run rule must not leak into subsequent runs: with a config that
+    still holds every default, almost nothing should be pre-checked.
+    """
+    config = _later_run_config({'install_mode': 'production'})
+    assert not config.first_time
+
+    choices = _menu_choices(config)
+
+    checked = {label for label, is_checked in choices.items() if is_checked}
+    # `use_letsencrypt` and `redis_password` default to truthy values
+    assert checked == {'HTTPS & certificates', 'Redis'}
+
+
+def test_later_run_checks_sections_with_custom_values():
+    config = _later_run_config({
+        'install_mode': 'production',
+        'use_nlp': True,
+        'gcloud_use_profile': True,
+        'docker_prefix': 'kobo1',
+    })
+
+    choices = _menu_choices(config)
+
+    assert choices['NLP and qualitative analysis'] is True
+    assert choices['Google Cloud credentials'] is True
+    assert choices['Docker Compose prefix'] is True
+    assert choices['Superuser credentials'] is False
+
+
+def test_web_server_port_checked_when_port_is_custom():
+    config = _later_run_config({
+        'install_mode': 'dev',
+        'local_installation': True,
+        'dev_mode': True,
+        'exposed_nginx_docker_port': '8080',
+    })
+
+    assert _menu_choices(config)['Web server port'] is True
+
+
+def test_web_server_port_absent_outside_dev_mode():
+    config = _later_run_config({'install_mode': 'production'})
+
+    assert 'Web server port' not in _menu_choices(config)
+
+
+def test_first_run_dev_keeps_console_email_backend():
+    """
+    SMTP unchecked on a first dev run is what keeps the console email backend:
+    selecting the section is what switches to a real SMTP server.
+    """
+    console_backend = 'django.core.mail.backends.console.EmailBackend'
+    config = _first_run_config({
+        'install_mode': 'dev', 'local_installation': True, 'dev_mode': True,
+        'email_backend': console_backend,
+    })
+    assert _menu_choices(config)['SMTP'] is False
+
+    with patch('helpers.config.Config._Config__secure_mongo'):
+        config._Config__run_selected_advanced_sections([])
+
+    assert config._Config__dict['email_backend'] == console_backend
