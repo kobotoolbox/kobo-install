@@ -2191,7 +2191,7 @@ class Config(metaclass=Singleton):
                         'to a fresh installed (by kobo-install) database.\n'
                         '\n'
                         'kobo-install uses these images:\n'
-                        '    - MongoDB: mongo:5.0\n'
+                        '    - MongoDB: mongo:8.0\n'
                         '    - PostgreSQL: postgis/postgis:14-3.2\n'
                         '\n'
                         'Be sure to upgrade to these versions before going '
