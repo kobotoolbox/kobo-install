@@ -43,6 +43,74 @@ def test_local_installation_disables_multi_server_and_letsencrypt():
     assert not config.use_letsencrypt
 
 
+@patch('helpers.config.Network.get_primary_ip',
+       MagicMock(return_value='1.2.3.4'))
+def test_build_aborts_before_writing_when_overwrite_declined():
+    # Regression (dev-2191): the overwrite confirmation must run at the END of
+    # `build()`, after every question (including the install path), and must
+    # abort before `.run.conf` is written. Otherwise declining cannot protect
+    # `.run.conf`, and a path chosen mid-setup would be checked against a stale
+    # location.
+    config = read_config()
+    config._Config__dict['advanced'] = False
+    config._Config__dict['local_installation'] = True
+
+    noop = MagicMock()
+    write_config = MagicMock()
+    with patch.multiple(
+        'helpers.config.Config',
+        _Config__welcome=noop,
+        _Config__questions_install_mode=noop,
+        _Config__questions_complexity=noop,
+        _Config__setup_directory=noop,
+        _Config__auto_detect_network=noop,
+        _Config__auto_detect_aws_profile=noop,
+        _Config__auto_detect_gcloud_profile=noop,
+        _Config__secure_mongo=noop,
+        write_config=write_config,
+    ), patch(
+        'helpers.template.Template.confirm_overwrite',
+        MagicMock(return_value=False),
+    ) as mock_confirm:
+        with pytest.raises(SystemExit):
+            config.build()
+
+    mock_confirm.assert_called_once()
+    write_config.assert_not_called()
+
+
+@patch('helpers.config.Network.get_primary_ip',
+       MagicMock(return_value='1.2.3.4'))
+def test_build_aborts_before_writing_in_advanced_mode():
+    # The advanced branch of `build()` writes the configuration on its own, so
+    # it must go through the same confirmation as the simple one.
+    config = read_config()
+    config._Config__dict['advanced'] = True
+
+    noop = MagicMock()
+    write_config = MagicMock()
+    with patch.multiple(
+        'helpers.config.Config',
+        _Config__welcome=noop,
+        _Config__questions_install_mode=noop,
+        _Config__questions_complexity=noop,
+        _Config__setup_directory=noop,
+        _Config__auto_detect_network=noop,
+        _Config__auto_configure_resources=noop,
+        _Config__questions_advanced_sections=MagicMock(return_value=[]),
+        _Config__run_selected_advanced_sections=noop,
+        write_config=write_config,
+    ), patch(
+        'helpers.template.Template.confirm_overwrite',
+        MagicMock(return_value=False),
+    ) as mock_confirm:
+        with pytest.raises(SystemExit):
+            config.build()
+
+    mock_confirm.assert_called_once()
+    write_config.assert_not_called()
+
+
 @patch('helpers.config.Config._Config__clone_repo',
        MagicMock(return_value=True))
 def test_staging_mode():

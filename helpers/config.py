@@ -32,8 +32,8 @@ class Config(metaclass=Singleton):
     DEFAULT_PROXY_PORT = '8080'
     DEFAULT_NGINX_PORT = '80'
     DEFAULT_NGINX_HTTPS_PORT = '443'
-    KOBO_DOCKER_BRANCH = '2.026.21'
-    KOBO_INSTALL_VERSION = '10.2.0'
+    KOBO_DOCKER_BRANCH = '2.026.30c'
+    KOBO_INSTALL_VERSION = '10.2.1'
     MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
     ALLOWED_PASSWORD_CHARACTERS = (
         string.ascii_letters
@@ -127,6 +127,7 @@ class Config(metaclass=Singleton):
                     self.__auto_detect_aws_profile()
                     self.__auto_detect_gcloud_profile()
                 self.__secure_mongo()
+                self.__confirm_overwrite_or_exit()
                 self.write_config()
                 return self.__dict
 
@@ -134,9 +135,25 @@ class Config(metaclass=Singleton):
             selected = self.__questions_advanced_sections()
             self.__run_selected_advanced_sections(selected)
 
+            self.__confirm_overwrite_or_exit()
             self.write_config()
 
             return self.__dict
+
+    def __confirm_overwrite_or_exit(self):
+        """
+        Confirm before persisting anything. `write_config()` writes
+        `.run.conf`, and the setup flows then render the environment files
+        with `force=True`. Asking here, once every question (including the
+        install path) has been answered, ensures declining leaves every
+        existing file on disk untouched.
+
+        Both the simple and the advanced branch of `build()` must go through
+        this: they each write the configuration on their own.
+        """
+        from helpers.template import Template  # avoids circular import
+        if not Template.confirm_overwrite(self):
+            sys.exit(0)
 
     @property
     def block_common_http_ports(self):

@@ -28,24 +28,9 @@ class Template:
         template_variables = cls.__get_template_variables(config)
 
         environment_directory = config.get_env_files_path()
-        unique_id = cls.__read_unique_id(environment_directory)
 
-        if (
-            not force and unique_id
-            and str(dict_.get('unique_id', '')) != str(unique_id)
-        ):
-            message = (
-                'WARNING!\n\n'
-                'Existing environment files are detected. Files will be '
-                'overwritten.'
-            )
-            CLI.framed_print(message)
-            response = CLI.yes_no_question(
-                'Do you want to continue?',
-                default=False
-            )
-            if not response:
-                sys.exit(0)
+        if not cls.confirm_overwrite(config, force=force):
+            sys.exit(0)
 
         cls.__write_unique_id(environment_directory, dict_['unique_id'])
 
@@ -86,6 +71,34 @@ class Template:
                                       root,
                                       destination_directory,
                                       filenames)
+
+    @classmethod
+    def confirm_overwrite(cls, config: Config, force: bool = False) -> bool:
+        """
+        Warn when existing environment files would be overwritten and ask the
+        user to confirm. Must be called before anything is written to disk
+        (including `.run.conf`) so that declining leaves every file untouched.
+        Returns `True` to proceed, `False` if the user declined.
+        """
+        if force:
+            return True
+
+        dict_ = config.get_dict()
+        unique_id = cls.__read_unique_id(config.get_env_files_path())
+
+        if unique_id and str(dict_.get('unique_id', '')) != str(unique_id):
+            message = (
+                'WARNING!\n\n'
+                'Existing environment files are detected. Files will be '
+                'overwritten.'
+            )
+            CLI.framed_print(message)
+            return CLI.yes_no_question(
+                'Do you want to continue?',
+                default=False
+            )
+
+        return True
 
     @classmethod
     def render_maintenance(cls, config):

@@ -68,7 +68,9 @@ class Setup:
         response = CLI.yes_no_question('Do you want to proceed?')
         if response is True:
             current_dict = config.build()
-            Template.render(config)
+            # `build()` already asked for overwrite confirmation before writing
+            # anything, so skip the duplicate prompt here.
+            Template.render(config, force=True)
             Setup.update_hosts(current_dict)
             question = 'Do you want to (re)start containers?'
             response = CLI.yes_no_question(question)

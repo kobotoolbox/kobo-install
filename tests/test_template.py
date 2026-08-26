@@ -62,6 +62,93 @@ def test_render_templates():
         shutil.rmtree(WORK_DIR)
 
 
+def _config_with_unique_id(unique_id):
+    config = read_config()
+    config._Config__dict['unique_id'] = unique_id
+    return config
+
+
+@patch(
+    'helpers.config.Config.get_env_files_path',
+    MagicMock(return_value='/tmp'),
+)
+def test_confirm_overwrite_declined_on_mismatch():
+    # Existing env files with a different unique_id -> the user is asked and
+    # says No. `confirm_overwrite` must return `False` so callers abort before
+    # writing anything.
+    config = _config_with_unique_id('111')
+    with patch(
+        'helpers.template.Template._Template__read_unique_id',
+        MagicMock(return_value='999')
+    ), patch(
+        'helpers.cli.CLI.yes_no_question', MagicMock(return_value=False)
+    ) as mock_question:
+        assert Template.confirm_overwrite(config) is False
+        mock_question.assert_called_once()
+
+
+@patch(
+    'helpers.config.Config.get_env_files_path',
+    MagicMock(return_value='/tmp'),
+)
+def test_confirm_overwrite_accepted_on_mismatch():
+    config = _config_with_unique_id('111')
+    with patch(
+        'helpers.template.Template._Template__read_unique_id',
+        MagicMock(return_value='999')
+    ), patch(
+        'helpers.cli.CLI.yes_no_question', MagicMock(return_value=True)
+    ) as mock_question:
+        assert Template.confirm_overwrite(config) is True
+        mock_question.assert_called_once()
+
+
+@patch(
+    'helpers.config.Config.get_env_files_path',
+    MagicMock(return_value='/tmp'),
+)
+def test_confirm_overwrite_force_skips_prompt():
+    # `force=True` (used by the setup flows after `build()` already asked)
+    # must never prompt.
+    config = _config_with_unique_id('111')
+    with patch(
+        'helpers.template.Template._Template__read_unique_id',
+        MagicMock(return_value='999')
+    ), patch('helpers.cli.CLI.yes_no_question') as mock_question:
+        assert Template.confirm_overwrite(config, force=True) is True
+        mock_question.assert_not_called()
+
+
+@patch(
+    'helpers.config.Config.get_env_files_path',
+    MagicMock(return_value='/tmp'),
+)
+def test_confirm_overwrite_no_existing_files():
+    # Fresh install: nothing to overwrite -> proceed silently.
+    config = _config_with_unique_id('111')
+    with patch(
+        'helpers.template.Template._Template__read_unique_id',
+        MagicMock(return_value='')
+    ), patch('helpers.cli.CLI.yes_no_question') as mock_question:
+        assert Template.confirm_overwrite(config) is True
+        mock_question.assert_not_called()
+
+
+@patch(
+    'helpers.config.Config.get_env_files_path',
+    MagicMock(return_value='/tmp'),
+)
+def test_confirm_overwrite_matching_unique_id():
+    # Re-running setup on the same install -> ids match -> no nagging prompt.
+    config = _config_with_unique_id('123456789')
+    with patch(
+        'helpers.template.Template._Template__read_unique_id',
+        MagicMock(return_value='123456789')
+    ), patch('helpers.cli.CLI.yes_no_question') as mock_question:
+        assert Template.confirm_overwrite(config) is True
+        mock_question.assert_not_called()
+
+
 def test_aws_template_tokens_credentials_mode():
     vars_ = _get_template_vars({
         'use_aws': True,
