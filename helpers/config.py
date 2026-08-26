@@ -296,6 +296,8 @@ class Config(metaclass=Singleton):
             'aws_backup_bucket_deletion_rule_enabled': False,
             'autoqa_claudesonnet_model_aip_arn': '',
             'autoqa_oss120_model_aip_arn': '',
+            'advanced_sections_seen': [],
+            'advanced_sections_selected': [],
             'aws_backup_bucket_name': '',
             'aws_backup_daily_retention': '30',
             'aws_backup_monthly_retention': '12',
@@ -2350,7 +2352,13 @@ class Config(metaclass=Singleton):
         """
         Shows a curses checkbox menu so the user can select which advanced
         sections to configure. Sections are grouped and sorted alphabetically
-        within each group. Pre-checks sections with non-default values.
+        within each group.
+
+        Pre-checking uses the previous selection when there is one: a section
+        the menu has already offered is checked if and only if it was picked
+        last time. Sections never offered before — a brand new install, or one
+        added by a later version of kobo-install — fall back to guessing from
+        the values themselves.
 
         __run_selected_advanced_sections uses `if key in selected` checks so
         display order is independent of execution order.
@@ -2360,6 +2368,12 @@ class Config(metaclass=Singleton):
         """
         d = self.__dict
         mode = d.get('install_mode', 'production')
+
+        seen = set(d.get('advanced_sections_seen') or [])
+        previously_selected = set(d.get('advanced_sections_selected') or [])
+        # An install predating this memory has nothing to remember, so it gets
+        # the same treatment as a brand new one.
+        first_menu = self.first_time or not seen
 
         auto_path = os.path.realpath(os.path.normpath(os.path.join(
             os.path.dirname(os.path.dirname(os.path.realpath(__file__))),
@@ -2446,7 +2460,7 @@ class Config(metaclass=Singleton):
                     'description': 'Public domain and subdomains used to reach '
                                    'KoboToolbox.',
                     'checked': (
-                        self.first_time
+                        first_menu
                         or d.get('public_domain_name', 'kobo.local') != 'kobo.local'
                     ),
                 },
@@ -2455,7 +2469,7 @@ class Config(metaclass=Singleton):
                     'label': 'HTTPS & certificates',
                     'description': 'TLS certificates and reverse-proxy / '
                                    "Let's Encrypt settings.",
-                    'checked': self.first_time or d.get('use_letsencrypt', True),
+                    'checked': first_menu or d.get('use_letsencrypt', True),
                 },
             ]
             groups.append(('Server', server))
@@ -2468,7 +2482,7 @@ class Config(metaclass=Singleton):
                 'description': 'Outgoing email server used to send '
                                'notifications.',
                 'checked': (
-                    (self.first_time and mode != 'dev')
+                    (first_menu and mode != 'dev')
                     or bool(d.get('smtp_host'))
                 ),
             },
@@ -2492,7 +2506,7 @@ class Config(metaclass=Singleton):
                 'label': 'Superuser credentials',
                 'description': 'Username and password of the initial Django '
                                'admin account.',
-                'checked': self.first_time,
+                'checked': first_menu,
             },
         ]
         if self.frontend:
@@ -2644,6 +2658,15 @@ class Config(metaclass=Singleton):
         if maintenance:
             groups.append(('Maintenance', maintenance))
 
+        # A remembered answer beats any guess: once a section has been
+        # offered, its checkbox reflects the last decision, not what the
+        # values happen to look like. Keys never offered before keep the
+        # guesses computed above.
+        for _, items in groups:
+            for item in items:
+                if item['key'] in seen:
+                    item['checked'] = item['key'] in previously_selected
+
         # Build flat choices list with separators; sort items within each group
         all_sections = []
         choices = []
@@ -2664,10 +2687,24 @@ class Config(metaclass=Singleton):
         )
 
         if selected_labels is None:
-            return []
+            CLI.colored_print(
+                'Setup cancelled. Nothing was written.', CLI.COLOR_INFO
+            )
+            sys.exit(0)
 
         label_to_key = {s['label']: s['key'] for s in all_sections}
-        return [label_to_key[label] for label in selected_labels]
+        selected = [label_to_key[label] for label in selected_labels]
+
+        # Remember the answer for next time. Both lists keep the keys of
+        # sections this mode does not offer, so switching between dev and
+        # production does not erase the choices made in the other one.
+        offered = {section['key'] for section in all_sections}
+        d['advanced_sections_seen'] = sorted(seen | offered)
+        d['advanced_sections_selected'] = sorted(
+            (previously_selected - offered) | set(selected)
+        )
+
+        return selected
 
     def __questions_celery_npm(self):
         """

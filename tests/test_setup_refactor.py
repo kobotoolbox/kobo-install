@@ -880,19 +880,24 @@ def test_first_run_dev_checks_only_superuser():
     assert choices['KPI source files'] is False
 
 
-def test_later_run_only_checks_sections_differing_from_defaults():
+def test_old_install_without_memory_is_treated_as_a_first_menu():
     """
-    The first-run rule must not leak into subsequent runs: with a config that
-    still holds every default, almost nothing should be pre-checked.
+    An install created before the menu remembered anything has no selection to
+    restore, so it gets the same essentials as a brand new one.
     """
     config = _later_run_config({'install_mode': 'production'})
     assert not config.first_time
+    assert config._Config__dict['advanced_sections_seen'] == []
 
     choices = _menu_choices(config)
 
     checked = {label for label, is_checked in choices.items() if is_checked}
-    # `use_letsencrypt` defaults to True
-    assert checked == {'HTTPS & certificates'}
+    assert checked == {
+        'Domain names',
+        'HTTPS & certificates',
+        'SMTP',
+        'Superuser credentials',
+    }
 
 
 def test_database_sections_are_never_pre_checked():
@@ -957,20 +962,135 @@ def test_tuning_sections_checked_once_answered(_detect, _curl):
     assert choices['uWSGI tuning'] is True
 
 
-def test_later_run_checks_sections_with_custom_values():
+def test_remembered_selection_wins_over_values():
+    """
+    Once a section has been offered, only the previous answer decides — a
+    customised value no longer re-checks it on its own.
+    """
+    config = _later_run_config({
+        'install_mode': 'production',
+        'use_nlp': True,
+        'docker_prefix': 'kobo1',
+        'advanced_sections_seen': ['nlp', 'docker_prefix', 'superuser', 'aws'],
+        'advanced_sections_selected': ['aws'],
+    })
+
+    choices = _menu_choices(config)
+
+    assert choices['AWS S3 storage'] is True
+    assert choices['NLP and qualitative analysis'] is False
+    assert choices['Docker Compose prefix'] is False
+    # Not remembered as offered, so the first-menu essentials no longer apply
+    assert choices['Superuser credentials'] is False
+
+
+def test_section_added_by_an_upgrade_falls_back_to_values():
+    """
+    A key the menu has never offered — a section shipped by a later version of
+    kobo-install — must still surface from its own value.
+    """
     config = _later_run_config({
         'install_mode': 'production',
         'use_nlp': True,
         'gcloud_use_profile': True,
-        'docker_prefix': 'kobo1',
+        'advanced_sections_seen': ['aws', 'smtp', 'superuser'],
+        'advanced_sections_selected': ['aws'],
     })
 
     choices = _menu_choices(config)
 
     assert choices['NLP and qualitative analysis'] is True
     assert choices['Google Cloud credentials'] is True
-    assert choices['Docker Compose prefix'] is True
-    assert choices['Superuser credentials'] is False
+    # Remembered keys still obey the memory
+    assert choices['AWS S3 storage'] is True
+    assert choices['SMTP'] is False
+
+
+def _run_menu(config, picked):
+    """
+    Runs the menu, answering it with the given labels. Returns the selected
+    section keys.
+    """
+    with patch.object(CLI, 'checkbox_menu', return_value=list(picked)):
+        return config._Config__questions_advanced_sections()
+
+
+def test_selection_is_remembered():
+    config = _first_run_config({'install_mode': 'production'})
+
+    selected = _run_menu(config, ['AWS S3 storage', 'SMTP'])
+
+    d = config._Config__dict
+    assert sorted(selected) == ['aws', 'smtp']
+    assert d['advanced_sections_selected'] == ['aws', 'smtp']
+    # Every section the menu displayed is now known
+    assert 'superuser' in d['advanced_sections_seen']
+    assert 'mongodb' in d['advanced_sections_seen']
+
+    # Replaying the menu restores exactly that selection
+    choices = _menu_choices(config)
+    checked = {label for label, is_checked in choices.items() if is_checked}
+    assert checked == {'AWS S3 storage', 'SMTP'}
+
+
+def test_empty_selection_is_remembered_as_empty():
+    """
+    Confirming the menu with nothing ticked is an answer too, and must not be
+    mistaken for "no memory yet".
+    """
+    config = _first_run_config({'install_mode': 'production'})
+
+    _run_menu(config, [])
+
+    d = config._Config__dict
+    assert d['advanced_sections_selected'] == []
+    assert d['advanced_sections_seen'] != []
+
+    choices = _menu_choices(config)
+    assert not any(choices.values())
+
+
+def test_choices_from_another_mode_are_preserved():
+    """
+    Server-only sections are absent from the dev menu; answering it must not
+    erase what was picked for production.
+    """
+    config = _later_run_config({
+        'install_mode': 'dev',
+        'local_installation': True,
+        'dev_mode': True,
+        'advanced_sections_seen': ['public_routes', 'https_proxy', 'aws'],
+        'advanced_sections_selected': ['public_routes', 'https_proxy'],
+    })
+
+    _run_menu(config, ['AWS S3 storage'])
+
+    d = config._Config__dict
+    # `public_routes` and `https_proxy` are not offered in dev, so they keep
+    # the answer given the last time a server menu was shown
+    assert d['advanced_sections_selected'] == [
+        'aws', 'https_proxy', 'public_routes'
+    ]
+
+
+def test_cancelling_the_menu_aborts_setup():
+    """
+    q / ESC must leave everything on disk untouched rather than continue as
+    if no section had been picked.
+    """
+    config = _later_run_config({
+        'install_mode': 'production',
+        'advanced_sections_seen': ['aws'],
+        'advanced_sections_selected': ['aws'],
+    })
+
+    with patch.object(CLI, 'checkbox_menu', return_value=None):
+        with pytest.raises(SystemExit) as exc:
+            config._Config__questions_advanced_sections()
+
+    assert exc.value.code == 0
+    # The remembered selection survives the cancellation
+    assert config._Config__dict['advanced_sections_selected'] == ['aws']
 
 
 def test_web_server_port_checked_when_port_is_custom():

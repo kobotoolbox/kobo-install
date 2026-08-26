@@ -117,9 +117,13 @@ Whatever you choose, `kobo-install` sets up on its own:
 |`A`|Check or uncheck everything|
 |`i`|Show / hide the description of the highlighted section|
 |`ENTER`|Confirm and start answering the selected sections|
-|`q` / `ESC`|Cancel|
+|`q` / `ESC`|Abort setup, leaving every file on disk untouched|
 
-Sections come pre-checked for you. On a **first run** only what a fresh install cannot do without is checked — superuser credentials, plus domain names, HTTPS and SMTP on a server — so the first pass stays short. On **later runs** the sections whose values differ from the defaults are checked, so re-running setup goes straight to what you had customized. Everything else is one `SPACE` away.
+Sections come pre-checked for you, and the menu remembers your answer. On **later runs** the sections you picked last time come back checked, so re-running setup goes straight to what you had configured.
+
+The **first time** — or on an installation made before the menu started remembering — there is nothing to restore, so only what a fresh install cannot do without is checked: superuser credentials, plus domain names, HTTPS and SMTP on a server. The first pass stays short.
+
+A section shipped by a **newer version of kobo-install** has never been offered before, so it is checked when its values look configured — that way a new feature does not stay hidden behind a remembered selection. Everything else is one `SPACE` away.
 
 ### Sections
 
