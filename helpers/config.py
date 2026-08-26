@@ -2359,6 +2359,16 @@ class Config(metaclass=Singleton):
                     or not d.get('npm_container', True)
                 ),
             })
+            dev_staging.append({
+                'key': 'web_port',
+                'label': 'Web server port',
+                'description': 'Host port the web server listens on '
+                               '(default 80).',
+                'checked': (
+                    d.get('exposed_nginx_docker_port')
+                    != Config.DEFAULT_NGINX_PORT
+                ),
+            })
         if dev_staging:
             groups.append(('Dev / Staging', dev_staging))
 
@@ -2621,6 +2631,16 @@ class Config(metaclass=Singleton):
             ]
         )
 
+    def __questions_web_server_port(self):
+        """
+        Asks for the host port the web server is exposed on (dev advanced
+        mode). Developers who already use port 80 for something else need to
+        move the instance elsewhere.
+        """
+        CLI.colored_print('Web server port?', CLI.COLOR_QUESTION)
+        self.__dict['exposed_nginx_docker_port'] = CLI.get_response(
+            r'~^\d+$', self.__dict['exposed_nginx_docker_port'])
+
     def __questions_complexity(self):
         """
         Asks whether to use simple or advanced setup.
@@ -2780,6 +2800,9 @@ class Config(metaclass=Singleton):
 
         if 'celery_npm' in selected:
             self.__questions_celery_npm()
+
+        if 'web_port' in selected:
+            self.__questions_web_server_port()
 
         # Databases
         if 'postgresql' in selected:
