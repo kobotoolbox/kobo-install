@@ -75,70 +75,98 @@ Stop maintenance mode:
 
 
 ## Build the configuration
-User can choose between 2 types of installations:
 
-- `Workstation`: KoboToolbox doesn't need to be accessible from anywhere except the computer where it's installed. No DNS needed
-- `Server`: KoboToolbox needs to be accessible from the local network or from the Internet. DNS are needed
+Setup starts with two questions, and everything else follows from them.
 
-### Options
+**1. What kind of installation do you need?**
 
-|Option|Default|Workstation|Server
-|---|---|---|---|
-|Installation directory| **../kobo-docker**  | ✓ | ✓ |
-|SMTP information|  | ✓ | ✓ (front end only) |
-|Public domain name| **kobo.local** |  | ✓ (front end only) |
-|Subdomain names| **kf, kc, ee**  |  | ✓ (front end only) |
-|Use HTTPS<sup>1</sup>| **False** (Workstation)<br>**True** (Server)  |  | ✓ (front end only) |
-|Super user's username| **super_admin** | ✓ | ✓ (front end only) |
-|Super user's password| **Random string**  | ✓ | ✓ (front end only) |
-|Activate backups<sup>2</sup>|  **False**  | ✓ | ✓ (back end only) |
+- `Development` — local workstation. `DEBUG` is on, SSRF protection is disabled, and the web server is reachable over plain HTTP on the machine itself. No DNS needed
+- `Staging` — server hosting a test environment
+- `Production` — server
 
-### Advanced Options
+**2. Setup complexity?**
 
-| Option                                          |Default|Workstation|Server
-|-------------------------------------------------|---|---|---|
-| Webserver port                                  | **80**  | ✓ |  |
-| Reverse proxy internal port                     | **8080**  |  | ✓ (front end only) |
-| Network interface                               |  **Autodetected**  | ✓ | ✓ (front end only) |
-| Use separate servers                            | **No**  |  | ✓ |
-| Use DNS for private routes                      | **No**  |  | ✓ (front end only) |
-| Back-end server IP _(if previous answer is no)_ | **Local IP**  |  | ✓ (front end only) |
-| PostgreSQL DB                                   |  **kobo**  | ✓ | ✓ |
-| PostgreSQL user's username                      |  **kobo**  | ✓ | ✓ |
-| PostgreSQL user's password                      |  **Autogenerate**  | ✓ | ✓ |
-| PostgreSQL number of connections<sup>3</sup>    |  **100**  | ✓ | ✓ (back end only) |
-| PostgreSQL RAM<sup>3</sup>                      |  **2**  | ✓ | ✓ (back end only) |
-| PostgreSQL Application Profile<sup>3</sup>      |  **Mixed**  | ✓ | ✓ (back end only) |
-| PostgreSQL Storage<sup>3</sup>                  |  **HDD**  | ✓ | ✓ (back end only) |
-| MongoDB super user's username                   |  **root**  | ✓ | ✓ |
-| MongoDB super user's password                   |  **Autogenerate**  | ✓ | ✓ |
-| MongoDB user's username                         |  **kobo**  | ✓ | ✓ |
-| MongoDB user's password                         |  **Autogenerate**  | ✓ | ✓ |
-| Redis password<sup>4</sup>                      |  **Autogenerate**  | ✓ | ✓ |
-| Use AWS storage<sup>5</sup>                     |  **No**  | ✓ | ✓ |
-| uWGI workers                                    |  **start: 2, max: 4**  | ✓ | ✓ (front end only) |
-| uWGI memory limit                               |  **128 MB**  | ✓ | ✓ (front end only) |
-| uWGI harakiri timeout                           |  **120s**  | ✓ | ✓ (front end only) |
-| uWGI worker reload timeout                      |  **120s**  | ✓ | ✓ (front end only) |
-| Google UA                                       |  | ✓ | ✓ (front end only) |
-| Google API Key                                  |  | ✓ | ✓ (front end only) |
-| Sentry tokens                                   |   | ✓ | ✓ (front end only) |
-| Debug                                           |  **False**  | ✓ |  |
-| Developer mode                                  |  **False**  | ✓ | |
-| Staging mode                                    |  **False**  |  | ✓ (front end only) |
+- `Simple` — no further questions. Every default applies, `kobo-docker` is expected next to `kobo-install` (`../kobo-docker`), and a few things are detected automatically (see below)
+- `Advanced` — a checkbox menu opens so you pick only the sections you care about, then you are asked about those and nothing else
 
-<sup>1)</sup> _HTTPS certificates must be installed on a Reverse Proxy.
+### Automatic configuration
+
+Whatever you choose, `kobo-install` sets up on its own:
+
+|What|When|
+|---|---|
+|Installation directory, set to `../kobo-docker`|Always. Override it with the `Install directory` section|
+|Primary network interface and IP|Always. Override it with the `Network interface` section|
+|PostgreSQL and uWSGI sizing, computed from detected CPUs and RAM <sup>3</sup>|First run, staging and production. 50% of the machine for staging, 75% for production. On a multi-server frontend, the uWSGI memory limit is raised to 75% since the databases live elsewhere|
+|`console` email backend, so messages are printed instead of sent|Development, simple|
+|AWS profile authentication, if `~/.aws` exists on the host|Development, simple. The directory is mounted read-only into the front-end containers. S3 storage itself stays off|
+|Google Cloud application default credentials, if `~/.config/gcloud` exists on the host|Development, simple. The directory is mounted read-only and the active project is read from `configurations/config_default` to pre-fill the NLP questions|
+
+### The advanced menu
+
+|Key|Action|
+|---|---|
+|`↑` `↓`|Move between sections|
+|`SPACE`|Check / uncheck the highlighted section|
+|`A`|Check or uncheck everything|
+|`i`|Show / hide the description of the highlighted section|
+|`ENTER`|Confirm and start answering the selected sections|
+|`q` / `ESC`|Cancel|
+
+Sections come pre-checked for you. On a **first run** only what a fresh install cannot do without is checked — superuser credentials, plus domain names, HTTPS and SMTP on a server — so the first pass stays short. On **later runs** the sections whose values differ from the defaults are checked, so re-running setup goes straight to what you had customized. Everything else is one `SPACE` away.
+
+### Sections
+
+|Group|Section|Available in|
+|---|---|---|
+|Dev / Staging|KPI source files, to mount a local checkout for live editing|Development, staging|
+| |Celery & npm|Development|
+| |Web server port <sup>1</sup>|Development|
+|Infrastructure|Install directory|All|
+| |Network interface|All|
+| |Docker Compose prefix, to run several instances on one host|All|
+|Server|Multi-server setup|Staging, production|
+| |Domain names|Staging, production|
+| |HTTPS & certificates <sup>2</sup>|Staging, production|
+|Application|SMTP|All|
+| |Custom YAML|All|
+|Security|Superuser credentials|All|
+| |Secret keys|All, front end|
+| |Session duration|Staging, production, front end|
+|Performance|PostgreSQL tuning <sup>3</sup>|Staging, production, back end|
+| |Redis cache memory|Staging, production, back end|
+| |uWSGI tuning|Staging, production, front end|
+|Databases|PostgreSQL credentials|All, back end|
+| |MongoDB|All, back end|
+| |Redis <sup>4</sup>|All, back end|
+| |Back-end service ports|Staging, production, back end|
+|External services|AWS S3 storage <sup>5</sup>|All, front end|
+| |Google Cloud credentials|All, front end|
+| |NLP and qualitative analysis|All, front end|
+| |Google Analytics & Maps|Staging, production, front end|
+| |Sentry|Staging, production, front end|
+|Maintenance|Backups <sup>6</sup>|All, front end|
+
+Checking a section is the consent to configure it — there is no second "do you want to tweak this?" question once you have selected it.
+
+`Google Cloud credentials` mounts your host `~/.config/gcloud` into the front-end containers so they authenticate with application default credentials. It is independent of the NLP settings: you can mount the credentials without turning NLP on.
+
+`NLP and qualitative analysis` collects `AWS_BEDROCK_REGION_NAME`, the two AutoQA model ARNs, `GS_BUCKET_NAME`, `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_QUOTA_PROJECT`. These no longer need to be added by hand to a custom YAML file.
+
+<sup>1)</sup> _The host port the web server listens on, `80` by default. Useful when something else already uses port 80 on your workstation_
+
+<sup>2)</sup> _HTTPS certificates must be installed on a Reverse Proxy.
 `kobo-install` can install one and use `Let's Encrypt` to generate certificates
  thanks
  to [nginx-certbot project](https://github.com/wmnnd/nginx-certbot "")_
-
-<sup>2)</sup> _If AWS credentials are provided, backups are sent to configured bucket_
 
 <sup>3)</sup> _Custom settings are provided by [PostgreSQL Configuration Tool API](https://github.com/sebastianwebber/pgconfig-api "")_
 
 <sup>4)</sup> _Redis password is optional but **strongly** recommended_
 
 <sup>5)</sup> _If AWS storage is selected, credentials must be provided if backups are activated_
+
+<sup>6)</sup> _If AWS credentials are provided, backups are sent to configured bucket_
 
 ## Requirements
 
