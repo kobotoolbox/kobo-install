@@ -635,6 +635,7 @@ def test_auto_detect_gcloud_profile_reads_active_project(tmp_path):
     d = config._Config__dict
     assert d['gcloud_project'] == 'my-gcp-project'
     assert d['gcloud_quota_project'] == 'my-gcp-project'
+    assert d['asr_mt_google_project_id'] == 'my-gcp-project'
 
 
 def test_auto_detect_gcloud_profile_survives_malformed_config(tmp_path):
@@ -755,9 +756,9 @@ def test_questions_nlp_stores_all_values():
         'arn:aws:bedrock:sonnet',
         'arn:aws:bedrock:oss120',
         'my-bucket',
+        'my-asr-project',
         'my-gcp-project',
         'my-quota-project',
-        'my-asr-project',
     ]
     with patch('helpers.cli.CLI.colored_input') as mock_input:
         mock_input.side_effect = iter(answers)
@@ -774,10 +775,38 @@ def test_questions_nlp_stores_all_values():
     assert d['asr_mt_google_project_id'] == 'my-asr-project'
 
 
-def test_questions_nlp_asr_project_defaults_to_the_gcloud_project():
+def test_questions_nlp_project_is_asked_once():
     """
-    The ASR/MT project is usually the same one, so it is offered rather than
-    asked blind — but it stays overridable.
+    The three project settings hold the same value, so the answer given for
+    the ASR/MT project is offered as the default for the other two.
+    """
+    config = read_config({
+        'gcloud_project': '',
+        'gcloud_quota_project': '',
+        'asr_mt_google_project_id': '',
+    })
+    seen = []
+
+    def answer(message, color, default=''):
+        seen.append(message)
+        # Type a project only for the first of the three questions
+        return 'typed-project' if 'ASR/MT' in message else default
+
+    with patch.object(CLI, 'colored_input', side_effect=answer):
+        config._Config__questions_nlp()
+
+    d = config._Config__dict
+    assert d['asr_mt_google_project_id'] == 'typed-project'
+    assert d['gcloud_project'] == 'typed-project'
+    assert d['gcloud_quota_project'] == 'typed-project'
+    # The ASR/MT question must come first, otherwise it cannot feed the others
+    project_questions = [m for m in seen if 'project' in m.lower()]
+    assert project_questions[0] == 'ASR/MT Google project ID'
+
+
+def test_questions_nlp_project_defaults_to_the_detected_one():
+    """
+    The project found by __auto_detect_gcloud_profile is offered as default.
     """
     config = read_config({
         'gcloud_project': 'detected-project',
@@ -786,19 +815,11 @@ def test_questions_nlp_asr_project_defaults_to_the_gcloud_project():
     with patch.object(CLI, 'colored_input',
                       side_effect=lambda m, c, default='': default):
         config._Config__questions_nlp()
-    assert config._Config__dict['asr_mt_google_project_id'] == \
-        'detected-project'
 
-
-def test_questions_nlp_defaults_to_detected_gcloud_project():
-    """
-    The project found by __auto_detect_gcloud_profile is offered as default.
-    """
-    config = read_config({'gcloud_project': 'detected-project'})
-    with patch('helpers.cli.CLI.colored_input') as mock_input:
-        mock_input.side_effect = lambda message, color, default='': default
-        config._Config__questions_nlp()
-    assert config._Config__dict['gcloud_project'] == 'detected-project'
+    d = config._Config__dict
+    assert d['asr_mt_google_project_id'] == 'detected-project'
+    assert d['gcloud_project'] == 'detected-project'
+    assert d['gcloud_quota_project'] == 'detected-project'
 
 
 # ── __questions_web_server_port ──────────────────────────────────────────────

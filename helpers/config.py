@@ -806,6 +806,7 @@ class Config(metaclass=Singleton):
         if project:
             self.__dict['gcloud_project'] = project
             self.__dict['gcloud_quota_project'] = project
+            self.__dict['asr_mt_google_project_id'] = project
             CLI.colored_print(
                 f'  \u2192 Active Google Cloud project: {project}',
                 CLI.COLOR_INFO,
@@ -1259,17 +1260,19 @@ class Config(metaclass=Singleton):
         self.__dict['gs_bucket_name'] = CLI.colored_input(
             'Google Cloud Storage bucket name', CLI.COLOR_QUESTION,
             self.__dict['gs_bucket_name'])
-        self.__dict['gcloud_project'] = CLI.colored_input(
-            'Google Cloud project', CLI.COLOR_QUESTION,
-            self.__dict['gcloud_project'])
-        self.__dict['gcloud_quota_project'] = CLI.colored_input(
-            'Google Cloud quota project', CLI.COLOR_QUESTION,
-            self.__dict['gcloud_quota_project'])
-        self.__dict['asr_mt_google_project_id'] = CLI.colored_input(
+        # The three project settings hold the same value on every install we
+        # know of, so ask once and offer that answer for the other two rather
+        # than making the user type it three times.
+        project = CLI.colored_input(
             'ASR/MT Google project ID', CLI.COLOR_QUESTION,
-            # Usually the same project; offer it rather than ask blind.
             self.__dict['asr_mt_google_project_id']
             or self.__dict['gcloud_project'])
+        self.__dict['asr_mt_google_project_id'] = project
+
+        self.__dict['gcloud_project'] = CLI.colored_input(
+            'Google Cloud project', CLI.COLOR_QUESTION, project)
+        self.__dict['gcloud_quota_project'] = CLI.colored_input(
+            'Google Cloud quota project', CLI.COLOR_QUESTION, project)
 
     def __questions_https(self):
         """
