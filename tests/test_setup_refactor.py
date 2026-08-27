@@ -2163,3 +2163,143 @@ def test_questions_nlp_quick_silent_without_any_credentials():
     with patch.object(CLI, 'yes_no_question') as question:
         config._Config__questions_nlp_quick()
     question.assert_not_called()
+
+
+# ── Server topology decides the menu, so it is asked before it ───────────────
+
+def _backend_only_config(overrides=None):
+    """A machine that plays the back-end role in a multi-server install."""
+    o = {'install_mode': 'production', 'multi': True, 'server_role': 'backend'}
+    o.update(overrides or {})
+    config = _later_run_config(o)
+    assert config.backend and not config.frontend
+    return config
+
+
+def _frontend_only_config(overrides=None):
+    o = {'install_mode': 'production', 'multi': True,
+         'server_role': 'frontend'}
+    o.update(overrides or {})
+    config = _later_run_config(o)
+    assert config.frontend and not config.backend
+    return config
+
+
+def test_topology_is_asked_before_the_menu_is_built():
+    """
+    The role decides which sections exist, so it cannot be one of them. Asked
+    from inside the menu, a fresh multi-server install got a single-server
+    list.
+    """
+    calls = []
+    config = _later_run_config({'install_mode': 'production'})
+
+    with patch.object(Config, '_Config__questions_topology',
+                      side_effect=lambda *a: calls.append('topology')), \
+            patch.object(Config, '_Config__questions_advanced_sections',
+                         side_effect=lambda *a: calls.append('menu') or []), \
+            patch.object(Config, '_Config__run_selected_advanced_sections',
+                         new=lambda *a: None), \
+            patch.object(Config, '_Config__confirm_overwrite_or_exit',
+                         new=lambda *a: None), \
+            patch.object(Config, 'write_config', new=lambda *a, **k: None), \
+            patch.object(Config, '_Config__welcome', new=lambda *a: None), \
+            patch.object(Config, '_Config__questions_install_mode',
+                         new=lambda *a: None), \
+            patch.object(Config, '_Config__questions_complexity',
+                         new=lambda *a: None), \
+            patch.object(Config, '_Config__setup_directory',
+                         new=lambda *a: None), \
+            patch.object(Config, '_Config__auto_detect_network',
+                         new=lambda *a: None), \
+            patch.object(Config, '_Config__auto_configure_resources',
+                         new=lambda *a: None), \
+            patch('helpers.network.Network.get_primary_ip',
+                  return_value='127.0.0.1'):
+        config.build()
+
+    assert calls == ['topology', 'menu']
+
+
+def test_multi_server_is_no_longer_a_section():
+    """It is a structural question now; leaving it in the menu asks twice."""
+    config = _later_run_config({'install_mode': 'production'})
+    assert 'Multi-server setup' not in _menu_choices(config)
+
+
+def test_topology_skipped_on_a_workstation():
+    config = _later_run_config({
+        'install_mode': 'dev', 'local_installation': True, 'dev_mode': True,
+    })
+    with patch.object(CLI, 'yes_no_question') as question:
+        config._Config__questions_topology()
+    question.assert_not_called()
+
+
+def test_backups_offered_to_a_backend():
+    """
+    The database schedules are a back-end job. Gating the section on
+    `self.frontend` hid them from the machine holding the databases.
+    """
+    assert _menu_choices(_backend_only_config())['Backups'] is False
+
+
+def test_backups_offered_to_a_frontend_without_s3():
+    choices = _menu_choices(_frontend_only_config({'use_aws': False}))
+    assert 'Backups' in choices
+
+
+def test_backups_hidden_from_a_frontend_on_s3():
+    """`__questions_backup()` has nothing to ask there."""
+    assert 'Backups' not in _menu_choices(
+        _frontend_only_config({'use_aws': True})
+    )
+
+
+def test_frontend_only_sections_absent_on_a_backend():
+    """
+    Their execution already re-checks the role, so offering them put entries
+    in the menu that silently did nothing when ticked.
+    """
+    choices = _menu_choices(_backend_only_config())
+    for label in ('SMTP', 'Superuser credentials', 'Secret keys',
+                  'Domain names', 'HTTPS & certificates'):
+        assert label not in choices, label
+
+
+def test_backend_only_sections_absent_on_a_frontend():
+    choices = _menu_choices(_frontend_only_config())
+    for label in ('MongoDB', 'PostgreSQL', 'Redis', 'PostgreSQL tuning'):
+        assert label not in choices, label
+
+
+def test_custom_yaml_offered_to_both_roles():
+    """`__questions_custom_yml()` asks about whichever file applies."""
+    assert 'Custom YAML' in _menu_choices(_backend_only_config())
+    assert 'Custom YAML' in _menu_choices(_frontend_only_config())
+
+
+def test_backend_only_backup_asks_for_its_own_aws_settings():
+    """
+    `__questions_backup()` has a `self.backend and not self.frontend` branch
+    that asks the AWS questions itself, because the "AWS S3 storage" section
+    is front-end only. It was unreachable while the menu hid backups from
+    back ends.
+    """
+    config = _backend_only_config({'use_backup': True, 'advanced': True})
+
+    with patch.object(CLI, 'yes_no_question', return_value=True), \
+            patch.object(CLI, 'get_response',
+                         side_effect=lambda *a, **k: '0 2 * * 0'), \
+            patch.object(CLI, 'framed_print', new=lambda *a, **k: None), \
+            patch.object(CLI, 'colored_print', new=lambda *a, **k: None), \
+            patch.object(Config, '_Config__questions_aws') as aws_questions:
+        config._Config__questions_backup()
+
+    aws_questions.assert_called_once()
+    d = config._Config__dict
+    assert d['use_backup'] is True
+    # The database schedules the back end owns were actually asked.
+    assert d['postgres_backup_schedule'] == '0 2 * * 0'
+    assert d['mongo_backup_schedule'] == '0 2 * * 0'
+    assert d['redis_backup_schedule'] == '0 2 * * 0'

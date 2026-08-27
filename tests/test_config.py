@@ -96,6 +96,7 @@ def test_build_aborts_before_writing_in_advanced_mode():
         _Config__setup_directory=noop,
         _Config__auto_detect_network=noop,
         _Config__auto_configure_resources=noop,
+        _Config__questions_topology=noop,
         _Config__questions_advanced_sections=MagicMock(return_value=[]),
         _Config__run_selected_advanced_sections=noop,
         write_config=write_config,

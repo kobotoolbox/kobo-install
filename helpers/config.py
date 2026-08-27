@@ -158,7 +158,15 @@ class Config(metaclass=Singleton):
                 self.write_config()
                 return self.__dict
 
-            # Custom setup: section menu, then only the selected sections
+            # Custom setup: the server topology first — it decides which
+            # role this machine plays, and therefore which sections the menu
+            # is even allowed to offer. Asking it from inside the menu, as a
+            # section like any other, meant the menu was built from the
+            # previous answer and a fresh multi-server install got a
+            # single-server list.
+            self.__questions_topology()
+
+            # Then the section menu, and only the selected sections
             selected = self.__questions_advanced_sections()
             self.__run_selected_advanced_sections(selected)
 
@@ -2569,6 +2577,44 @@ class Config(metaclass=Singleton):
             return 'staging'
         return 'production'
 
+    def __questions_topology(self):
+        """
+        Asks whether this install is split across several servers, and which
+        role this machine plays.
+
+        Asked in custom setup only, before the section menu: `self.frontend`
+        and `self.backend` are derived from the answer, and the menu uses them
+        to decide which sections exist. A back end has no domain names, a
+        front end has no database tuning. Quick setup never asks — it installs
+        a single server, where both roles are true.
+
+        Skipped on a workstation, which is a single machine by definition.
+        """
+        if self.local_install:
+            return
+
+        self.__questions_multi_servers()
+        if not self.multi_servers:
+            self.__reset(fake_dns=True)
+            return
+
+        self.__questions_roles()
+        if not self.frontend:
+            return
+
+        self.__questions_private_routes()
+        # Recalculate uWSGI soft_limit: the databases live on another machine,
+        # so this one can use up to 75% of its RAM.
+        if self.first_time and self.__dict.get('uwsgi_settings'):
+            _, ram_gb = self.__detect_system_resources()
+            soft_limit_mb = max(1024, round(ram_gb * 0.75 * 1024))
+            self.__dict['uwsgi_soft_limit'] = str(soft_limit_mb)
+            CLI.colored_print(
+                f'  → uWSGI soft limit updated: {soft_limit_mb} MB '
+                f'(75% RAM — multi-server frontend)',
+                CLI.COLOR_INFO,
+            )
+
     def __questions_advanced_sections(self):
         """
         Shows a curses checkbox menu so the user can select which
@@ -2666,15 +2712,11 @@ class Config(metaclass=Singleton):
         groups.append(('Infrastructure', infra))
 
         # ── Server (staging / production only) ───────────────────────────────
-        if mode != 'dev':
+        # Public routes and TLS belong to whatever answers on the domain, so
+        # `__questions_public_routes()` and `__questions_https()` are skipped
+        # on a back end. The menu must skip them too.
+        if mode != 'dev' and self.frontend:
             server = [
-                {
-                    'key': 'multi_server',
-                    'label': 'Multi-server setup',
-                    'description': 'Split frontend and backend across separate '
-                                   'servers.',
-                    'checked': d.get('multi', False),
-                },
                 {
                     'key': 'public_routes',
                     'label': 'Domain names',
@@ -2696,8 +2738,11 @@ class Config(metaclass=Singleton):
             groups.append(('Server', server))
 
         # ── Application ──────────────────────────────────────────────────────
-        app = [
-            {
+        app = []
+        # Email is sent by the front end; `__questions_smtp()` is skipped on a
+        # back end, so offering it there only puts a dead entry in the menu.
+        if self.frontend:
+            app.append({
                 'key': 'smtp',
                 'label': 'SMTP',
                 'description': 'Outgoing email server used to send '
@@ -2706,31 +2751,33 @@ class Config(metaclass=Singleton):
                     (first_menu and mode != 'dev')
                     or bool(d.get('smtp_host'))
                 ),
-            },
-            {
-                'key': 'custom_yaml',
-                'label': 'Custom YAML',
-                'description': 'Add your own docker-compose overrides for '
-                               'frontend/backend.',
-                'checked': (
-                    d.get('use_frontend_custom_yml', False)
-                    or d.get('use_backend_custom_yml', False)
-                ),
-            },
-        ]
+            })
+        # Custom YAML covers both roles: `__questions_custom_yml()` asks about
+        # the front-end file, the back-end file, or both.
+        app.append({
+            'key': 'custom_yaml',
+            'label': 'Custom YAML',
+            'description': 'Add your own docker-compose overrides for '
+                           'frontend/backend.',
+            'checked': (
+                d.get('use_frontend_custom_yml', False)
+                or d.get('use_backend_custom_yml', False)
+            ),
+        })
         groups.append(('Application', app))
 
         # ── Security ─────────────────────────────────────────────────────────
-        security = [
-            {
+        security = []
+        if self.frontend:
+            # The Django admin account is created by the front end;
+            # `__questions_super_user_credentials()` skips a back end.
+            security.append({
                 'key': 'superuser',
                 'label': 'Superuser credentials',
                 'description': 'Username and password of the initial Django '
                                'admin account.',
                 'checked': first_menu,
-            },
-        ]
-        if self.frontend:
+            })
             security.append({
                 'key': 'secret_keys',
                 'label': 'Secret keys',
@@ -2747,7 +2794,8 @@ class Config(metaclass=Singleton):
                         d.get('django_session_cookie_age', 604800) != 604800
                     ),
                 })
-        groups.append(('Security', security))
+        if security:
+            groups.append(('Security', security))
 
         # ── Performance ──────────────────────────────────────────────────────
         performance = []
@@ -2879,7 +2927,12 @@ class Config(metaclass=Singleton):
 
         # ── Maintenance ──────────────────────────────────────────────────────
         maintenance = []
-        if self.frontend:
+        # Same condition as `__questions_backup()` itself: the database
+        # schedules are a back-end job, and a front end only has media to back
+        # up when it is not storing them on S3. Offering this to front ends
+        # only used to hide database backups from the very machine that holds
+        # the databases.
+        if self.backend or (self.frontend and not self.aws):
             maintenance.append({
                 'key': 'backups',
                 'label': 'Backups',
@@ -3176,27 +3229,6 @@ class Config(metaclass=Singleton):
 
         if 'network' in selected:
             self.__questions_network_interface()
-
-        # Server topology — must run before public routes
-        if 'multi_server' in selected and not self.local_install:
-            self.__questions_multi_servers()
-            if self.multi_servers:
-                self.__questions_roles()
-                if self.frontend:
-                    self.__questions_private_routes()
-                    # Recalculate uWSGI soft_limit: DBs are on a separate
-                    # machine so this server can use up to 75% of RAM.
-                    if self.first_time and self.__dict.get('uwsgi_settings'):
-                        _, ram_gb = self.__detect_system_resources()
-                        soft_limit_mb = max(1024, round(ram_gb * 0.75 * 1024))
-                        self.__dict['uwsgi_soft_limit'] = str(soft_limit_mb)
-                        CLI.colored_print(
-                            f'  → uWSGI soft limit updated: {soft_limit_mb} MB '
-                            f'(75% RAM — multi-server frontend)',
-                            CLI.COLOR_INFO,
-                        )
-            else:
-                self.__reset(fake_dns=True)
 
         # Public access
         if 'public_routes' in selected and self.frontend and not self.local_install:
