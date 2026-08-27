@@ -244,19 +244,16 @@ def test_aws_validation_fails_with_system_exit():
         mock_colored_input.side_effect = iter(
             [
                 CHOICE_YES,  # Yes, Use AWS Storage
-                CHOICE_NO,   # No, use credentials (1st config call)
                 '',  # Empty Access Key
                 '',  # Empty Secret Key
                 '',  # Empty Bucket Name
                 '',  # Empty Region Name
                 CHOICE_YES,  # Yes, validate AWS credentials
-                CHOICE_NO,   # No, use credentials (retry config call)
                 '',  # Empty Access Key
                 '',  # Empty Secret Key
                 '',  # Empty Bucket Name
                 '',  # Empty Region Name
                 # it failed, let's try one more time
-                CHOICE_NO,   # No, use credentials (retry config call)
                 '',  # Empty Access Key
                 '',  # Empty Secret Key
                 '',  # Empty Bucket Name
@@ -274,7 +271,9 @@ def test_aws_invalid_credentials_continue_without_validation():
     config = _aws_validation_setup()
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
-        mock_colored_input.side_effect = iter([CHOICE_YES, CHOICE_NO, '', '', '', '', CHOICE_NO])
+        mock_colored_input.side_effect = iter(
+            [CHOICE_YES, '', '', '', '', CHOICE_NO]
+        )
         config._Config__questions_aws()
         assert not config._Config__dict['aws_credentials_valid']
 
@@ -289,7 +288,6 @@ def test_aws_validation_passes_with_valid_credentials():
         mock_colored_input.side_effect = iter(
             [
                 CHOICE_YES,   # Yes, use AWS storage
-                CHOICE_NO,    # No, use credentials (not profile)
                 'test_access_key',
                 'test_secret_key',
                 'test_bucket_name',
@@ -307,7 +305,6 @@ def test_aws_validation_passes_with_valid_credentials():
         mock_colored_input.side_effect = iter(
             [
                 CHOICE_YES,   # Yes, use AWS storage
-                CHOICE_NO,    # No, use credentials (not profile)
                 'test_access_key',
                 'test_secret_key',
                 'test_bucket_name',
@@ -325,13 +322,11 @@ def test_aws_validation_passes_with_valid_credentials():
         mock_colored_input.side_effect = iter(
             [
                 CHOICE_YES,   # Yes, use AWS storage
-                CHOICE_NO,    # No, use credentials (1st config call)
                 '',
                 '',
                 '',
                 '',
                 CHOICE_YES,   # Yes, validate
-                CHOICE_NO,    # No, use credentials (retry config call)
                 'test_access_key',
                 'test_secret_key',
                 'test_bucket_name',
@@ -348,18 +343,15 @@ def test_aws_validation_passes_with_valid_credentials():
         mock_colored_input.side_effect = iter(
             [
                 CHOICE_YES,   # Yes, use AWS storage
-                CHOICE_NO,    # No, use credentials (1st config call)
                 '',
                 '',
                 '',
                 '',
                 CHOICE_YES,   # Yes, validate
-                CHOICE_NO,    # No, use credentials (2nd config call)
                 '',
                 '',
                 '',
                 '',
-                CHOICE_NO,    # No, use credentials (3rd config call)
                 'test_access_key',
                 'test_secret_key',
                 'test_bucket_name',
@@ -370,15 +362,19 @@ def test_aws_validation_passes_with_valid_credentials():
         assert config._Config__dict['aws_credentials_valid']
 
 
-def test_aws_profile_mode_configuration():
+def test_aws_profile_mode_skips_credential_prompts():
+    """
+    Profile authentication is answered by `__questions_cloud_profiles()`; the
+    S3 section then only needs the bucket and the region.
+    """
     config = _aws_validation_setup()
+    config._Config__dict['aws_use_profile'] = True
+    config._Config__dict['aws_profile_name'] = 'my_profile'
+    config._Config__dict['aws_host_aws_dir'] = '/home/user/.aws'
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
         mock_colored_input.side_effect = iter([
             CHOICE_YES,        # Yes, use AWS S3 storage
-            CHOICE_YES,        # Yes, use AWS profile
-            'my_profile',      # AWS Profile Name
-            '/home/user/.aws', # AWS credentials directory on host
             'my_bucket',       # AWS Bucket Name
             'us-east-1',       # AWS Region Name
         ])
@@ -390,10 +386,12 @@ def test_aws_profile_mode_configuration():
     assert config._Config__dict['aws_access_key'] == ''
     assert config._Config__dict['aws_secret_key'] == ''
     assert config._Config__dict['aws_bucket_name'] == 'my_bucket'
+    assert config._Config__dict['aws_s3_region_name'] == 'us-east-1'
 
 
 def test_aws_profile_mode_skips_validation():
     config = _aws_validation_setup()
+    config._Config__dict['aws_use_profile'] = True
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
         with patch(
@@ -401,9 +399,6 @@ def test_aws_profile_mode_skips_validation():
         ) as mock_validate:
             mock_colored_input.side_effect = iter([
                 CHOICE_YES,        # Yes, use AWS S3 storage
-                CHOICE_YES,        # Yes, use AWS profile
-                'my_profile',      # AWS Profile Name
-                '/home/user/.aws', # AWS credentials directory on host
                 'my_bucket',       # AWS Bucket Name
                 'us-east-1',       # AWS Region Name
             ])
@@ -413,60 +408,25 @@ def test_aws_profile_mode_skips_validation():
     assert not config._Config__dict['aws_credentials_valid']
 
 
-def test_aws_credentials_mode_clears_profile():
-    config = _aws_validation_setup()
-    config._Config__dict['aws_profile_name'] = 'previously_set_profile'
-    config._Config__dict['aws_host_aws_dir'] = '/previously/set/dir'
-
-    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
-        mock_colored_input.side_effect = iter([
-            CHOICE_YES,   # Yes, use AWS S3 storage
-            CHOICE_NO,    # No, use credentials instead
-            'my_key',     # AWS Access Key
-            'my_secret',  # AWS Secret Key
-            'my_bucket',  # AWS Bucket Name
-            'us-east-1',  # AWS Region Name
-            CHOICE_NO,    # No, skip validation
-        ])
-        config._Config__questions_aws()
-
-    assert config._Config__dict['aws_use_profile'] is False
-    assert config._Config__dict['aws_profile_name'] == ''
-    assert config._Config__dict['aws_host_aws_dir'] == ''
-    assert config._Config__dict['aws_access_key'] == 'my_key'
-    assert config._Config__dict['aws_secret_key'] == 'my_secret'
-
-
-def test_aws_switch_to_profile_during_validation_retry():
+def test_aws_storage_off_keeps_the_profile_mount():
     """
-    User starts in credentials mode, fails validation, then switches to profile
-    mode on retry. Should not loop forever or call sys.exit(1).
+    Mounting the host `~/.aws` is useful without S3 storage, so declining S3
+    must not take the mount away.
     """
     config = _aws_validation_setup()
+    config._Config__dict['aws_use_profile'] = True
+    config._Config__dict['aws_profile_name'] = 'my_profile'
+    config._Config__dict['aws_host_aws_dir'] = '/home/user/.aws'
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
-        mock_colored_input.side_effect = iter([
-            CHOICE_YES,        # Yes, use AWS S3 storage
-            CHOICE_NO,         # No, use credentials (1st config call)
-            '',                # Empty Access Key
-            '',                # Empty Secret Key
-            '',                # Empty Bucket Name
-            '',                # Empty Region Name
-            CHOICE_YES,        # Yes, validate credentials
-            CHOICE_YES,        # Switch to profile on retry (aws_use_profile)
-            'my_profile',      # AWS Profile Name
-            '/home/user/.aws', # AWS credentials directory on host
-            'my_bucket',       # AWS Bucket Name
-            'us-east-1',       # AWS Region Name
-        ])
+        mock_colored_input.side_effect = iter([CHOICE_NO])
         config._Config__questions_aws()
 
+    assert config._Config__dict['use_aws'] is False
+    assert config._Config__dict['aws_bucket_name'] == ''
     assert config._Config__dict['aws_use_profile'] is True
     assert config._Config__dict['aws_profile_name'] == 'my_profile'
     assert config._Config__dict['aws_host_aws_dir'] == '/home/user/.aws'
-    assert config._Config__dict['aws_access_key'] == ''
-    assert config._Config__dict['aws_secret_key'] == ''
-    assert not config._Config__dict['aws_credentials_valid']
 
 
 @patch('helpers.config.Config._Config__clone_repo',

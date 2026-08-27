@@ -170,8 +170,7 @@ def test_questions_complexity_default_simple_when_no_prior_choice():
     with patch.object(CLI, 'colored_input', side_effect=capture):
         config._Config__questions_complexity()
 
-    # advanced=False → not False=True → DEFAULT_RESPONSES[True]='1' (Simple)
-    assert defaults_seen[0] == '1'
+    assert defaults_seen[0] == '1'  # Quick setup
     assert not config.advanced_options
 
 
@@ -186,9 +185,43 @@ def test_questions_complexity_default_advanced_when_previously_advanced():
     with patch.object(CLI, 'colored_input', side_effect=capture):
         config._Config__questions_complexity()
 
-    # advanced=True → not True=False → DEFAULT_RESPONSES[False]='2' (Advanced)
-    assert defaults_seen[0] == '2'
+    assert defaults_seen[0] == '2'  # Custom setup
     assert config.advanced_options
+
+
+def test_questions_complexity_explains_both_choices():
+    """
+    "Simple" and "Advanced" on their own said nothing about what either one
+    does; each line now carries what it means.
+    """
+    printed = []
+    config = read_config()
+    with patch.object(CLI, 'colored_print',
+                      side_effect=lambda m, *a, **k: printed.append(m)), \
+         patch.object(CLI, 'colored_input', return_value=SIMPLE):
+        config._Config__questions_complexity()
+
+    quick = [m for m in printed if 'Quick setup' in m]
+    custom = [m for m in printed if 'Custom setup' in m]
+    assert len(quick) == 1 and len(custom) == 1
+    assert 'nothing else is asked' in quick[0]
+    assert 'sections' in custom[0]
+
+
+def test_questions_install_mode_explains_each_mode():
+    printed = []
+    config = read_config()
+    with patch.object(CLI, 'colored_print',
+                      side_effect=lambda m, *a, **k: printed.append(m)), \
+         patch.object(CLI, 'colored_input', return_value=DEV), \
+         patch.object(CLI, 'framed_print', new=lambda *a, **k: None):
+        config._Config__questions_install_mode()
+
+    for label in ('Development', 'Staging', 'Production'):
+        line = [m for m in printed if label in m and m.startswith('\t')]
+        assert len(line) == 1, label
+        # Every choice says what it is, not just its name
+        assert len(line[0].split('\u2014')[1].split()) >= 4, label
 
 
 # ── __setup_directory ────────────────────────────────────────────────────────
@@ -429,6 +462,11 @@ def test_build_simple_mode_consumes_exactly_two_inputs(_):
 @patch('helpers.config.Config._Config__auto_detect_network', new=lambda *a: None)
 @patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
 @patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
+# The host's own ~/.aws and ~/.config/gcloud must not decide what this asks
+@patch('helpers.config.Config._Config__auto_detect_aws_profile',
+       new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_gcloud_profile',
+       new=lambda *a: None)
 def test_build_simple_dev_sets_console_email_backend(_):
     config = read_config({'local_installation': True, 'dev_mode': True,
                           'install_mode': 'dev'})
@@ -606,19 +644,22 @@ def test_auto_detect_gcloud_profile_noop_when_dir_missing(tmp_path):
         config._Config__auto_detect_gcloud_profile()
     d = config._Config__dict
     assert d['gcloud_use_profile'] is False
-    assert d['gcloud_project'] == ''
+    assert d['asr_mt_google_project_id'] == ''
 
 
 def test_auto_detect_gcloud_profile_enables_profile_without_project(tmp_path):
     gcloud_dir = _gcloud_dir(tmp_path)
-    config = read_config({'gcloud_use_profile': False, 'gcloud_project': ''})
+    config = read_config({
+        'gcloud_use_profile': False,
+        'asr_mt_google_project_id': '',
+    })
     with patch('helpers.config.os.path.expanduser',
                return_value=str(gcloud_dir)):
         config._Config__auto_detect_gcloud_profile()
     d = config._Config__dict
     assert d['gcloud_use_profile'] is True
     assert d['gcloud_host_config_dir'] == str(gcloud_dir)
-    assert d['gcloud_project'] == ''
+    assert d['asr_mt_google_project_id'] == ''
     # NLP settings stay an explicit opt-in
     assert d['use_nlp'] is False
 
@@ -632,10 +673,7 @@ def test_auto_detect_gcloud_profile_reads_active_project(tmp_path):
     with patch('helpers.config.os.path.expanduser',
                return_value=str(gcloud_dir)):
         config._Config__auto_detect_gcloud_profile()
-    d = config._Config__dict
-    assert d['gcloud_project'] == 'my-gcp-project'
-    assert d['gcloud_quota_project'] == 'my-gcp-project'
-    assert d['asr_mt_google_project_id'] == 'my-gcp-project'
+    assert config._Config__dict['asr_mt_google_project_id'] == 'my-gcp-project'
 
 
 def test_auto_detect_gcloud_profile_survives_malformed_config(tmp_path):
@@ -646,7 +684,7 @@ def test_auto_detect_gcloud_profile_survives_malformed_config(tmp_path):
         config._Config__auto_detect_gcloud_profile()
     d = config._Config__dict
     assert d['gcloud_use_profile'] is True
-    assert d['gcloud_project'] == ''
+    assert d['asr_mt_google_project_id'] == ''
 
 
 def test_auto_detect_gcloud_profile_survives_config_without_project(tmp_path):
@@ -655,171 +693,406 @@ def test_auto_detect_gcloud_profile_survives_config_without_project(tmp_path):
     with patch('helpers.config.os.path.expanduser',
                return_value=str(gcloud_dir)):
         config._Config__auto_detect_gcloud_profile()
-    assert config._Config__dict['gcloud_project'] == ''
+    assert config._Config__dict['asr_mt_google_project_id'] == ''
 
 
-# ── __questions_gcloud / __questions_nlp ─────────────────────────────────────
+# ── __questions_cloud_profiles ───────────────────────────────────────────────
 
-def test_questions_gcloud_enables_and_stores_host_dir():
-    config = read_config({'gcloud_use_profile': False})
+def test_questions_cloud_profiles_enables_both_and_stores_host_dirs():
+    config = read_config({
+        'aws_use_profile': False,
+        'gcloud_use_profile': False,
+    })
     with patch('helpers.cli.CLI.colored_input') as mock_input:
-        mock_input.side_effect = iter([CHOICE_YES, '/opt/gcloud'])
-        config._Config__questions_gcloud()
+        mock_input.side_effect = iter([
+            CHOICE_YES, 'staging', '/opt/aws',   # AWS
+            CHOICE_YES, '/opt/gcloud',           # Google
+        ])
+        config._Config__questions_cloud_profiles()
     d = config._Config__dict
+    assert d['aws_use_profile'] is True
+    assert d['aws_profile_name'] == 'staging'
+    assert d['aws_host_aws_dir'] == '/opt/aws'
     assert d['gcloud_use_profile'] is True
     assert d['gcloud_host_config_dir'] == '/opt/gcloud'
 
 
-def test_questions_gcloud_clears_host_dir_when_disabled():
+def test_questions_cloud_profiles_clears_host_dirs_when_disabled():
     config = read_config({
+        'aws_use_profile': True,
+        'aws_profile_name': 'staging',
+        'aws_host_aws_dir': '/opt/aws',
         'gcloud_use_profile': True,
         'gcloud_host_config_dir': '/opt/gcloud',
     })
     with patch.object(CLI, 'colored_input', return_value=CHOICE_NO):
-        config._Config__questions_gcloud()
+        config._Config__questions_cloud_profiles()
     d = config._Config__dict
+    assert d['aws_use_profile'] is False
+    assert d['aws_profile_name'] == ''
+    assert d['aws_host_aws_dir'] == ''
     assert d['gcloud_use_profile'] is False
     assert d['gcloud_host_config_dir'] == ''
 
 
-def _gcloud_question_default(config):
+def test_questions_cloud_profiles_clears_aws_credentials():
     """
-    Runs __questions_gcloud and returns the default offered for the yes/no
-    question, plus the default offered for the host directory input.
+    A profile supplies the credentials; a stale key/secret pair left behind
+    would keep being rendered into `aws.txt`.
     """
-    seen = {}
+    config = read_config({
+        'aws_use_profile': False,
+        'aws_access_key': 'AKIA',
+        'aws_secret_key': 'shhh',
+    })
+    with patch('helpers.cli.CLI.colored_input') as mock_input:
+        mock_input.side_effect = iter([
+            CHOICE_YES, 'default', '/opt/aws',
+            CHOICE_NO,
+        ])
+        config._Config__questions_cloud_profiles()
+    d = config._Config__dict
+    assert d['aws_access_key'] == ''
+    assert d['aws_secret_key'] == ''
+
+
+def _cloud_profiles_defaults(config):
+    """
+    Runs __questions_cloud_profiles and returns the defaults offered for both
+    yes/no questions and for both host directory inputs.
+    """
+    yes_no = []
+    inputs = {}
 
     def capture_yes_no(question, default=True, labels=None):
-        seen['yes_no'] = default
+        yes_no.append(default)
         return default
 
     def capture_input(message, color, default=''):
-        seen['host_dir'] = default
+        inputs[message] = default
         return default
 
     with patch.object(CLI, 'yes_no_question', side_effect=capture_yes_no), \
          patch.object(CLI, 'colored_input', side_effect=capture_input):
-        config._Config__questions_gcloud()
+        config._Config__questions_cloud_profiles()
 
-    return seen
+    return {'aws': yes_no[0], 'gcloud': yes_no[1], 'inputs': inputs}
 
 
-def test_questions_gcloud_defaults_to_yes_when_dir_exists():
+def test_questions_cloud_profiles_default_to_yes_when_dirs_exist():
     config = read_config({
+        'aws_use_profile': False,
+        'aws_host_aws_dir': '',
         'gcloud_use_profile': False,
         'gcloud_host_config_dir': '',
     })
     with patch('helpers.config.os.path.isdir', return_value=True):
-        seen = _gcloud_question_default(config)
-    assert seen['yes_no'] is True
+        seen = _cloud_profiles_defaults(config)
+    assert seen['aws'] is True
+    assert seen['gcloud'] is True
 
 
-def test_questions_gcloud_defaults_to_no_when_dir_missing():
+def test_questions_cloud_profiles_default_to_no_when_dirs_missing():
     config = read_config({
+        'aws_use_profile': False,
+        'aws_host_aws_dir': '',
         'gcloud_use_profile': False,
         'gcloud_host_config_dir': '',
     })
     with patch('helpers.config.os.path.isdir', return_value=False):
-        seen = _gcloud_question_default(config)
-    assert seen['yes_no'] is False
+        seen = _cloud_profiles_defaults(config)
+    assert seen['aws'] is False
+    assert seen['gcloud'] is False
 
 
-def test_questions_gcloud_stored_answer_wins_over_detection():
-    """An explicit previous "Yes" survives the directory moving away."""
+def test_questions_cloud_profiles_stored_answer_wins_over_detection():
+    """An explicit previous "Yes" survives the directories moving away."""
     config = read_config({
+        'aws_use_profile': True,
+        'aws_host_aws_dir': '/opt/aws',
         'gcloud_use_profile': True,
         'gcloud_host_config_dir': '/opt/gcloud',
     })
     with patch('helpers.config.os.path.isdir', return_value=False):
-        seen = _gcloud_question_default(config)
-    assert seen['yes_no'] is True
+        seen = _cloud_profiles_defaults(config)
+    assert seen['aws'] is True
+    assert seen['gcloud'] is True
 
 
-def test_questions_gcloud_offers_default_dir_after_previous_no():
+def test_questions_cloud_profiles_offer_default_dirs_after_previous_no():
     """
-    Answering No resets the stored directory, so the next run must fall back
-    to ~/.config/gcloud instead of offering an empty path.
+    Answering No resets the stored directories, so the next run must fall back
+    to ~/.aws and ~/.config/gcloud instead of offering an empty path.
     """
     config = read_config({
+        'aws_use_profile': False,
+        'aws_host_aws_dir': '',
         'gcloud_use_profile': False,
         'gcloud_host_config_dir': '',
     })
     with patch('helpers.config.os.path.isdir', return_value=True):
-        seen = _gcloud_question_default(config)
-    assert seen['host_dir'] == os.path.expanduser('~/.config/gcloud')
+        seen = _cloud_profiles_defaults(config)
+    inputs = seen['inputs']
+    assert inputs['AWS credentials directory on host'] == \
+        os.path.expanduser('~/.aws')
+    assert inputs['gcloud configuration directory on host'] == \
+        os.path.expanduser('~/.config/gcloud')
 
+
+# ── __questions_nlp ──────────────────────────────────────────────────────────
 
 def test_questions_nlp_stores_all_values():
     config = read_config({'use_nlp': False})
-    answers = [
-        'us-west-2',
-        'arn:aws:bedrock:sonnet',
-        'arn:aws:bedrock:oss120',
-        'my-bucket',
-        'my-asr-project',
-        'my-gcp-project',
-        'my-quota-project',
-    ]
     with patch('helpers.cli.CLI.colored_input') as mock_input:
-        mock_input.side_effect = iter(answers)
+        mock_input.side_effect = iter([
+            'my-bucket', 'us-west-2', 'my-gcp-project',
+        ])
         config._Config__questions_nlp()
     d = config._Config__dict
     # Checking the section is the consent, no extra yes/no gate
     assert d['use_nlp'] is True
-    assert d['aws_bedrock_region_name'] == 'us-west-2'
-    assert d['autoqa_claudesonnet_model_aip_arn'] == 'arn:aws:bedrock:sonnet'
-    assert d['autoqa_oss120_model_aip_arn'] == 'arn:aws:bedrock:oss120'
     assert d['gs_bucket_name'] == 'my-bucket'
-    assert d['gcloud_project'] == 'my-gcp-project'
-    assert d['gcloud_quota_project'] == 'my-quota-project'
-    assert d['asr_mt_google_project_id'] == 'my-asr-project'
+    assert d['aws_bedrock_region_name'] == 'us-west-2'
+    assert d['asr_mt_google_project_id'] == 'my-gcp-project'
 
 
-def test_questions_nlp_project_is_asked_once():
+def test_questions_nlp_asks_three_questions():
     """
-    The three project settings hold the same value, so the answer given for
-    the ASR/MT project is offered as the default for the other two.
+    The AutoQA model ARNs are gone, and the two GOOGLE_CLOUD_* projects are
+    derived from the single project answer instead of being asked.
     """
-    config = read_config({
-        'gcloud_project': '',
-        'gcloud_quota_project': '',
-        'asr_mt_google_project_id': '',
-    })
+    config = read_config({'use_nlp': False})
     seen = []
-
-    def answer(message, color, default=''):
-        seen.append(message)
-        # Type a project only for the first of the three questions
-        return 'typed-project' if 'ASR/MT' in message else default
-
-    with patch.object(CLI, 'colored_input', side_effect=answer):
+    with patch.object(CLI, 'colored_input',
+                      side_effect=lambda m, c, default='': seen.append(m)):
         config._Config__questions_nlp()
-
-    d = config._Config__dict
-    assert d['asr_mt_google_project_id'] == 'typed-project'
-    assert d['gcloud_project'] == 'typed-project'
-    assert d['gcloud_quota_project'] == 'typed-project'
-    # The ASR/MT question must come first, otherwise it cannot feed the others
-    project_questions = [m for m in seen if 'project' in m.lower()]
-    assert project_questions[0] == 'ASR/MT Google project ID'
+    assert len(seen) == 3
+    assert not [m for m in seen if 'ARN' in m]
+    assert len([m for m in seen if 'project' in m.lower()]) == 1
 
 
 def test_questions_nlp_project_defaults_to_the_detected_one():
     """
     The project found by __auto_detect_gcloud_profile is offered as default.
     """
-    config = read_config({
-        'gcloud_project': 'detected-project',
-        'asr_mt_google_project_id': '',
-    })
+    config = read_config({'asr_mt_google_project_id': 'detected-project'})
     with patch.object(CLI, 'colored_input',
                       side_effect=lambda m, c, default='': default):
         config._Config__questions_nlp()
+    assert config._Config__dict['asr_mt_google_project_id'] == \
+        'detected-project'
 
+
+@patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
+@patch('helpers.config.Config._Config__setup_directory', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_network', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_aws_profile', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_gcloud_profile', new=lambda *a: None)
+@patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
+def test_build_gives_nlp_up_to_the_custom_yml(_, tmp_path):
+    """
+    kobo-install must not write variables the custom compose file already
+    defines: the same setting would then have two sources of truth.
+    """
+    (tmp_path / 'docker-compose.frontend.custom.yml').write_text(
+        '      - GOOGLE_CLOUD_PROJECT=my-gcp-project\n'
+    )
+    config = read_config({
+        'local_installation': True, 'dev_mode': True, 'install_mode': 'dev',
+        'kobodocker_path': str(tmp_path),
+        'use_nlp': True,
+        'use_frontend_custom_yml': True,
+    })
+    config._Config__first_time = False
+
+    printed = []
+    with patch('helpers.cli.CLI.colored_input') as mock_ci, \
+         patch.object(CLI, 'colored_print',
+                      side_effect=lambda m, *a, **k: printed.append(m)):
+        mock_ci.side_effect = iter([DEV, SIMPLE])
+        result = config.build()
+
+    assert result['use_nlp'] is False
+    assert [m for m in printed if 'custom.yml' in m]
+    # Mode and complexity, nothing more
+    assert mock_ci.call_count == 2
+
+
+@patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
+@patch('helpers.config.Config._Config__setup_directory', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_network', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_aws_profile', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_gcloud_profile', new=lambda *a: None)
+@patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
+def test_build_warns_when_the_custom_yml_is_not_loaded(_, tmp_path):
+    """
+    Variables sitting in a file `docker compose` is never given are dead; say
+    so instead of silently skipping NLP.
+    """
+    (tmp_path / 'docker-compose.frontend.custom.yml').write_text(
+        '      - GS_BUCKET_NAME=my-bucket\n'
+    )
+    config = read_config({
+        'local_installation': True, 'dev_mode': True, 'install_mode': 'dev',
+        'kobodocker_path': str(tmp_path),
+        'use_frontend_custom_yml': False,
+    })
+    config._Config__first_time = False
+
+    printed = []
+    with patch('helpers.cli.CLI.colored_input') as mock_ci, \
+         patch.object(CLI, 'colored_print',
+                      side_effect=lambda m, *a, **k: printed.append(m)):
+        mock_ci.side_effect = iter([DEV, SIMPLE])
+        config.build()
+
+    assert [m for m in printed if 'Custom YAML' in m]
+
+
+# ── __nlp_managed_by_custom_yml ──────────────────────────────────────────────
+
+def _config_with_custom_yml(tmp_path, content=None):
+    """
+    Builds a config pointing at a kobo-docker directory, optionally holding a
+    front-end custom compose file.
+    """
+    if content is not None:
+        (tmp_path / 'docker-compose.frontend.custom.yml').write_text(content)
+    return read_config({'kobodocker_path': str(tmp_path)})
+
+
+def test_nlp_custom_yml_absent_file_is_not_managed(tmp_path):
+    """The first run cannot have one: kobo-docker is cloned after build()."""
+    config = _config_with_custom_yml(tmp_path)
+    assert config._Config__nlp_managed_by_custom_yml() is False
+
+
+def test_nlp_custom_yml_detects_list_syntax(tmp_path):
+    config = _config_with_custom_yml(tmp_path, """
+services:
+  kpi: &custom_env_vars
+    environment:
+      - GS_BUCKET_NAME=my-bucket
+""")
+    assert config._Config__nlp_managed_by_custom_yml() is True
+
+
+def test_nlp_custom_yml_detects_mapping_syntax(tmp_path):
+    config = _config_with_custom_yml(tmp_path, """
+services:
+  kpi:
+    environment:
+      GOOGLE_CLOUD_PROJECT: my-gcp-project
+""")
+    assert config._Config__nlp_managed_by_custom_yml() is True
+
+
+def test_nlp_custom_yml_ignores_empty_values(tmp_path):
+    """A placeholder left blank configures nothing."""
+    config = _config_with_custom_yml(tmp_path, """
+      - GS_BUCKET_NAME=
+      - GOOGLE_CLOUD_PROJECT=
+""")
+    assert config._Config__nlp_managed_by_custom_yml() is False
+
+
+def test_nlp_custom_yml_ignores_autoqa_arns(tmp_path):
+    """
+    kobo-install no longer manages the AutoQA ARNs, so a file holding only
+    those must not hide the NLP questions.
+    """
+    config = _config_with_custom_yml(tmp_path, """
+      - AUTOQA_CLAUDESONNET_MODEL_AIP_ARN=arn:aws:bedrock:sonnet
+      - AUTOQA_OSS120_MODEL_AIP_ARN=arn:aws:bedrock:oss120
+""")
+    assert config._Config__nlp_managed_by_custom_yml() is False
+
+
+def test_nlp_custom_yml_ignores_unrelated_variables(tmp_path):
+    config = _config_with_custom_yml(tmp_path, """
+      - STRIPE_ENABLED=True
+      - DJSTRIPE_WEBHOOK_VALIDATION=verify_signature
+""")
+    assert config._Config__nlp_managed_by_custom_yml() is False
+
+
+def test_nlp_custom_yml_survives_unreadable_file(tmp_path):
+    config = _config_with_custom_yml(tmp_path, 'GS_BUCKET_NAME=my-bucket')
+    with patch('builtins.open', side_effect=OSError):
+        assert config._Config__nlp_managed_by_custom_yml() is False
+
+
+def test_nlp_custom_yml_result_is_cached(tmp_path):
+    config = _config_with_custom_yml(tmp_path, '      - GS_BUCKET_NAME=mine')
+    assert config._Config__nlp_managed_by_custom_yml() is True
+    # The file is read once; a later failure must not change the answer
+    with patch('builtins.open', side_effect=OSError):
+        assert config._Config__nlp_managed_by_custom_yml() is True
+
+
+# ── __questions_nlp_quick (dev, quick setup) ─────────────────────────────────
+
+def test_questions_nlp_quick_silent_without_gcloud():
+    """
+    Quick setup keeps its promise: no gcloud credentials on the host means NLP
+    cannot work, so nothing is asked.
+    """
+    config = read_config({'gcloud_use_profile': False})
+    with patch.object(CLI, 'colored_input') as mock_input:
+        config._Config__questions_nlp_quick()
+    mock_input.assert_not_called()
+    assert config._Config__dict['use_nlp'] is False
+
+
+def test_questions_nlp_quick_asks_three_questions_after_yes():
+    config = read_config({'gcloud_use_profile': True})
+    with patch('helpers.cli.CLI.colored_input') as mock_input:
+        mock_input.side_effect = iter([
+            CHOICE_YES, 'my-bucket', 'us-west-2', 'my-gcp-project',
+        ])
+        config._Config__questions_nlp_quick()
     d = config._Config__dict
-    assert d['asr_mt_google_project_id'] == 'detected-project'
-    assert d['gcloud_project'] == 'detected-project'
-    assert d['gcloud_quota_project'] == 'detected-project'
+    assert mock_input.call_count == 4  # the gate, then three answers
+    assert d['use_nlp'] is True
+    assert d['gs_bucket_name'] == 'my-bucket'
+    assert d['aws_bedrock_region_name'] == 'us-west-2'
+    assert d['asr_mt_google_project_id'] == 'my-gcp-project'
+
+
+def test_questions_nlp_quick_stops_after_no():
+    config = read_config({'gcloud_use_profile': True})
+    with patch('helpers.cli.CLI.colored_input') as mock_input:
+        mock_input.side_effect = iter([CHOICE_NO])
+        config._Config__questions_nlp_quick()
+    assert mock_input.call_count == 1
+    assert config._Config__dict['use_nlp'] is False
+
+
+def test_questions_nlp_quick_silent_when_custom_yml_owns_it(tmp_path):
+    config = _config_with_custom_yml(tmp_path, '      - GS_BUCKET_NAME=mine')
+    config._Config__dict['gcloud_use_profile'] = True
+    with patch.object(CLI, 'colored_input') as mock_input:
+        config._Config__questions_nlp_quick()
+    mock_input.assert_not_called()
+
+
+def test_questions_nlp_quick_offers_the_detected_project(tmp_path):
+    """
+    __auto_detect_gcloud_profile has just filled the project in, so a bare
+    ENTER keeps it.
+    """
+    config = read_config({
+        'gcloud_use_profile': True,
+        'asr_mt_google_project_id': 'detected-project',
+    })
+    with patch.object(CLI, 'yes_no_question', return_value=True), \
+         patch.object(CLI, 'colored_input',
+                      side_effect=lambda m, c, default='': default):
+        config._Config__questions_nlp_quick()
+    assert config._Config__dict['asr_mt_google_project_id'] == \
+        'detected-project'
 
 
 # ── __questions_web_server_port ──────────────────────────────────────────────
@@ -847,7 +1120,13 @@ def _menu_choices(config):
         })
         return []
 
-    with patch.object(CLI, 'checkbox_menu', side_effect=fake_menu):
+    # `kobodocker_path` points at the real sibling checkout, which on a
+    # developer's machine may carry a custom compose file holding the NLP
+    # variables. That case has its own test; the menu tests must not depend
+    # on it.
+    with patch.object(CLI, 'checkbox_menu', side_effect=fake_menu), \
+         patch.object(Config, '_Config__nlp_managed_by_custom_yml',
+                      return_value=False):
         config._Config__questions_advanced_sections()
 
     return captured
@@ -939,6 +1218,73 @@ def test_old_install_without_memory_is_treated_as_a_first_menu():
     }
 
 
+def test_cloud_and_nlp_sections_are_development_only():
+    """
+    A server authenticates with its own credentials, and gets its NLP settings
+    from Constance — neither section has anything to offer there.
+    """
+    dev = _menu_choices(_menu_config({
+        'install_mode': 'dev', 'local_installation': True, 'dev_mode': True,
+    }))
+    assert 'Cloud credentials (AWS & Google)' in dev
+    assert 'NLP and qualitative analysis' in dev
+
+    for mode, overrides in (
+        ('staging', {'staging_mode': True}),
+        ('production', {}),
+    ):
+        choices = _menu_choices(_menu_config(
+            dict(overrides, install_mode=mode, local_installation=False)
+        ))
+        assert 'Cloud credentials (AWS & Google)' not in choices, mode
+        assert 'NLP and qualitative analysis' not in choices, mode
+        # AWS S3 storage stays available everywhere
+        assert 'AWS S3 storage' in choices, mode
+
+
+def test_cloud_profiles_section_checked_from_either_profile():
+    """
+    One section covers both mounts, so either one being on pre-checks it.
+    """
+    base = {
+        'install_mode': 'dev', 'local_installation': True, 'dev_mode': True,
+        'aws_use_profile': False, 'gcloud_use_profile': False,
+    }
+    label = 'Cloud credentials (AWS & Google)'
+
+    assert _menu_choices(_menu_config(base))[label] is False
+    assert _menu_choices(_menu_config(
+        dict(base, aws_use_profile=True)))[label] is True
+    assert _menu_choices(_menu_config(
+        dict(base, gcloud_use_profile=True)))[label] is True
+
+
+def test_nlp_section_hidden_when_custom_yml_owns_it(tmp_path):
+    (tmp_path / 'docker-compose.frontend.custom.yml').write_text(
+        '      - GS_BUCKET_NAME=my-bucket\n'
+    )
+    config = _menu_config({
+        'install_mode': 'dev', 'local_installation': True, 'dev_mode': True,
+        'kobodocker_path': str(tmp_path),
+        'use_nlp': True,
+    })
+
+    captured = {}
+
+    def fake_menu(title, choices):
+        captured.update({
+            c['label']: c['checked'] for c in choices if 'label' in c
+        })
+        return []
+
+    with patch.object(CLI, 'checkbox_menu', side_effect=fake_menu):
+        config._Config__questions_advanced_sections()
+
+    assert 'NLP and qualitative analysis' not in captured
+    # The mounts are a separate concern and stay on offer
+    assert 'Cloud credentials (AWS & Google)' in captured
+
+
 def test_database_sections_are_never_pre_checked():
     """
     MongoDB, PostgreSQL and Redis all default to a generated password, so a
@@ -1007,7 +1353,10 @@ def test_remembered_selection_wins_over_values():
     customised value no longer re-checks it on its own.
     """
     config = _later_run_config({
-        'install_mode': 'production',
+        # NLP is offered in development only
+        'install_mode': 'dev',
+        'local_installation': True,
+        'dev_mode': True,
         'use_nlp': True,
         'docker_prefix': 'kobo1',
         'advanced_sections_seen': ['nlp', 'docker_prefix', 'superuser', 'aws'],
@@ -1029,7 +1378,9 @@ def test_section_added_by_an_upgrade_falls_back_to_values():
     kobo-install — must still surface from its own value.
     """
     config = _later_run_config({
-        'install_mode': 'production',
+        'install_mode': 'dev',
+        'local_installation': True,
+        'dev_mode': True,
         'use_nlp': True,
         'gcloud_use_profile': True,
         'advanced_sections_seen': ['aws', 'smtp', 'superuser'],
@@ -1039,7 +1390,7 @@ def test_section_added_by_an_upgrade_falls_back_to_values():
     choices = _menu_choices(config)
 
     assert choices['NLP and qualitative analysis'] is True
-    assert choices['Google Cloud credentials'] is True
+    assert choices['Cloud credentials (AWS & Google)'] is True
     # Remembered keys still obey the memory
     assert choices['AWS S3 storage'] is True
     assert choices['SMTP'] is False
@@ -1178,9 +1529,14 @@ DEV_LEFTOVERS = {
     'debug': True,
     'use_celery': False,
     'aws_use_profile': True,
+    'aws_profile_name': 'dev',
     'aws_host_aws_dir': '/home/dev/.aws',
     'gcloud_use_profile': True,
     'gcloud_host_config_dir': '/home/dev/.config/gcloud',
+    'use_nlp': True,
+    'gs_bucket_name': 'dev-bucket',
+    'aws_bedrock_region_name': 'us-west-2',
+    'asr_mt_google_project_id': 'dev-project',
 }
 
 
@@ -1218,7 +1574,14 @@ def test_switching_to_a_server_clears_development_values(choice, mode):
     assert d['exposed_nginx_docker_port'] == Config.DEFAULT_NGINX_PORT
     # Host credential directories do not exist on a server
     assert d['aws_use_profile'] is False
+    assert d['aws_profile_name'] == 'default'
+    assert d['aws_host_aws_dir'] == os.path.expanduser('~/.aws')
     assert d['gcloud_use_profile'] is False
+    # NLP is a development-only section; a server gets it from Constance
+    assert d['use_nlp'] is False
+    assert d['gs_bucket_name'] == ''
+    assert d['aws_bedrock_region_name'] == ''
+    assert d['asr_mt_google_project_id'] == ''
     assert d['debug'] is False
     assert d['use_celery'] is True
 

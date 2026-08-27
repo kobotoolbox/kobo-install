@@ -39,9 +39,23 @@ class Config(metaclass=Singleton):
         string.ascii_letters
         + string.digits
     )
+    # Variables kobo-install writes for NLP. When kobo-docker's front-end
+    # custom compose file already defines one of them, that file owns the NLP
+    # configuration and kobo-install stays out of the way.
+    # The AutoQA model ARNs are deliberately absent: kobo-install no longer
+    # manages them, so a custom file holding only those must not hide the
+    # NLP questions.
+    NLP_CUSTOM_YML_VARS = (
+        'AWS_BEDROCK_REGION_NAME',
+        'CONSTANCE_ASR_MT_GOOGLE_PROJECT_ID',
+        'GOOGLE_CLOUD_PROJECT',
+        'GOOGLE_CLOUD_QUOTA_PROJECT',
+        'GS_BUCKET_NAME',
+    )
 
     def __init__(self):
         self.__first_time = None
+        self.__nlp_custom_yml = None
         self.__dict = self.read_config()
 
     @property
@@ -107,18 +121,36 @@ class Config(metaclass=Singleton):
             # Step 1: Mode — dev / staging / production
             self.__questions_install_mode()
 
-            # Step 2: Complexity — simple / advanced
+            # Step 2: quick setup / custom setup
             self.__questions_complexity()
 
             # Step 3: Auto-set directory and detect network (no questions)
             self.__setup_directory()
             self.__auto_detect_network()
 
+            # Step 3b: stand back when kobo-docker's custom compose file
+            # already carries the NLP variables — writing them to
+            # `external_services.txt` too would give each one two sources of
+            # truth, and the custom file wins at `docker compose` time anyway.
+            if self.frontend and self.__nlp_managed_by_custom_yml():
+                self.__dict['use_nlp'] = False
+                CLI.colored_print(
+                    '  \u2192 NLP settings come from '
+                    'docker-compose.frontend.custom.yml \u2014 skipping',
+                    CLI.COLOR_INFO,
+                )
+                if not self.__dict['use_frontend_custom_yml']:
+                    CLI.colored_print(
+                        '    (tick "Custom YAML" in Custom setup so that file '
+                        'is actually loaded)',
+                        CLI.COLOR_WARNING,
+                    )
+
             # Step 4: Auto-configure PostgreSQL and uWSGI on first run
             if self.first_time and not self.dev_mode:
                 self.__auto_configure_resources()
 
-            # Simple: all defaults, done
+            # Quick setup: all defaults, done
             if not self.advanced_options:
                 if self.dev_mode:
                     self.__dict['email_backend'] = (
@@ -126,12 +158,13 @@ class Config(metaclass=Singleton):
                     )
                     self.__auto_detect_aws_profile()
                     self.__auto_detect_gcloud_profile()
+                    self.__questions_nlp_quick()
                 self.__secure_mongo()
                 self.__confirm_overwrite_or_exit()
                 self.write_config()
                 return self.__dict
 
-            # Advanced: checkbox menu immediately, then run only selected sections
+            # Custom setup: section menu, then only the selected sections
             selected = self.__questions_advanced_sections()
             self.__run_selected_advanced_sections(selected)
 
@@ -148,7 +181,7 @@ class Config(metaclass=Singleton):
         install path) has been answered, ensures declining leaves every
         existing file on disk untouched.
 
-        Both the simple and the advanced branch of `build()` must go through
+        Both the quick and the custom branch of `build()` must go through
         this: they each write the configuration on their own.
         """
         from helpers.template import Template  # avoids circular import
@@ -292,13 +325,11 @@ class Config(metaclass=Singleton):
         # Keep properties sorted alphabetically
         return {
             'advanced': False,
+            'advanced_sections_seen': [],
+            'advanced_sections_selected': [],
+            'asr_mt_google_project_id': '',
             'aws_access_key': '',
             'aws_backup_bucket_deletion_rule_enabled': False,
-            'autoqa_claudesonnet_model_aip_arn': '',
-            'autoqa_oss120_model_aip_arn': '',
-            'advanced_sections_seen': [],
-            'asr_mt_google_project_id': '',
-            'advanced_sections_selected': [],
             'aws_backup_bucket_name': '',
             'aws_backup_daily_retention': '30',
             'aws_backup_monthly_retention': '12',
@@ -335,8 +366,6 @@ class Config(metaclass=Singleton):
             'expose_backend_ports': False,
             'exposed_nginx_docker_port': Config.DEFAULT_NGINX_PORT,
             'gcloud_host_config_dir': os.path.expanduser('~/.config/gcloud'),
-            'gcloud_project': '',
-            'gcloud_quota_project': '',
             'gcloud_use_profile': False,
             'google_api_key': '',
             'google_ua': '',
@@ -527,6 +556,9 @@ class Config(metaclass=Singleton):
             pass
 
         self.__dict = dict_
+        # `kobodocker_path` may well have changed, so anything derived from it
+        # has to be looked up again.
+        self.__nlp_custom_yml = None
         unique_id = self.read_unique_id()
         if not unique_id:
             self.__dict['unique_id'] = int(time.time())
@@ -764,8 +796,8 @@ class Config(metaclass=Singleton):
         AWS credentials are available inside the containers.
 
         This does NOT enable S3 storage (`use_aws`); switching the default
-        file storage to S3 stays an explicit opt-in via the advanced AWS
-        section ("Do you want to use AWS S3 storage?").
+        file storage to S3 stays an explicit opt-in via the "AWS S3 storage"
+        section of custom setup.
         """
         aws_dir = os.path.expanduser('~/.aws')
         if not os.path.isdir(aws_dir):
@@ -787,8 +819,8 @@ class Config(metaclass=Singleton):
         they pick up the developer's application default credentials.
 
         The active project is also read from the gcloud config so the NLP
-        section comes pre-filled, but it is only stored: NLP settings stay
-        commented out until that section is explicitly selected.
+        questions come pre-filled, but it is only stored: NLP settings stay
+        commented out until NLP is explicitly turned on.
         """
         gcloud_dir = os.path.expanduser('~/.config/gcloud')
         if not os.path.isdir(gcloud_dir):
@@ -804,8 +836,6 @@ class Config(metaclass=Singleton):
 
         project = self.__detect_gcloud_project(gcloud_dir)
         if project:
-            self.__dict['gcloud_project'] = project
-            self.__dict['gcloud_quota_project'] = project
             self.__dict['asr_mt_google_project_id'] = project
             CLI.colored_print(
                 f'  \u2192 Active Google Cloud project: {project}',
@@ -832,9 +862,56 @@ class Config(metaclass=Singleton):
             # break the setup: the project stays empty and can be typed in.
             return ''
 
+    def __nlp_managed_by_custom_yml(self):
+        """
+        Whether kobo-docker's front-end custom compose file already defines the
+        NLP variables. Developers used to add them there by hand, and letting
+        kobo-install write them too would give the same variable two sources of
+        truth.
+
+        The file cannot exist on a first run — kobo-docker is only cloned once
+        `build()` is over (`helpers/setup.py`) — so a missing file simply means
+        "not managed", no `first_time` check needed.
+
+        Returns:
+            bool: True as soon as one of `NLP_CUSTOM_YML_VARS` carries a
+            non-empty value.
+        """
+        if self.__nlp_custom_yml is not None:
+            return self.__nlp_custom_yml
+
+        self.__nlp_custom_yml = False
+        custom_file = os.path.join(
+            self.__dict['kobodocker_path'],
+            'docker-compose.frontend.custom.yml',
+        )
+        try:
+            with open(custom_file, 'r') as f:
+                lines = f.readlines()
+        except (OSError, UnicodeDecodeError):
+            # No custom file, or one we cannot read: nothing to defer to.
+            return self.__nlp_custom_yml
+
+        # Parsed by hand rather than with a YAML library: the wizard runs
+        # before any dependency is installed. Both the list form used by
+        # `environment:` (`- NAME=value`) and the mapping form (`NAME: value`)
+        # are accepted.
+        pattern = re.compile(
+            r'^\s*-?\s*({})\s*[=:]\s*(.*?)\s*$'.format(
+                '|'.join(self.NLP_CUSTOM_YML_VARS)
+            )
+        )
+        for line in lines:
+            match = pattern.match(line)
+            if match and match.group(2):
+                self.__nlp_custom_yml = True
+                break
+
+        return self.__nlp_custom_yml
+
     def __detect_network(self):
         """
-        Detects network and asks for interface selection when in advanced mode.
+        Detects network and asks for interface selection in custom setup.
         Kept for backwards compatibility (used by auto_detect_network property).
         """
         self.__auto_detect_network()
@@ -843,7 +920,7 @@ class Config(metaclass=Singleton):
 
     def __questions_network_interface(self):
         """
-        Asks the user which network interface to bind to (advanced mode).
+        Asks the user which network interface to bind to (custom setup).
         """
         CLI.colored_print(
             'Please choose which network interface you want to use?',
@@ -918,25 +995,16 @@ class Config(metaclass=Singleton):
         self.__questions_aws_validate_credentials()
 
     def __questions_aws_configuration(self):
-
+        """
+        Asks for the S3 storage settings only. Profile authentication is a
+        separate concern, handled by `__questions_cloud_profiles()`: mounting
+        the host `~/.aws` is useful without S3, and turning S3 off must not
+        take that mount away.
+        """
         if self.__dict['use_aws']:
-            self.__dict['aws_use_profile'] = CLI.yes_no_question(
-                'Use AWS profile instead of credentials (access key/secret)?',
-                default=self.__dict['aws_use_profile']
-            )
-            if self.__dict['aws_use_profile']:
-                self.__dict['aws_profile_name'] = CLI.colored_input(
-                    'AWS Profile Name', CLI.COLOR_QUESTION,
-                    self.__dict['aws_profile_name'])
-                self.__dict['aws_host_aws_dir'] = CLI.colored_input(
-                    'AWS credentials directory on host',
-                    CLI.COLOR_QUESTION,
-                    self.__dict['aws_host_aws_dir'])
-                self.__dict['aws_access_key'] = ''
-                self.__dict['aws_secret_key'] = ''
-            else:
-                self.__dict['aws_profile_name'] = ''
-                self.__dict['aws_host_aws_dir'] = ''
+            # A profile already provides the credentials; asking for a key and
+            # a secret on top of it would only add dead values.
+            if not self.__dict['aws_use_profile']:
                 self.__dict['aws_access_key'] = CLI.colored_input(
                     'AWS Access Key', CLI.COLOR_QUESTION,
                     self.__dict['aws_access_key'])
@@ -954,20 +1022,44 @@ class Config(metaclass=Singleton):
             self.__dict['aws_secret_key'] = ''
             self.__dict['aws_bucket_name'] = ''
             self.__dict['aws_s3_region_name'] = ''
-            self.__dict['aws_use_profile'] = False
+
+    def __questions_cloud_profiles(self):
+        """
+        Asks whether to mount the host AWS and gcloud credential directories
+        into the containers. Offered in development only: a server
+        authenticates with its own credentials, not with a developer's.
+
+        Both are independent of the storage and NLP sections — mounting
+        `~/.aws` does not turn S3 storage on, and mounting `~/.config/gcloud`
+        does not turn NLP on.
+
+        The auto-detection in `build()` only runs in quick setup, so nothing
+        has looked at the host yet here. Detect both directories and default to
+        "Yes" when they exist; an explicit previous answer still wins.
+        """
+        aws_dir = (
+            self.__dict['aws_host_aws_dir']
+            or os.path.expanduser('~/.aws')
+        )
+        self.__dict['aws_use_profile'] = CLI.yes_no_question(
+            'Use your AWS profile (instead of an access key and secret)?',
+            default=(
+                self.__dict['aws_use_profile'] or os.path.isdir(aws_dir)
+            )
+        )
+        if self.__dict['aws_use_profile']:
+            self.__dict['aws_profile_name'] = CLI.colored_input(
+                'AWS profile name', CLI.COLOR_QUESTION,
+                self.__dict['aws_profile_name'])
+            self.__dict['aws_host_aws_dir'] = CLI.colored_input(
+                'AWS credentials directory on host', CLI.COLOR_QUESTION,
+                aws_dir)
+            self.__dict['aws_access_key'] = ''
+            self.__dict['aws_secret_key'] = ''
+        else:
             self.__dict['aws_profile_name'] = ''
             self.__dict['aws_host_aws_dir'] = ''
 
-    def __questions_gcloud(self):
-        """
-        Asks whether to mount the host gcloud configuration directory so
-        containers authenticate with application default credentials.
-
-        `__auto_detect_gcloud_profile()` only runs in dev simple mode, so in
-        advanced mode nothing has looked at the host yet. Detect the directory
-        here too and default to "Yes" when it exists — an explicit previous
-        answer still wins over the detection.
-        """
         gcloud_dir = (
             self.__dict['gcloud_host_config_dir']
             or os.path.expanduser('~/.config/gcloud')
@@ -996,6 +1088,8 @@ class Config(metaclass=Singleton):
         self.__dict['aws_credentials_valid'] = False
         aws_credential_attempts = 0
 
+        # Nothing to validate in profile mode: the credentials live in the
+        # host directory mounted by `__questions_cloud_profiles()`.
         if self.__dict['use_aws'] and not self.__dict['aws_use_profile']:
             self.__dict['aws_validate_credentials'] = CLI.yes_no_question(
                 'Would you like to validate your AWS credentials?',
@@ -1009,7 +1103,6 @@ class Config(metaclass=Singleton):
         ):
             while (
                 not self.__dict['aws_credentials_valid']
-                and not self.__dict['aws_use_profile']
                 and aws_credential_attempts
                 <= self.MAXIMUM_AWS_CREDENTIAL_ATTEMPTS
             ):
@@ -1035,9 +1128,7 @@ class Config(metaclass=Singleton):
                     )
                     self.__questions_aws_configuration()
             else:
-                if self.__dict['aws_use_profile']:
-                    pass
-                elif not self.__dict['aws_credentials_valid']:
+                if not self.__dict['aws_credentials_valid']:
                     CLI.colored_print(
                         'Please restart configuration', CLI.COLOR_ERROR
                     )
@@ -1239,40 +1330,57 @@ class Config(metaclass=Singleton):
             CLI.COLOR_QUESTION,
             self.__dict['google_api_key'])
 
+    def __questions_nlp_quick(self):
+        """
+        The one question quick setup asks a developer.
+
+        NLP needs Google credentials, so it is only worth raising when
+        `~/.config/gcloud` was found on the host — `__auto_detect_gcloud_profile()`
+        has just run and turned `gcloud_use_profile` on if it was. Without it,
+        quick setup keeps its promise and stays silent.
+
+        `build()` has already given up on NLP when kobo-docker's custom
+        compose file provides the variables, so re-checking here would only
+        ask a question whose answer cannot be used.
+        """
+        if not self.__dict['gcloud_use_profile']:
+            return
+
+        if self.__nlp_managed_by_custom_yml():
+            return
+
+        if not CLI.yes_no_question(
+            'Configure NLP (transcription and translation)?',
+            default=True,
+        ):
+            return
+
+        self.__questions_nlp()
+
     def __questions_nlp(self):
         """
         Asks for the NLP / qualitative analysis settings.
 
-        Selecting the section in the advanced menu is the consent, so there is
-        no extra yes/no gate here.
+        Three values are enough. `GOOGLE_CLOUD_PROJECT` and
+        `GOOGLE_CLOUD_QUOTA_PROJECT` are what the Google SDK needs to work with
+        application default credentials, and they always hold the project ID
+        answered here, so they are derived rather than asked
+        (see `Template.render()`).
+
+        In the section menu, ticking the section is the consent; quick setup
+        gates the call with its own yes/no question.
         """
         self.__dict['use_nlp'] = True
 
-        self.__dict['aws_bedrock_region_name'] = CLI.colored_input(
-            'AWS Bedrock region name', CLI.COLOR_QUESTION,
-            self.__dict['aws_bedrock_region_name'])
-        self.__dict['autoqa_claudesonnet_model_aip_arn'] = CLI.colored_input(
-            'AutoQA Claude Sonnet model ARN', CLI.COLOR_QUESTION,
-            self.__dict['autoqa_claudesonnet_model_aip_arn'])
-        self.__dict['autoqa_oss120_model_aip_arn'] = CLI.colored_input(
-            'AutoQA OSS-120 model ARN', CLI.COLOR_QUESTION,
-            self.__dict['autoqa_oss120_model_aip_arn'])
         self.__dict['gs_bucket_name'] = CLI.colored_input(
             'Google Cloud Storage bucket name', CLI.COLOR_QUESTION,
             self.__dict['gs_bucket_name'])
-        # The three project settings hold the same value on every install we
-        # know of, so ask once and offer that answer for the other two rather
-        # than making the user type it three times.
-        project = CLI.colored_input(
-            'ASR/MT Google project ID', CLI.COLOR_QUESTION,
-            self.__dict['asr_mt_google_project_id']
-            or self.__dict['gcloud_project'])
-        self.__dict['asr_mt_google_project_id'] = project
-
-        self.__dict['gcloud_project'] = CLI.colored_input(
-            'Google Cloud project', CLI.COLOR_QUESTION, project)
-        self.__dict['gcloud_quota_project'] = CLI.colored_input(
-            'Google Cloud quota project', CLI.COLOR_QUESTION, project)
+        self.__dict['aws_bedrock_region_name'] = CLI.colored_input(
+            'AWS Bedrock region name', CLI.COLOR_QUESTION,
+            self.__dict['aws_bedrock_region_name'])
+        self.__dict['asr_mt_google_project_id'] = CLI.colored_input(
+            'Google Cloud project ID', CLI.COLOR_QUESTION,
+            self.__dict['asr_mt_google_project_id'])
 
     def __questions_https(self):
         """
@@ -1551,7 +1659,7 @@ class Config(metaclass=Singleton):
         """
         PostgreSQL performance tuning via the pgconfig.org API.
 
-        Selecting this advanced section is the consent to tweak settings, so
+        Ticking this section is the consent to tweak settings, so
         there is no extra yes/no prompt: `postgres_settings` is forced to True
         and the tuning questions are asked directly.
         """
@@ -2068,7 +2176,7 @@ class Config(metaclass=Singleton):
         """
         uWSGI performance tuning.
 
-        Selecting this advanced section is the consent to tweak settings, so
+        Ticking this section is the consent to tweak settings, so
         there is no extra yes/no prompt: `uwsgi_settings` is forced to True
         and the tuning questions are asked directly. Not offered in dev mode.
         """
@@ -2282,7 +2390,7 @@ class Config(metaclass=Singleton):
             self.__dict['postgres_profile'] = 'Mixed'
             self.__dict['postgres_settings'] = True
             # Values come from hardware detection, not from the user: the
-            # advanced menu must not present the section as customised.
+            # section menu must not present the section as customised.
             self.__dict['postgres_settings_auto'] = True
 
             endpoint = (
@@ -2362,7 +2470,7 @@ class Config(metaclass=Singleton):
 
     def __questions_advanced_sections(self):
         """
-        Shows a curses checkbox menu so the user can select which advanced
+        Shows a curses checkbox menu so the user can select which
         sections to configure. Sections are grouped and sorted alphabetically
         within each group.
 
@@ -2640,20 +2748,30 @@ class Config(metaclass=Singleton):
                         'checked': d.get('raven_settings', False),
                     },
                 ]
-            external.append({
-                'key': 'gcloud_profile',
-                'label': 'Google Cloud credentials',
-                'description': 'Mount ~/.config/gcloud so containers use '
-                               'application default credentials.',
-                'checked': d.get('gcloud_use_profile', False),
-            })
-            external.append({
-                'key': 'nlp',
-                'label': 'NLP and qualitative analysis',
-                'description': 'Bedrock region, AutoQA model ARNs and Google '
-                               'Cloud bucket/project.',
-                'checked': d.get('use_nlp', False),
-            })
+            # Host credential directories and NLP only make sense on a
+            # workstation: a server authenticates with its own credentials and
+            # gets its NLP settings from Constance.
+            if mode == 'dev':
+                external.append({
+                    'key': 'cloud_profiles',
+                    'label': 'Cloud credentials (AWS & Google)',
+                    'description': 'Mount ~/.aws and ~/.config/gcloud so '
+                                   'containers use your host credentials.',
+                    'checked': (
+                        d.get('gcloud_use_profile', False)
+                        or d.get('aws_use_profile', False)
+                    ),
+                })
+                # Nothing to ask when kobo-docker's custom compose file
+                # already carries these variables.
+                if not self.__nlp_managed_by_custom_yml():
+                    external.append({
+                        'key': 'nlp',
+                        'label': 'NLP and qualitative analysis',
+                        'description': 'Google Cloud bucket and project, and '
+                                       'the AWS Bedrock region.',
+                        'checked': d.get('use_nlp', False),
+                    })
         if external:
             groups.append(('External services', external))
 
@@ -2694,7 +2812,7 @@ class Config(metaclass=Singleton):
                 all_sections.append(item)
 
         selected_labels = CLI.checkbox_menu(
-            'Select advanced sections to configure:',
+            'Select the sections you want to configure:',
             choices,
         )
 
@@ -2720,7 +2838,7 @@ class Config(metaclass=Singleton):
 
     def __questions_celery_npm(self):
         """
-        Asks for Celery and npm configuration (dev advanced mode).
+        Asks for Celery and npm configuration (dev, custom setup).
         """
         self.__dict['use_celery'] = CLI.yes_no_question(
             'Use Celery for background tasks?',
@@ -2737,8 +2855,8 @@ class Config(metaclass=Singleton):
 
     def __questions_web_server_port(self):
         """
-        Asks for the host port the web server is exposed on (dev advanced
-        mode). Developers who already use port 80 for something else need to
+        Asks for the host port the web server is exposed on (dev, custom
+        setup). Developers who already use port 80 for something else need to
         move the instance elsewhere.
         """
         CLI.colored_print('Web server port?', CLI.COLOR_QUESTION)
@@ -2747,15 +2865,30 @@ class Config(metaclass=Singleton):
 
     def __questions_complexity(self):
         """
-        Asks whether to use simple or advanced setup.
+        Asks whether every default applies, or whether the section menu opens.
+
+        Rendered by hand, like `__questions_install_mode()`: "Simple" and
+        "Advanced" on their own said nothing about what either one does, and
+        `CLI.yes_no_question()` prints a bare label with no room to explain.
+
+        The stored key stays `advanced` — renaming it would break existing
+        `.run.conf` files and the `use_booleans_v4` migration.
         """
-        # yes_no_question maps choice 1 → True, so Simple first means
-        # we negate both the default and the result.
-        self.__dict['advanced'] = not CLI.yes_no_question(
-            'Setup complexity?',
-            default=not self.__dict.get('advanced', False),
-            labels=['Simple', 'Advanced'],
+        default = '2' if self.__dict.get('advanced', False) else '1'
+
+        CLI.colored_print(
+            'How do you want to configure this installation?',
+            CLI.COLOR_QUESTION
         )
+        CLI.colored_print(
+            '\t1) Quick setup   (accept every default, nothing else is asked)'
+        )
+        CLI.colored_print(
+            '\t2) Custom setup  (pick the sections you want to configure)'
+        )
+
+        response = CLI.get_response(['1', '2'], default=default)
+        self.__dict['advanced'] = response == '2'
 
     def __questions_install_mode(self):
         """
@@ -2774,9 +2907,17 @@ class Config(metaclass=Singleton):
         CLI.colored_print(
             'What kind of installation do you need?', CLI.COLOR_QUESTION
         )
-        CLI.colored_print('\t1) Development  (local workstation, DEBUG on)')
-        CLI.colored_print('\t2) Staging      (server, test environment)')
-        CLI.colored_print('\t3) Production   (server)')
+        CLI.colored_print(
+            '\t1) Development  \u2014 your own workstation. DEBUG on, plain '
+            'HTTP, no domain name needed'
+        )
+        CLI.colored_print(
+            '\t2) Staging      \u2014 a server running a test copy of '
+            'production'
+        )
+        CLI.colored_print(
+            '\t3) Production   \u2014 a server running the live instance'
+        )
 
         response = CLI.get_response(['1', '2', '3'], default=default)
         mode = {'1': 'dev', '2': 'staging', '3': 'production'}[response]
@@ -2825,7 +2966,7 @@ class Config(metaclass=Singleton):
         defaults, when an existing development install becomes a server.
 
         `__reset()` does not cover these, and neither path of `build()` would
-        ask about them afterwards: simple mode asks nothing, and the advanced
+        ask about them afterwards: quick setup asks nothing, and the section
         menu only runs the sections that were ticked. Left alone they would
         reach the generated server configuration — printing email to the
         console, serving plain HTTP, or mounting host credential directories
@@ -2837,15 +2978,23 @@ class Config(metaclass=Singleton):
             'https',
             'use_letsencrypt',
             'aws_use_profile',
+            'aws_profile_name',
             'aws_host_aws_dir',
             'gcloud_use_profile',
             'gcloud_host_config_dir',
+            # NLP is a development-only section now; on a server the values
+            # come from Constance. Left alone they would reach the generated
+            # server configuration with no section left to correct them.
+            'use_nlp',
+            'gs_bucket_name',
+            'aws_bedrock_region_name',
+            'asr_mt_google_project_id',
         ):
             self.__dict[key] = template[key]
 
     def __questions_kpi_path(self):
         """
-        Asks for KPI source files location (dev/staging advanced mode).
+        Asks for KPI source files location (dev/staging, custom setup).
         """
         message = (
             'Where are the files located locally? It can be absolute '
@@ -2871,7 +3020,7 @@ class Config(metaclass=Singleton):
 
     def __run_selected_advanced_sections(self, selected):
         """
-        Runs question methods for each selected advanced section.
+        Runs question methods for each section selected in custom setup.
         Order matches the section list in __questions_advanced_sections.
 
         Args:
@@ -2956,14 +3105,16 @@ class Config(metaclass=Singleton):
             self.__questions_ports()
 
         # Storage & integrations
+        # Cloud profiles come first: the AWS S3 section skips the access
+        # key/secret prompts when profile authentication is on.
+        if 'cloud_profiles' in selected:
+            self.__questions_cloud_profiles()
+
         if 'aws' in selected:
             self.__questions_aws()
 
         if 'backups' in selected:
             self.__questions_backup()
-
-        if 'gcloud_profile' in selected:
-            self.__questions_gcloud()
 
         if 'google' in selected:
             self.__questions_google()
@@ -2989,7 +3140,7 @@ class Config(metaclass=Singleton):
     def __setup_directory(self):
         """
         Auto-sets kobodocker_path to ../kobo-docker (sibling of kobo-install).
-        The 'Install directory' checkbox section lets advanced users override it.
+        The 'Install directory' section of custom setup lets it be overridden.
         """
         base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
         kobodocker_path = os.path.realpath(

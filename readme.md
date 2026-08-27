@@ -86,14 +86,14 @@ Setup starts with two questions, and everything else follows from them.
 
 **1. What kind of installation do you need?**
 
-- `Development` — local workstation. `DEBUG` is on, SSRF protection is disabled, and the web server is reachable over plain HTTP on the machine itself. No DNS needed
-- `Staging` — server hosting a test environment
-- `Production` — server
+- `Development` — your own workstation. `DEBUG` is on, SSRF protection is disabled, and the web server is reachable over plain HTTP on the machine itself. No domain name needed
+- `Staging` — a server running a test copy of production
+- `Production` — a server running the live instance
 
-**2. Setup complexity?**
+**2. How do you want to configure this installation?**
 
-- `Simple` — no further questions. Every default applies, `kobo-docker` is expected next to `kobo-install` (`../kobo-docker`), and a few things are detected automatically (see below)
-- `Advanced` — a checkbox menu opens so you pick only the sections you care about, then you are asked about those and nothing else
+- `Quick setup` — accept every default, nothing else is asked. `kobo-docker` is expected next to `kobo-install` (`../kobo-docker`), and a few things are detected automatically (see below). The one exception is a development machine that already has Google Cloud credentials — see `NLP` below
+- `Custom setup` — a checkbox menu opens so you pick only the sections you care about, then you are asked about those and nothing else
 
 ### Automatic configuration
 
@@ -104,11 +104,19 @@ Whatever you choose, `kobo-install` sets up on its own:
 |Installation directory, set to `../kobo-docker`|Always. Override it with the `Install directory` section|
 |Primary network interface and IP|Always. Override it with the `Network interface` section|
 |PostgreSQL and uWSGI sizing, computed from detected CPUs and RAM <sup>3</sup>|First run, staging and production. 50% of the machine for staging, 75% for production. On a multi-server frontend, the uWSGI memory limit is raised to 75% since the databases live elsewhere|
-|`console` email backend, so messages are printed instead of sent|Development, simple|
-|AWS profile authentication, if `~/.aws` exists on the host|Development, simple. The directory is mounted read-only into the front-end containers. S3 storage itself stays off|
-|Google Cloud application default credentials, if `~/.config/gcloud` exists on the host|Development, simple. The directory is mounted read-only and the active project is read from `configurations/config_default` to pre-fill the NLP questions|
+|`console` email backend, so messages are printed instead of sent|Development, quick|
+|AWS profile authentication, if `~/.aws` exists on the host|Development, quick. The directory is mounted read-only into the front-end containers. S3 storage itself stays off|
+|Google Cloud application default credentials, if `~/.config/gcloud` exists on the host|Development, quick. The directory is mounted read-only and the active project is read from `configurations/config_default` to pre-fill the NLP questions|
 
-### The advanced menu
+### The one question quick setup can ask
+
+On a **development** machine where `~/.config/gcloud` was found, quick setup asks
+whether to configure NLP, then collects the three values listed under
+[Sections](#sections) below. Without those credentials NLP cannot work, so the
+question is skipped and quick setup stays silent. It is also skipped when
+`kobo-docker` already carries the NLP variables — see below.
+
+### The custom setup menu
 
 |Key|Action|
 |---|---|
@@ -151,17 +159,19 @@ A section shipped by a **newer version of kobo-install** has never been offered 
 | |Redis <sup>4</sup>|All, back end|
 | |Back-end service ports|Staging, production, back end|
 |External services|AWS S3 storage <sup>5</sup>|All, front end|
-| |Google Cloud credentials|All, front end|
-| |NLP and qualitative analysis|All, front end|
+| |Cloud credentials (AWS & Google)|Development, front end|
+| |NLP and qualitative analysis|Development, front end|
 | |Google Analytics & Maps|Staging, production, front end|
 | |Sentry|Staging, production, front end|
 |Maintenance|Backups <sup>6</sup>|All, front end|
 
 Checking a section is the consent to configure it — there is no second "do you want to tweak this?" question once you have selected it.
 
-`Google Cloud credentials` mounts your host `~/.config/gcloud` into the front-end containers so they authenticate with application default credentials. It is independent of the NLP settings: you can mount the credentials without turning NLP on.
+`Cloud credentials (AWS & Google)` mounts your host `~/.aws` and `~/.config/gcloud` into the front-end containers so they authenticate with your own credentials. Both mounts are independent of everything else: `~/.aws` does not turn S3 storage on, and `~/.config/gcloud` does not turn NLP on. Neither is offered on a server, which authenticates with its own credentials.
 
-`NLP and qualitative analysis` collects `AWS_BEDROCK_REGION_NAME`, the two AutoQA model ARNs, `GS_BUCKET_NAME`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_QUOTA_PROJECT` and `CONSTANCE_ASR_MT_GOOGLE_PROJECT_ID`. These no longer need to be added by hand to a custom YAML file.
+`NLP and qualitative analysis` collects three values — `GS_BUCKET_NAME`, `AWS_BEDROCK_REGION_NAME` and `CONSTANCE_ASR_MT_GOOGLE_PROJECT_ID`. `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_QUOTA_PROJECT` are what the Google SDK needs to work with application default credentials and always hold that same project, so they are derived rather than asked. The section is offered on a development machine only: a server gets these settings from `Constance`.
+
+If `kobo-docker/docker-compose.frontend.custom.yml` already defines any of those variables, that file wins. `kobo-install` says so, leaves the NLP block of `external_services.txt` commented out and does not ask — one variable, one source of truth. Remove them from the custom file if you would rather `kobo-install` managed them. The AutoQA model ARNs (`AUTOQA_CLAUDESONNET_MODEL_AIP_ARN`, `AUTOQA_OSS120_MODEL_AIP_ARN`) are not needed for local development; production instances that want them set them through that custom file.
 
 <sup>1)</sup> _The host port the web server listens on, `80` by default. Useful when something else already uses port 80 on your workstation_
 
@@ -187,7 +197,7 @@ Checking a section is the consent to configure it — there is no second "do you
 
     1. 80 NGINX
     1. 443 NGINX (if you use kobo-install with LetsEncrypt proxy)
-    2. Additional ports when `expose ports` advanced option has been selected
+    2. Additional ports when the `Backend service ports` section has been selected
         1. 5432 PostgreSQL
         3. 6379-6380 redis
         4. 27017 MongoDB
@@ -203,7 +213,7 @@ Checking a section is the consent to configure it — there is no second "do you
 
 <sup>7)</sup> _Compose V1 is **NOT** supported anymore. It has reached its EOL from July 2023_
 
-<sup>8)</sup> _These are defaults but can be customized with advanced options_
+<sup>8)</sup> _These are defaults but can be changed with `Custom setup`_
 
 
 ## Development

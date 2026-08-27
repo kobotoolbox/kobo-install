@@ -289,7 +289,7 @@ def test_gcloud_profile_independent_from_nlp():
     """
     vars_ = _get_template_vars({
         'gcloud_use_profile': True,
-        'gcloud_project': 'my-gcp-project',
+        'asr_mt_google_project_id': 'my-gcp-project',
         'use_nlp': False,
     })
     assert vars_['USE_GCLOUD_PROFILE'] == ''
@@ -304,21 +304,35 @@ def test_nlp_template_tokens_enabled():
     vars_ = _get_template_vars({
         'use_nlp': True,
         'aws_bedrock_region_name': 'us-west-2',
-        'autoqa_claudesonnet_model_aip_arn': 'arn:aws:bedrock:sonnet',
-        'autoqa_oss120_model_aip_arn': 'arn:aws:bedrock:oss120',
         'gs_bucket_name': 'my-bucket',
-        'gcloud_project': 'my-gcp-project',
-        'gcloud_quota_project': 'my-quota-project',
         'asr_mt_google_project_id': 'my-asr-project',
     })
     assert vars_['USE_NLP'] == ''
     assert vars_['AWS_BEDROCK_REGION_NAME'] == 'us-west-2'
-    assert vars_['AUTOQA_CLAUDESONNET_MODEL_AIP_ARN'] == 'arn:aws:bedrock:sonnet'
-    assert vars_['AUTOQA_OSS120_MODEL_AIP_ARN'] == 'arn:aws:bedrock:oss120'
     assert vars_['GS_BUCKET_NAME'] == 'my-bucket'
-    assert vars_['GOOGLE_CLOUD_PROJECT'] == 'my-gcp-project'
-    assert vars_['GOOGLE_CLOUD_QUOTA_PROJECT'] == 'my-quota-project'
     assert vars_['CONSTANCE_ASR_MT_GOOGLE_PROJECT_ID'] == 'my-asr-project'
+    # The Google SDK needs these for the application default credentials, and
+    # they always hold the ASR/MT project, so they are derived from it.
+    assert vars_['GOOGLE_CLOUD_PROJECT'] == 'my-asr-project'
+    assert vars_['GOOGLE_CLOUD_QUOTA_PROJECT'] == 'my-asr-project'
+
+
+def test_nlp_autoqa_arn_tokens_are_gone():
+    """
+    The AutoQA model ARNs are no longer needed for local development, and
+    production instances set them through their own custom compose file.
+    Emitting them empty would override the application defaults.
+    """
+    vars_ = _get_template_vars({'use_nlp': True})
+    assert 'AUTOQA_CLAUDESONNET_MODEL_AIP_ARN' not in vars_
+    assert 'AUTOQA_OSS120_MODEL_AIP_ARN' not in vars_
+
+    tpl = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        'templates', 'kobo-env', 'envfiles', 'external_services.txt.tpl',
+    )
+    with open(tpl, 'r') as f:
+        assert 'AUTOQA_' not in f.read()
 
 
 def test_nlp_template_tokens_disabled_by_default():
@@ -335,13 +349,9 @@ def test_gcloud_and_nlp_tokens_tolerate_old_config():
     for key in (
         'gcloud_use_profile',
         'gcloud_host_config_dir',
-        'gcloud_project',
-        'gcloud_quota_project',
         'gs_bucket_name',
         'use_nlp',
         'aws_bedrock_region_name',
-        'autoqa_claudesonnet_model_aip_arn',
-        'autoqa_oss120_model_aip_arn',
         'asr_mt_google_project_id',
     ):
         del config._Config__dict[key]

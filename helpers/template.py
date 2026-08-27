@@ -195,15 +195,14 @@ class Template:
             'GCLOUD_HOST_CONFIG_DIR': dict_.get('gcloud_host_config_dir', ''),
             'USE_NLP': '' if dict_.get('use_nlp', False) else '#',
             'AWS_BEDROCK_REGION_NAME': dict_.get('aws_bedrock_region_name', ''),
-            'AUTOQA_CLAUDESONNET_MODEL_AIP_ARN': dict_.get(
-                'autoqa_claudesonnet_model_aip_arn', ''
-            ),
-            'AUTOQA_OSS120_MODEL_AIP_ARN': dict_.get(
-                'autoqa_oss120_model_aip_arn', ''
-            ),
             'GS_BUCKET_NAME': dict_.get('gs_bucket_name', ''),
-            'GOOGLE_CLOUD_PROJECT': dict_.get('gcloud_project', ''),
-            'GOOGLE_CLOUD_QUOTA_PROJECT': dict_.get('gcloud_quota_project', ''),
+            # The Google SDK needs a project to work with application default
+            # credentials, and it is always the one used for ASR/MT. Derived
+            # from the single answer rather than asked three times.
+            'GOOGLE_CLOUD_PROJECT': dict_.get('asr_mt_google_project_id', ''),
+            'GOOGLE_CLOUD_QUOTA_PROJECT': dict_.get(
+                'asr_mt_google_project_id', ''
+            ),
             'CONSTANCE_ASR_MT_GOOGLE_PROJECT_ID': dict_.get(
                 'asr_mt_google_project_id', ''
             ),
