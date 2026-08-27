@@ -1421,12 +1421,11 @@ class Config(metaclass=Singleton):
             return
 
         if google and aws:
-            what = ('transcription, translation (Google) and '
-                    'qualitative analysis (Bedrock)')
+            what = 'NLP & Qualitative Analysis'
         elif google:
-            what = 'transcription and translation (Google)'
+            what = 'NLP'
         else:
-            what = 'qualitative analysis (AWS Bedrock)'
+            what = 'Qualitative Analysis'
 
         if not CLI.yes_no_question(f'Configure {what}?', default=True):
             return
@@ -1480,8 +1479,7 @@ class Config(metaclass=Singleton):
 
         if aws:
             self.__dict['aws_bedrock_region_name'] = CLI.colored_input(
-                'AWS Bedrock region name (qualitative analysis)',
-                CLI.COLOR_QUESTION,
+                'AWS Bedrock region name', CLI.COLOR_QUESTION,
                 self.__dict['aws_bedrock_region_name'])
 
     def __questions_https(self):

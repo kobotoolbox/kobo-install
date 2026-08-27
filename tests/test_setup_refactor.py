@@ -2132,11 +2132,11 @@ def test_questions_nlp_quick_names_what_is_actually_available():
     """The gate must not promise transcription to an AWS-only machine."""
     cases = [
         ({'gcloud_use_profile': True, 'aws_use_profile': True},
-         ['transcription', 'translation', 'qualitative analysis']),
+         'Configure NLP & Qualitative Analysis?'),
         ({'gcloud_use_profile': True, 'aws_use_profile': False},
-         ['transcription', 'translation']),
+         'Configure NLP?'),
         ({'gcloud_use_profile': False, 'aws_use_profile': True},
-         ['qualitative analysis']),
+         'Configure Qualitative Analysis?'),
     ]
     for flags, expected in cases:
         config = read_config({'aws_access_key': '', **flags})
@@ -2145,13 +2145,7 @@ def test_questions_nlp_quick_names_what_is_actually_available():
                           side_effect=lambda q, **k: asked.append(q) or False):
             config._Config__questions_nlp_quick()
 
-        assert len(asked) == 1
-        for word in expected:
-            assert word in asked[0]
-        if not flags['gcloud_use_profile']:
-            assert 'transcription' not in asked[0]
-        if not flags['aws_use_profile']:
-            assert 'qualitative analysis' not in asked[0]
+        assert asked == [expected], flags
 
 
 def test_questions_nlp_quick_silent_without_any_credentials():
