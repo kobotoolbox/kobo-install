@@ -1373,9 +1373,14 @@ class Config(metaclass=Singleton):
         Which providers the containers will be able to authenticate with, as
         `(google, aws)`.
 
-        Google needs the mounted gcloud configuration. AWS is reachable either
-        through the mounted profile or through the explicit keys the S3
-        storage section asks for, since boto3 reads both.
+        Google needs the mounted gcloud configuration. AWS is reachable
+        either through the mounted profile or through the explicit keys the
+        S3 storage section asks for, since boto3 reads both.
+
+        The two AWS forms are mutually exclusive by construction:
+        `__questions_cloud_profiles` clears the keys when the profile is on,
+        and `__questions_aws` only asks for keys when it is off. So the `or`
+        below never sees both at once.
 
         Returns:
             tuple: (bool, bool)
@@ -1390,10 +1395,11 @@ class Config(metaclass=Singleton):
         """
         The one question quick setup asks a developer.
 
-        Worth raising as soon as either provider can be reached: Google powers
-        transcription and translation, AWS Bedrock powers AutoQA, and a
-        machine set up for one of them can use that half on its own. With
-        neither, quick setup keeps its promise and stays silent.
+        Worth raising as soon as either provider can be reached: Google
+        powers transcription and translation, AWS Bedrock powers qualitative
+        analysis, and a machine set up for one of them can use that half on
+        its own. With neither, quick setup keeps its promise and stays
+        silent.
 
         `build()` has already given up on this when kobo-docker's custom
         compose file provides the variables, so re-checking here would only
@@ -1407,11 +1413,12 @@ class Config(metaclass=Singleton):
             return
 
         if google and aws:
-            what = 'transcription, translation (Google) and AutoQA (Bedrock)'
+            what = ('transcription, translation (Google) and '
+                    'qualitative analysis (Bedrock)')
         elif google:
             what = 'transcription and translation (Google)'
         else:
-            what = 'AutoQA (AWS Bedrock)'
+            what = 'qualitative analysis (AWS Bedrock)'
 
         if not CLI.yes_no_question(f'Configure {what}?', default=True):
             return
@@ -1428,8 +1435,8 @@ class Config(metaclass=Singleton):
         - transcription and translation run on Google — `GS_BUCKET_NAME` and
           `ASR_MT_GOOGLE_PROJECT_ID`, read by kpi's `google_transcribe` and
           `google_translate`;
-        - AutoQA runs on AWS Bedrock — `AWS_BEDROCK_REGION_NAME`, read by
-          kpi's `automatic_bedrock_qual`.
+        - qualitative analysis runs on AWS Bedrock —
+          `AWS_BEDROCK_REGION_NAME`, read by kpi's `automatic_bedrock_qual`.
 
         So the questions are grouped by provider, and each group is only
         asked when the containers can authenticate with it. Answering for a
@@ -1465,7 +1472,8 @@ class Config(metaclass=Singleton):
 
         if aws:
             self.__dict['aws_bedrock_region_name'] = CLI.colored_input(
-                'AWS Bedrock region name (AutoQA)', CLI.COLOR_QUESTION,
+                'AWS Bedrock region name (qualitative analysis)',
+                CLI.COLOR_QUESTION,
                 self.__dict['aws_bedrock_region_name'])
 
     def __questions_https(self):
@@ -2862,7 +2870,8 @@ class Config(metaclass=Singleton):
                         'key': 'nlp',
                         'label': 'NLP and qualitative analysis',
                         'description': 'Transcription and translation '
-                                       '(Google), AutoQA (AWS Bedrock).',
+                                       '(Google), qualitative analysis '
+                                       '(AWS Bedrock).',
                         'checked': d.get('use_nlp', False),
                     })
         if external:

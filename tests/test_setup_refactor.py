@@ -2049,10 +2049,10 @@ def test_generated_override_mounts_use_home(tmp_path):
     assert home not in variables['GCLOUD_HOST_CONFIG_DIR']
 
 
-# ── NLP vs AutoQA: two features, two providers ───────────────────────────────
+# ── Two features, two providers ──────────────────────────────────────────────
 
 def test_questions_nlp_asks_only_google_without_aws():
-    """Bedrock powers AutoQA; without AWS credentials it cannot be reached."""
+    """Bedrock powers qualitative analysis; no AWS credentials, no reach."""
     config = read_config({
         'use_nlp': False,
         'gcloud_use_profile': True,
@@ -2074,7 +2074,8 @@ def test_questions_nlp_asks_only_google_without_aws():
 def test_questions_nlp_asks_only_bedrock_without_gcloud():
     """
     The other half: a developer with only AWS credentials must still be able
-    to set AutoQA up. Gating the whole section on gcloud used to lock them out.
+    to set qualitative analysis up. Gating the whole section on gcloud used
+    to lock them out.
     """
     config = read_config({
         'use_nlp': False,
@@ -2131,11 +2132,11 @@ def test_questions_nlp_quick_names_what_is_actually_available():
     """The gate must not promise transcription to an AWS-only machine."""
     cases = [
         ({'gcloud_use_profile': True, 'aws_use_profile': True},
-         ['transcription', 'translation', 'AutoQA']),
+         ['transcription', 'translation', 'qualitative analysis']),
         ({'gcloud_use_profile': True, 'aws_use_profile': False},
          ['transcription', 'translation']),
         ({'gcloud_use_profile': False, 'aws_use_profile': True},
-         ['AutoQA']),
+         ['qualitative analysis']),
     ]
     for flags, expected in cases:
         config = read_config({'aws_access_key': '', **flags})
@@ -2150,7 +2151,7 @@ def test_questions_nlp_quick_names_what_is_actually_available():
         if not flags['gcloud_use_profile']:
             assert 'transcription' not in asked[0]
         if not flags['aws_use_profile']:
-            assert 'AutoQA' not in asked[0]
+            assert 'qualitative analysis' not in asked[0]
 
 
 def test_questions_nlp_quick_silent_without_any_credentials():
