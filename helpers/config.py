@@ -139,12 +139,6 @@ class Config(metaclass=Singleton):
                     'docker-compose.frontend.custom.yml \u2014 skipping',
                     CLI.COLOR_INFO,
                 )
-                if not self.__dict['use_frontend_custom_yml']:
-                    CLI.colored_print(
-                        '    (tick "Custom YAML" in Custom setup so that file '
-                        'is actually loaded)',
-                        CLI.COLOR_WARNING,
-                    )
 
             # Step 4: Auto-configure PostgreSQL and uWSGI on first run
             if self.first_time and not self.dev_mode:
@@ -157,8 +151,7 @@ class Config(metaclass=Singleton):
                         'django.core.mail.backends.console.EmailBackend'
                     )
                     self.__auto_setup_kpi_path()
-                    self.__auto_detect_aws_profile()
-                    self.__auto_detect_gcloud_profile()
+                    self.__auto_detect_cloud_profiles()
                     self.__questions_nlp_quick()
                 self.__secure_mongo()
                 self.__confirm_overwrite_or_exit()
@@ -790,36 +783,62 @@ class Config(metaclass=Singleton):
             self.__dict['primary_backend_ip'] = self.__dict[
                 'local_interface_ip']
 
-    def __auto_detect_aws_profile(self):
+    def __auto_detect_cloud_profiles(self):
         """
-        Dev simple-mode convenience: if an AWS config directory exists on the
-        host (~/.aws), enable profile-based authentication so the developer's
-        AWS credentials are available inside the containers.
+        Dev quick-setup convenience: mount the credential directories found on
+        the host so the containers authenticate the way the developer already
+        does.
+
+        One question covers both providers. They are the same decision — "may
+        the containers read my cloud credentials" — and a setup that advertises
+        no questions can afford one, not two in a row.
+
+        The directories are mounted whole, so every profile they hold becomes
+        readable from the containers. That is the part worth an explicit yes,
+        and it is what the question says.
+        """
+        aws_dir = os.path.expanduser('~/.aws')
+        gcloud_dir = os.path.expanduser('~/.config/gcloud')
+
+        detected = []
+        if os.path.isdir(aws_dir):
+            detected.append(f'  - AWS: {aws_dir}')
+        if os.path.isdir(gcloud_dir):
+            detected.append(f'  - Google Cloud: {gcloud_dir}')
+        if not detected:
+            return
+
+        listed = '\n'.join(detected)
+        # A stored `False` is only a real "no" once the install exists; on a
+        # brand new one it is just the template default.
+        previous_answer = (
+            self.__dict['aws_use_profile']
+            or self.__dict['gcloud_use_profile']
+        )
+        if not CLI.yes_no_question(
+            f'Cloud credentials detected:\n{listed}\n'
+            'Mount them (read-only) so the containers can use them?\n'
+            'Each directory is mounted whole, including every profile in it.',
+            default=True if self.first_time else previous_answer,
+        ):
+            return
+
+        self.__auto_detect_aws_profile(aws_dir)
+        self.__auto_detect_gcloud_profile(gcloud_dir)
+
+    def __auto_detect_aws_profile(self, aws_dir):
+        """
+        Enables profile-based authentication so the developer's AWS
+        credentials are available inside the containers.
 
         This does NOT enable S3 storage (`use_aws`); switching the default
         file storage to S3 stays an explicit opt-in via the "AWS S3 storage"
         section of custom setup.
 
-        The whole directory is mounted read-only, so every profile it holds
-        becomes readable from the containers. That is worth an explicit yes,
-        even in quick setup. The question defaults to the previous answer once
-        the install exists, so a returning developer only presses Enter.
+        Consent is handled once for both providers by
+        `__auto_detect_cloud_profiles`.
         """
-        aws_dir = os.path.expanduser('~/.aws')
         if not os.path.isdir(aws_dir):
-            return
-
-        if not CLI.yes_no_question(
-            f'Detected {aws_dir}.\n'
-            'Mount it (read-only) so containers can use your AWS '
-            'credentials?\n'
-            'The whole directory is mounted, including every profile in it.',
-            # A stored `False` is only a real "no" once the install exists;
-            # on a brand new one it is just the template default.
-            default=(
-                True if self.first_time else self.__dict['aws_use_profile']
-            ),
-        ):
             return
 
         self.__dict['aws_use_profile'] = True
@@ -830,31 +849,19 @@ class Config(metaclass=Singleton):
             CLI.COLOR_INFO,
         )
 
-    def __auto_detect_gcloud_profile(self):
+    def __auto_detect_gcloud_profile(self, gcloud_dir):
         """
-        Dev simple-mode convenience: if a gcloud configuration directory
-        exists on the host (~/.config/gcloud), mount it into the containers so
-        they pick up the developer's application default credentials.
+        Mounts the gcloud configuration directory into the containers so they
+        pick up the developer's application default credentials.
 
         The active project is also read from the gcloud config so the NLP
         questions come pre-filled, but it is only stored: NLP settings stay
         commented out until NLP is explicitly turned on.
 
-        Like `__auto_detect_aws_profile`, this mounts a whole credentials
-        directory and therefore asks first.
+        Consent is handled once for both providers by
+        `__auto_detect_cloud_profiles`.
         """
-        gcloud_dir = os.path.expanduser('~/.config/gcloud')
         if not os.path.isdir(gcloud_dir):
-            return
-
-        if not CLI.yes_no_question(
-            f'Detected {gcloud_dir}.\n'
-            'Mount it (read-only) so containers can use your Google Cloud '
-            'application default credentials?',
-            default=(
-                True if self.first_time else self.__dict['gcloud_use_profile']
-            ),
-        ):
             return
 
         self.__dict['gcloud_use_profile'] = True

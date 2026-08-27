@@ -484,9 +484,7 @@ def test_build_simple_mode_consumes_exactly_two_inputs(_):
 @patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
 @patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
 # The host's own ~/.aws and ~/.config/gcloud must not decide what this asks
-@patch('helpers.config.Config._Config__auto_detect_aws_profile',
-       new=lambda *a: None)
-@patch('helpers.config.Config._Config__auto_detect_gcloud_profile',
+@patch('helpers.config.Config._Config__auto_detect_cloud_profiles',
        new=lambda *a: None)
 @patch('helpers.config.Config._Config__auto_setup_kpi_path',
        new=lambda *a: None)
@@ -621,13 +619,12 @@ def test_checkbox_menu_separator_skipped_by_nearest_selectable():
     assert nearest_selectable(0, -1) == 0
 
 
-# ── __auto_detect_aws_profile (dev simple mode) ──────────────────────────────
+# ── __auto_detect_aws_profile (applies the mount, does not ask) ──────────────
 
 def test_auto_detect_aws_profile_enables_profile_when_dir_exists():
     config = read_config({'use_aws': False, 'aws_use_profile': False})
-    with patch('helpers.config.os.path.isdir', return_value=True), \
-            patch.object(CLI, 'yes_no_question', return_value=True):
-        config._Config__auto_detect_aws_profile()
+    with patch('helpers.config.os.path.isdir', return_value=True):
+        config._Config__auto_detect_aws_profile('/home/dev/.aws')
     d = config._Config__dict
     assert d['aws_use_profile'] is True
     assert d['aws_profile_name'] == 'default'
@@ -639,13 +636,13 @@ def test_auto_detect_aws_profile_enables_profile_when_dir_exists():
 def test_auto_detect_aws_profile_noop_when_dir_missing():
     config = read_config({'use_aws': False, 'aws_use_profile': False})
     with patch('helpers.config.os.path.isdir', return_value=False):
-        config._Config__auto_detect_aws_profile()
+        config._Config__auto_detect_aws_profile('/home/dev/.aws')
     d = config._Config__dict
     assert d['aws_use_profile'] is False
     assert d['use_aws'] is False
 
 
-# ── __auto_detect_gcloud_profile (dev simple mode) ───────────────────────────
+# ── __auto_detect_gcloud_profile (applies the mount, does not ask) ───────────
 
 def _gcloud_dir(tmp_path, project=None):
     """
@@ -663,9 +660,7 @@ def _gcloud_dir(tmp_path, project=None):
 
 def test_auto_detect_gcloud_profile_noop_when_dir_missing(tmp_path):
     config = read_config({'gcloud_use_profile': False})
-    with patch('helpers.config.os.path.expanduser',
-               return_value=str(tmp_path / 'missing')):
-        config._Config__auto_detect_gcloud_profile()
+    config._Config__auto_detect_gcloud_profile(str(tmp_path / 'missing'))
     d = config._Config__dict
     assert d['gcloud_use_profile'] is False
     assert d['asr_mt_google_project_id'] == ''
@@ -677,10 +672,7 @@ def test_auto_detect_gcloud_profile_enables_profile_without_project(tmp_path):
         'gcloud_use_profile': False,
         'asr_mt_google_project_id': '',
     })
-    with patch('helpers.config.os.path.expanduser',
-               return_value=str(gcloud_dir)), \
-            patch.object(CLI, 'yes_no_question', return_value=True):
-        config._Config__auto_detect_gcloud_profile()
+    config._Config__auto_detect_gcloud_profile(str(gcloud_dir))
     d = config._Config__dict
     assert d['gcloud_use_profile'] is True
     assert d['gcloud_host_config_dir'] == str(gcloud_dir)
@@ -695,20 +687,14 @@ def test_auto_detect_gcloud_profile_reads_active_project(tmp_path):
         project='[core]\naccount = someone@example.org\nproject = my-gcp-project\n',
     )
     config = read_config({'gcloud_use_profile': False})
-    with patch('helpers.config.os.path.expanduser',
-               return_value=str(gcloud_dir)), \
-            patch.object(CLI, 'yes_no_question', return_value=True):
-        config._Config__auto_detect_gcloud_profile()
+    config._Config__auto_detect_gcloud_profile(str(gcloud_dir))
     assert config._Config__dict['asr_mt_google_project_id'] == 'my-gcp-project'
 
 
 def test_auto_detect_gcloud_profile_survives_malformed_config(tmp_path):
     gcloud_dir = _gcloud_dir(tmp_path, project='not an ini file at all')
     config = read_config({'gcloud_use_profile': False})
-    with patch('helpers.config.os.path.expanduser',
-               return_value=str(gcloud_dir)), \
-            patch.object(CLI, 'yes_no_question', return_value=True):
-        config._Config__auto_detect_gcloud_profile()
+    config._Config__auto_detect_gcloud_profile(str(gcloud_dir))
     d = config._Config__dict
     assert d['gcloud_use_profile'] is True
     assert d['asr_mt_google_project_id'] == ''
@@ -717,10 +703,7 @@ def test_auto_detect_gcloud_profile_survives_malformed_config(tmp_path):
 def test_auto_detect_gcloud_profile_survives_config_without_project(tmp_path):
     gcloud_dir = _gcloud_dir(tmp_path, project='[core]\naccount = a@b.org\n')
     config = read_config({'gcloud_use_profile': False})
-    with patch('helpers.config.os.path.expanduser',
-               return_value=str(gcloud_dir)), \
-            patch.object(CLI, 'yes_no_question', return_value=True):
-        config._Config__auto_detect_gcloud_profile()
+    config._Config__auto_detect_gcloud_profile(str(gcloud_dir))
     assert config._Config__dict['asr_mt_google_project_id'] == ''
 
 
@@ -915,8 +898,8 @@ def test_questions_nlp_project_defaults_to_the_detected_one():
 @patch('helpers.config.Config._Config__setup_directory', new=lambda *a: None)
 @patch('helpers.config.Config._Config__auto_detect_network', new=lambda *a: None)
 @patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
-@patch('helpers.config.Config._Config__auto_detect_aws_profile', new=lambda *a: None)
-@patch('helpers.config.Config._Config__auto_detect_gcloud_profile', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_cloud_profiles',
+       new=lambda *a: None)
 @patch('helpers.config.Config._Config__auto_setup_kpi_path', new=lambda *a: None)
 @patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
 def test_build_gives_nlp_up_to_the_custom_yml(_, tmp_path):
@@ -946,39 +929,6 @@ def test_build_gives_nlp_up_to_the_custom_yml(_, tmp_path):
     assert [m for m in printed if 'custom.yml' in m]
     # Mode and complexity, nothing more
     assert mock_ci.call_count == 2
-
-
-@patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
-@patch('helpers.config.Config._Config__setup_directory', new=lambda *a: None)
-@patch('helpers.config.Config._Config__auto_detect_network', new=lambda *a: None)
-@patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
-@patch('helpers.config.Config._Config__auto_detect_aws_profile', new=lambda *a: None)
-@patch('helpers.config.Config._Config__auto_detect_gcloud_profile', new=lambda *a: None)
-@patch('helpers.config.Config._Config__auto_setup_kpi_path', new=lambda *a: None)
-@patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
-def test_build_warns_when_the_custom_yml_is_not_loaded(_, tmp_path):
-    """
-    Variables sitting in a file `docker compose` is never given are dead; say
-    so instead of silently skipping NLP.
-    """
-    (tmp_path / 'docker-compose.frontend.custom.yml').write_text(
-        '      - GS_BUCKET_NAME=my-bucket\n'
-    )
-    config = read_config({
-        'local_installation': True, 'dev_mode': True, 'install_mode': 'dev',
-        'kobodocker_path': str(tmp_path),
-        'use_frontend_custom_yml': False,
-    })
-    config._Config__first_time = False
-
-    printed = []
-    with patch('helpers.cli.CLI.colored_input') as mock_ci, \
-         patch.object(CLI, 'colored_print',
-                      side_effect=lambda m, *a, **k: printed.append(m)):
-        mock_ci.side_effect = iter([DEV, SIMPLE])
-        config.build()
-
-    assert [m for m in printed if 'Custom YAML' in m]
 
 
 # ── __auto_setup_kpi_path (dev, quick setup) ─────────────────────────────────
@@ -1059,8 +1009,8 @@ def test_auto_setup_kpi_path_leaves_an_existing_clone_alone(tmp_path):
 @patch('helpers.config.Config._Config__setup_directory', new=lambda *a: None)
 @patch('helpers.config.Config._Config__auto_detect_network', new=lambda *a: None)
 @patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
-@patch('helpers.config.Config._Config__auto_detect_aws_profile', new=lambda *a: None)
-@patch('helpers.config.Config._Config__auto_detect_gcloud_profile', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_cloud_profiles',
+       new=lambda *a: None)
 @patch('helpers.config.Config._Config__questions_nlp_quick', new=lambda *a: None)
 @patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
 def test_build_quick_dev_sets_up_kpi(_):
@@ -1905,41 +1855,112 @@ def test_auto_configure_resources_reports_a_pgconfig_failure():
 
 # ── Consent before mounting host credentials ─────────────────────────────────
 
-def test_auto_detect_aws_profile_respects_a_no():
-    config = read_config({'use_aws': False, 'aws_use_profile': False})
-    with patch('helpers.config.os.path.isdir', return_value=True), \
-            patch.object(CLI, 'yes_no_question', return_value=False):
-        config._Config__auto_detect_aws_profile()
+def _cloud_dirs(tmp_path, aws=True, gcloud=True, project=None):
+    """
+    Builds the host directories `__auto_detect_cloud_profiles` looks for, and
+    returns an `expanduser` replacement that resolves ~ to them.
+    """
+    aws_dir = tmp_path / '.aws'
+    if aws:
+        aws_dir.mkdir()
+    gcloud_dir = _gcloud_dir(tmp_path, project=project) if gcloud \
+        else tmp_path / '.config' / 'gcloud'
 
-    d = config._Config__dict
-    assert d['aws_use_profile'] is False
-    assert d['use_aws'] is False
+    def expanduser(path):
+        return str(aws_dir if path == '~/.aws' else gcloud_dir)
+
+    return expanduser, str(aws_dir), str(gcloud_dir)
 
 
-def test_auto_detect_gcloud_profile_respects_a_no(tmp_path):
-    gcloud_dir = _gcloud_dir(
+def test_cloud_profiles_asked_once_for_both_providers(tmp_path):
+    """Two providers, one decision — not two prompts in a row."""
+    expanduser, aws_dir, gcloud_dir = _cloud_dirs(
         tmp_path, project='[core]\nproject = my-project\n'
     )
-    config = read_config({
+    config = _first_run_config({
+        'aws_use_profile': False,
         'gcloud_use_profile': False,
         'asr_mt_google_project_id': '',
     })
-    with patch('helpers.config.os.path.expanduser',
-               return_value=str(gcloud_dir)), \
-            patch.object(CLI, 'yes_no_question', return_value=False):
-        config._Config__auto_detect_gcloud_profile()
+
+    asked = []
+
+    def _answer(question, default=True, **kwargs):
+        asked.append(question)
+        return True
+
+    with patch('helpers.config.os.path.expanduser', side_effect=expanduser), \
+            patch.object(CLI, 'yes_no_question', side_effect=_answer):
+        config._Config__auto_detect_cloud_profiles()
+
+    assert len(asked) == 1
+    # Both directories are named, and the scope of the mount is spelled out.
+    assert aws_dir in asked[0]
+    assert gcloud_dir in asked[0]
+    assert 'every profile' in asked[0]
 
     d = config._Config__dict
+    assert d['aws_use_profile'] is True
+    assert d['gcloud_use_profile'] is True
+    assert d['asr_mt_google_project_id'] == 'my-project'
+
+
+def test_cloud_profiles_respects_a_no(tmp_path):
+    expanduser, _, _ = _cloud_dirs(
+        tmp_path, project='[core]\nproject = my-project\n'
+    )
+    config = _first_run_config({
+        'aws_use_profile': False,
+        'gcloud_use_profile': False,
+        'asr_mt_google_project_id': '',
+        'use_aws': False,
+    })
+
+    with patch('helpers.config.os.path.expanduser', side_effect=expanduser), \
+            patch.object(CLI, 'yes_no_question', return_value=False):
+        config._Config__auto_detect_cloud_profiles()
+
+    d = config._Config__dict
+    assert d['aws_use_profile'] is False
     assert d['gcloud_use_profile'] is False
+    assert d['use_aws'] is False
     # Declining the mount must not leak the project either.
     assert d['asr_mt_google_project_id'] == ''
 
 
-def test_credentials_question_defaults_to_the_previous_answer():
+def test_cloud_profiles_only_lists_what_exists(tmp_path):
+    """A machine with only ~/.aws must not be told about Google Cloud."""
+    expanduser, aws_dir, gcloud_dir = _cloud_dirs(tmp_path, gcloud=False)
+    config = _first_run_config({'aws_use_profile': False})
+
+    asked = []
+    with patch('helpers.config.os.path.expanduser', side_effect=expanduser), \
+            patch.object(CLI, 'yes_no_question',
+                         side_effect=lambda q, **k: asked.append(q) or True):
+        config._Config__auto_detect_cloud_profiles()
+
+    assert aws_dir in asked[0]
+    assert 'Google Cloud' not in asked[0]
+    assert config._Config__dict['gcloud_use_profile'] is False
+
+
+def test_cloud_profiles_asks_nothing_without_credentials(tmp_path):
+    expanduser, _, _ = _cloud_dirs(tmp_path, aws=False, gcloud=False)
+    config = _first_run_config()
+
+    with patch('helpers.config.os.path.expanduser', side_effect=expanduser), \
+            patch.object(CLI, 'yes_no_question') as question:
+        config._Config__auto_detect_cloud_profiles()
+
+    question.assert_not_called()
+
+
+def test_credentials_question_defaults_to_the_previous_answer(tmp_path):
     """
     A stored `False` means "no" only once the install exists; on a first run it
     is just the template default, so the question opens on Yes.
     """
+    expanduser, _, _ = _cloud_dirs(tmp_path)
     defaults = []
 
     def _capture(question, default=True, **kwargs):
@@ -1947,12 +1968,16 @@ def test_credentials_question_defaults_to_the_previous_answer():
         return False
 
     for factory, stored, expected in (
-        (_first_run_config, False, True),
-        (_later_run_config, False, False),
-        (_later_run_config, True, True),
+        (_first_run_config, {}, True),
+        (_later_run_config, {}, False),
+        (_later_run_config, {'aws_use_profile': True}, True),
+        (_later_run_config, {'gcloud_use_profile': True}, True),
     ):
-        config = factory({'aws_use_profile': stored})
-        with patch('helpers.config.os.path.isdir', return_value=True), \
+        overrides = {'aws_use_profile': False, 'gcloud_use_profile': False}
+        overrides.update(stored)
+        config = factory(overrides)
+        with patch('helpers.config.os.path.expanduser',
+                   side_effect=expanduser), \
                 patch.object(CLI, 'yes_no_question', side_effect=_capture):
-            config._Config__auto_detect_aws_profile()
+            config._Config__auto_detect_cloud_profiles()
         assert defaults[-1] is expected
