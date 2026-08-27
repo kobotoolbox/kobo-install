@@ -1119,7 +1119,7 @@ class Config(metaclass=Singleton):
         )
         if self.__dict['gcloud_use_profile']:
             self.__dict['gcloud_host_config_dir'] = CLI.colored_input(
-                'gcloud configuration directory on host',
+                'Google Cloud credentials directory on host',
                 CLI.COLOR_QUESTION,
                 gcloud_dir)
         else:

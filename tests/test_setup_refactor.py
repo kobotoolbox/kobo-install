@@ -847,7 +847,7 @@ def test_questions_cloud_profiles_offer_default_dirs_after_previous_no():
     inputs = seen['inputs']
     assert inputs['AWS credentials directory on host'] == \
         os.path.expanduser('~/.aws')
-    assert inputs['gcloud configuration directory on host'] == \
+    assert inputs['Google Cloud credentials directory on host'] == \
         os.path.expanduser('~/.config/gcloud')
 
 
