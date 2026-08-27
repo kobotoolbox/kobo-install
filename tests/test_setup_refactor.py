@@ -1867,3 +1867,32 @@ def test_checkbox_menu_survives_a_window_too_small():
             patch('helpers.cli.curses.init_pair'), \
             patch('helpers.cli.curses.color_pair', return_value=0):
         assert CLI.checkbox_menu('Pick:', choices) == ['A']
+
+
+# ── pgconfig.org unreachable ─────────────────────────────────────────────────
+
+def test_auto_configure_resources_reports_a_pgconfig_failure():
+    """
+    A silent fallback to the template values leaves the operator thinking the
+    server was tuned. Say it, like the interactive path already does.
+    """
+    config = _first_run_config({
+        'install_mode': 'production',
+        'multi': False,
+    })
+
+    printed = []
+    with patch('helpers.config.Network.curl', return_value=''), \
+            patch.object(Config, '_Config__detect_system_resources',
+                         return_value=(4, 8)), \
+            patch.object(CLI, 'colored_print',
+                         side_effect=lambda msg, *a, **k: printed.append(msg)):
+        config._Config__auto_configure_resources()
+
+    d = config._Config__dict
+    # Sizing still happened; only the generated conf file is missing.
+    assert d['postgres_cpus'] == '3'
+    assert d['postgres_settings_content'] == (
+        Config.get_template()['postgres_settings_content']
+    )
+    assert any('error has occurred' in message for message in printed)

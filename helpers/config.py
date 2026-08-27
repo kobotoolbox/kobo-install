@@ -2380,6 +2380,9 @@ class Config(metaclass=Singleton):
             CLI.COLOR_INFO,
         )
 
+        # Sized per role on purpose: PostgreSQL only where it runs, uWSGI only
+        # on a front end. On a single server both properties are true and both
+        # blocks run; on a multi-server install each machine gets only its own.
         if self.backend:
             CLI.colored_print(
                 f'  → PostgreSQL: {allocated_cpus} CPUs, {allocated_ram} GB RAM '
@@ -2416,6 +2419,10 @@ class Config(metaclass=Singleton):
                 self.__dict['postgres_settings_content'] = re.sub(
                     r'(\d+)KB', r'\1kB', response
                 )
+            else:
+                CLI.colored_print('\nAn error has occurred. Current '
+                                  'PostgreSQL settings will be used',
+                                  CLI.COLOR_INFO)
 
         if self.frontend:
             workers_start = max(2, allocated_cpus)
