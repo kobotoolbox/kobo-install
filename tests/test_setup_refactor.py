@@ -7,6 +7,7 @@ from unittest.mock import patch, MagicMock, mock_open
 
 from helpers.cli import CLI
 from helpers.config import Config
+from helpers.template import Template
 from .utils import mock_read_config as read_config
 
 # Captured before the autouse fixture below replaces it, so the guard itself
@@ -1981,3 +1982,45 @@ def test_credentials_question_defaults_to_the_previous_answer(tmp_path):
                 patch.object(CLI, 'yes_no_question', side_effect=_capture):
             config._Config__auto_detect_cloud_profiles()
         assert defaults[-1] is expected
+
+
+# ── $HOME in generated mounts ────────────────────────────────────────────────
+
+def test_host_paths_render_through_home():
+    """
+    The generated override file is committed nowhere but is read on whatever
+    machine runs it; `$HOME` keeps it from carrying the setup runner's home.
+    """
+    host_path = Template._Template__host_path
+    home = os.path.expanduser('~')
+
+    assert host_path(os.path.join(home, '.aws')) == '$HOME/.aws'
+    assert host_path(os.path.join(home, '.config', 'gcloud')) == (
+        '$HOME/.config/gcloud'
+    )
+    assert host_path(home) == '$HOME'
+    # Outside the home directory there is nothing to generalise.
+    assert host_path('/mnt/shared/creds') == '/mnt/shared/creds'
+    # A home-lookalike prefix is not a match.
+    assert host_path(home + '-backup/.aws') == home + '-backup/.aws'
+    assert host_path('') == ''
+
+
+def test_generated_override_mounts_use_home(tmp_path):
+    """End to end: the rendered compose file must not name the user's home."""
+    home = os.path.expanduser('~')
+    config = read_config({
+        'local_installation': True,
+        'dev_mode': True,
+        'aws_use_profile': True,
+        'gcloud_use_profile': True,
+        'aws_host_aws_dir': os.path.join(home, '.aws'),
+        'gcloud_host_config_dir': os.path.join(home, '.config', 'gcloud'),
+    })
+
+    variables = Template._Template__get_template_variables(config)
+
+    assert variables['AWS_HOST_AWS_DIR'] == '$HOME/.aws'
+    assert variables['GCLOUD_HOST_CONFIG_DIR'] == '$HOME/.config/gcloud'
+    assert home not in variables['AWS_HOST_AWS_DIR']
+    assert home not in variables['GCLOUD_HOST_CONFIG_DIR']

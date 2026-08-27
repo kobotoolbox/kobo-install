@@ -144,7 +144,28 @@ class Template:
         return destination_directory
 
     @staticmethod
-    def __get_template_variables(config):
+    def __host_path(path):
+        """
+        Renders a path on the host for docker compose, using `$HOME` whenever
+        it sits in the current user's home directory.
+
+        docker compose expands `$HOME` itself, so the generated override file
+        stays valid for whoever runs it instead of hard-coding the home of
+        whoever happened to run the setup. A path outside the home directory
+        is left alone: there is nothing to generalise.
+        """
+        if not path:
+            return path
+
+        home = os.path.expanduser('~').rstrip(os.sep)
+        if path == home:
+            return '$HOME'
+        if path.startswith(home + os.sep):
+            return '$HOME' + path[len(home):]
+        return path
+
+    @classmethod
+    def __get_template_variables(cls, config):
         """
         Write configuration files based on `config`
 
@@ -185,14 +206,18 @@ class Template:
             'AWS_ACCESS_KEY_ID': dict_['aws_access_key'],
             'AWS_SECRET_ACCESS_KEY': dict_['aws_secret_key'],
             'AWS_PROFILE': dict_.get('aws_profile_name', ''),
-            'AWS_HOST_AWS_DIR': dict_.get('aws_host_aws_dir', ''),
+            'AWS_HOST_AWS_DIR': cls.__host_path(
+                dict_.get('aws_host_aws_dir', '')
+            ),
             'AWS_BUCKET_NAME': dict_['aws_bucket_name'],
             # Google Cloud application default credentials: mounting the host
             # gcloud directory is independent of the NLP settings below.
             'USE_GCLOUD_PROFILE': (
                 '' if dict_.get('gcloud_use_profile', False) else '#'
             ),
-            'GCLOUD_HOST_CONFIG_DIR': dict_.get('gcloud_host_config_dir', ''),
+            'GCLOUD_HOST_CONFIG_DIR': cls.__host_path(
+                dict_.get('gcloud_host_config_dir', '')
+            ),
             'USE_NLP': '' if dict_.get('use_nlp', False) else '#',
             'AWS_BEDROCK_REGION_NAME': dict_.get('aws_bedrock_region_name', ''),
             'GS_BUCKET_NAME': dict_.get('gs_bucket_name', ''),
