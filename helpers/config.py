@@ -799,17 +799,34 @@ class Config(metaclass=Singleton):
         This does NOT enable S3 storage (`use_aws`); switching the default
         file storage to S3 stays an explicit opt-in via the "AWS S3 storage"
         section of custom setup.
+
+        The whole directory is mounted read-only, so every profile it holds
+        becomes readable from the containers. That is worth an explicit yes,
+        even in quick setup. The question defaults to the previous answer once
+        the install exists, so a returning developer only presses Enter.
         """
         aws_dir = os.path.expanduser('~/.aws')
         if not os.path.isdir(aws_dir):
+            return
+
+        if not CLI.yes_no_question(
+            f'Detected {aws_dir}.\n'
+            'Mount it (read-only) so containers can use your AWS '
+            'credentials?\n'
+            'The whole directory is mounted, including every profile in it.',
+            # A stored `False` is only a real "no" once the install exists;
+            # on a brand new one it is just the template default.
+            default=(
+                True if self.first_time else self.__dict['aws_use_profile']
+            ),
+        ):
             return
 
         self.__dict['aws_use_profile'] = True
         self.__dict['aws_profile_name'] = 'default'
         self.__dict['aws_host_aws_dir'] = aws_dir
         CLI.colored_print(
-            f'  → Detected {aws_dir}: AWS profile "default" enabled '
-            f'(S3 storage left disabled)',
+            '  → AWS profile "default" enabled (S3 storage left disabled)',
             CLI.COLOR_INFO,
         )
 
@@ -822,16 +839,28 @@ class Config(metaclass=Singleton):
         The active project is also read from the gcloud config so the NLP
         questions come pre-filled, but it is only stored: NLP settings stay
         commented out until NLP is explicitly turned on.
+
+        Like `__auto_detect_aws_profile`, this mounts a whole credentials
+        directory and therefore asks first.
         """
         gcloud_dir = os.path.expanduser('~/.config/gcloud')
         if not os.path.isdir(gcloud_dir):
             return
 
+        if not CLI.yes_no_question(
+            f'Detected {gcloud_dir}.\n'
+            'Mount it (read-only) so containers can use your Google Cloud '
+            'application default credentials?',
+            default=(
+                True if self.first_time else self.__dict['gcloud_use_profile']
+            ),
+        ):
+            return
+
         self.__dict['gcloud_use_profile'] = True
         self.__dict['gcloud_host_config_dir'] = gcloud_dir
         CLI.colored_print(
-            f'  \u2192 Detected {gcloud_dir}: Google Cloud application default '
-            f'credentials enabled',
+            '  \u2192 Google Cloud application default credentials enabled',
             CLI.COLOR_INFO,
         )
 

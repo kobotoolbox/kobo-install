@@ -625,7 +625,8 @@ def test_checkbox_menu_separator_skipped_by_nearest_selectable():
 
 def test_auto_detect_aws_profile_enables_profile_when_dir_exists():
     config = read_config({'use_aws': False, 'aws_use_profile': False})
-    with patch('helpers.config.os.path.isdir', return_value=True):
+    with patch('helpers.config.os.path.isdir', return_value=True), \
+            patch.object(CLI, 'yes_no_question', return_value=True):
         config._Config__auto_detect_aws_profile()
     d = config._Config__dict
     assert d['aws_use_profile'] is True
@@ -677,7 +678,8 @@ def test_auto_detect_gcloud_profile_enables_profile_without_project(tmp_path):
         'asr_mt_google_project_id': '',
     })
     with patch('helpers.config.os.path.expanduser',
-               return_value=str(gcloud_dir)):
+               return_value=str(gcloud_dir)), \
+            patch.object(CLI, 'yes_no_question', return_value=True):
         config._Config__auto_detect_gcloud_profile()
     d = config._Config__dict
     assert d['gcloud_use_profile'] is True
@@ -694,7 +696,8 @@ def test_auto_detect_gcloud_profile_reads_active_project(tmp_path):
     )
     config = read_config({'gcloud_use_profile': False})
     with patch('helpers.config.os.path.expanduser',
-               return_value=str(gcloud_dir)):
+               return_value=str(gcloud_dir)), \
+            patch.object(CLI, 'yes_no_question', return_value=True):
         config._Config__auto_detect_gcloud_profile()
     assert config._Config__dict['asr_mt_google_project_id'] == 'my-gcp-project'
 
@@ -703,7 +706,8 @@ def test_auto_detect_gcloud_profile_survives_malformed_config(tmp_path):
     gcloud_dir = _gcloud_dir(tmp_path, project='not an ini file at all')
     config = read_config({'gcloud_use_profile': False})
     with patch('helpers.config.os.path.expanduser',
-               return_value=str(gcloud_dir)):
+               return_value=str(gcloud_dir)), \
+            patch.object(CLI, 'yes_no_question', return_value=True):
         config._Config__auto_detect_gcloud_profile()
     d = config._Config__dict
     assert d['gcloud_use_profile'] is True
@@ -714,7 +718,8 @@ def test_auto_detect_gcloud_profile_survives_config_without_project(tmp_path):
     gcloud_dir = _gcloud_dir(tmp_path, project='[core]\naccount = a@b.org\n')
     config = read_config({'gcloud_use_profile': False})
     with patch('helpers.config.os.path.expanduser',
-               return_value=str(gcloud_dir)):
+               return_value=str(gcloud_dir)), \
+            patch.object(CLI, 'yes_no_question', return_value=True):
         config._Config__auto_detect_gcloud_profile()
     assert config._Config__dict['asr_mt_google_project_id'] == ''
 
@@ -1896,3 +1901,58 @@ def test_auto_configure_resources_reports_a_pgconfig_failure():
         Config.get_template()['postgres_settings_content']
     )
     assert any('error has occurred' in message for message in printed)
+
+
+# ── Consent before mounting host credentials ─────────────────────────────────
+
+def test_auto_detect_aws_profile_respects_a_no():
+    config = read_config({'use_aws': False, 'aws_use_profile': False})
+    with patch('helpers.config.os.path.isdir', return_value=True), \
+            patch.object(CLI, 'yes_no_question', return_value=False):
+        config._Config__auto_detect_aws_profile()
+
+    d = config._Config__dict
+    assert d['aws_use_profile'] is False
+    assert d['use_aws'] is False
+
+
+def test_auto_detect_gcloud_profile_respects_a_no(tmp_path):
+    gcloud_dir = _gcloud_dir(
+        tmp_path, project='[core]\nproject = my-project\n'
+    )
+    config = read_config({
+        'gcloud_use_profile': False,
+        'asr_mt_google_project_id': '',
+    })
+    with patch('helpers.config.os.path.expanduser',
+               return_value=str(gcloud_dir)), \
+            patch.object(CLI, 'yes_no_question', return_value=False):
+        config._Config__auto_detect_gcloud_profile()
+
+    d = config._Config__dict
+    assert d['gcloud_use_profile'] is False
+    # Declining the mount must not leak the project either.
+    assert d['asr_mt_google_project_id'] == ''
+
+
+def test_credentials_question_defaults_to_the_previous_answer():
+    """
+    A stored `False` means "no" only once the install exists; on a first run it
+    is just the template default, so the question opens on Yes.
+    """
+    defaults = []
+
+    def _capture(question, default=True, **kwargs):
+        defaults.append(default)
+        return False
+
+    for factory, stored, expected in (
+        (_first_run_config, False, True),
+        (_later_run_config, False, False),
+        (_later_run_config, True, True),
+    ):
+        config = factory({'aws_use_profile': stored})
+        with patch('helpers.config.os.path.isdir', return_value=True), \
+                patch.object(CLI, 'yes_no_question', side_effect=_capture):
+            config._Config__auto_detect_aws_profile()
+        assert defaults[-1] is expected
