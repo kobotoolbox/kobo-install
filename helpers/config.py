@@ -2812,6 +2812,14 @@ class Config(metaclass=Singleton):
                 })
                 all_sections.append(item)
 
+        if not CLI.is_interactive():
+            CLI.colored_print(
+                'Custom setup requires an interactive terminal.\n'
+                'Run the setup from a terminal, or use quick setup.',
+                CLI.COLOR_ERROR,
+            )
+            sys.exit(1)
+
         selected_labels = CLI.checkbox_menu(
             'Select the sections you want to configure:',
             choices,

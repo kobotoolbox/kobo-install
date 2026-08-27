@@ -174,6 +174,20 @@ class CLI:
         return cls.get_response(default=default)
 
     @staticmethod
+    def is_interactive():
+        """
+        Checks whether a real terminal is attached on both ends.
+
+        `curses` reads from stdin and draws on stdout, so a run with either one
+        redirected (a pipe, a file, a CI step, an agent shell) has nowhere to
+        put the menu.
+
+        Returns:
+            bool
+        """
+        return sys.stdin.isatty() and sys.stdout.isatty()
+
+    @staticmethod
     def checkbox_menu(question, choices):
         """
         Interactive checkbox menu navigable with the keyboard.
@@ -208,24 +222,38 @@ class CLI:
             # Reserve two bottom rows for the description only when info is shown.
             return max(1, height - 3 - (2 if show_info else 0))
 
+        def _safe_addstr(stdscr, y, x, text, attr=0):
+            # A window too small for the layout makes `addstr` raise. Drawing
+            # only what fits keeps the menu usable instead of killing setup.
+            height, _ = stdscr.getmaxyx()
+            if not 0 <= y < height:
+                return
+            try:
+                stdscr.addstr(y, x, text, attr)
+            except curses.error:
+                pass
+
         def _draw(stdscr, current, scroll_offset, show_info):
             stdscr.erase()
             height, width = stdscr.getmaxyx()
 
-            stdscr.addstr(0, 0, question[:width - 1],
-                          curses.color_pair(1) | curses.A_BOLD)
+            _safe_addstr(stdscr, 0, 0, question[:width - 1],
+                         curses.color_pair(1) | curses.A_BOLD)
             hint = ('↑↓ navigate   SPACE toggle   A all/none   '
                     'i info   ENTER confirm   q cancel')
-            stdscr.addstr(1, 0, hint[:width - 1], curses.color_pair(5))
-            stdscr.addstr(2, 0, '─' * min(width - 1, 60), curses.color_pair(4))
+            _safe_addstr(stdscr, 1, 0, hint[:width - 1],
+                         curses.color_pair(5))
+            _safe_addstr(stdscr, 2, 0, '─' * min(width - 1, 60),
+                         curses.color_pair(4))
 
             list_height = _list_height(height, show_info)
             for i, item in enumerate(state[scroll_offset:scroll_offset + list_height]):
                 row = i + 3
                 idx = i + scroll_offset
                 if 'separator' in item:
-                    stdscr.addstr(row, 0, f"  {item['separator']}"[:width - 1],
-                                  curses.color_pair(6) | curses.A_BOLD)
+                    _safe_addstr(stdscr, row, 0,
+                                 f"  {item['separator']}"[:width - 1],
+                                 curses.color_pair(6) | curses.A_BOLD)
                 else:
                     checkbox = '[x]' if item['checked'] else '[ ]'
                     line = f'  {checkbox}  {item["label"]}'
@@ -235,17 +263,19 @@ class CLI:
                         attr = curses.color_pair(3)
                     else:
                         attr = curses.color_pair(4)
-                    stdscr.addstr(row, 0, line[:width - 1], attr)
+                    _safe_addstr(stdscr, row, 0, line[:width - 1], attr)
 
             # Description help line for the highlighted item (toggled with 'i').
             if show_info:
                 description = state[current].get('description', '') \
                     if 'label' in state[current] else ''
                 description = description or '(no description)'
-                stdscr.addstr(height - 2, 0, '─' * min(width - 1, 60),
-                              curses.color_pair(4))
-                stdscr.addstr(height - 1, 0, description[:width - 1],
-                              curses.color_pair(5))
+                _safe_addstr(stdscr, height - 2, 0,
+                             '─' * min(width - 1, 60),
+                             curses.color_pair(4))
+                _safe_addstr(stdscr, height - 1, 0,
+                             description[:width - 1],
+                             curses.color_pair(5))
 
             stdscr.refresh()
 
@@ -294,4 +324,10 @@ class CLI:
                 elif key in (27, ord('q')):
                     return None
 
-        return curses.wrapper(_run)
+        try:
+            return curses.wrapper(_run)
+        except KeyboardInterrupt:
+            # Same outcome as ESC/`q`: nothing selected, nothing written.
+            # `wrapper` has already restored the terminal by the time we land
+            # here, so the caller's message prints on a clean screen.
+            return None

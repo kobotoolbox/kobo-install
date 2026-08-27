@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import curses
 import os
 import sys
 import pytest
@@ -8,6 +9,10 @@ from helpers.cli import CLI
 from helpers.config import Config
 from .utils import mock_read_config as read_config
 
+# Captured before the autouse fixture below replaces it, so the guard itself
+# can still be tested.
+_REAL_IS_INTERACTIVE = CLI.is_interactive
+
 CHOICE_YES = '1'
 CHOICE_NO = '2'
 DEV = '1'
@@ -15,6 +20,22 @@ STAGING = '2'
 PRODUCTION = '3'
 SIMPLE = '1'
 ADVANCED = '2'
+
+
+# ── Fixtures ─────────────────────────────────────────────────────────────────
+
+@pytest.fixture(autouse=True)
+def interactive_terminal():
+    """
+    pytest captures stdout and feeds stdin from a pipe, so `CLI.is_interactive`
+    is False for every test. Custom setup refuses to open the curses menu in
+    that situation, which would abort each menu test before it starts.
+
+    Tests that exercise the non-interactive guard itself patch it back to
+    False locally.
+    """
+    with patch.object(CLI, 'is_interactive', return_value=True):
+        yield
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -1756,3 +1777,93 @@ def test_staying_in_the_same_mode_changes_nothing():
     assert {k: v for k, v in after.items() if k != 'install_mode'} == {
         k: v for k, v in before.items() if k != 'install_mode'
     }
+
+
+# ── Terminal requirements (CLI.is_interactive / curses menu) ─────────────────
+
+def test_is_interactive_requires_both_streams():
+    """
+    curses reads stdin and draws on stdout, so either one redirected is enough
+    to make the menu impossible — `run.py --setup | tee setup.log` keeps a
+    tty on stdin while taking stdout away.
+    """
+    def _streams(stdin_tty, stdout_tty):
+        return (
+            patch('helpers.cli.sys.stdin', MagicMock(
+                isatty=MagicMock(return_value=stdin_tty))),
+            patch('helpers.cli.sys.stdout', MagicMock(
+                isatty=MagicMock(return_value=stdout_tty))),
+        )
+
+    for stdin_tty, stdout_tty, expected in (
+        (True, True, True),
+        (True, False, False),
+        (False, True, False),
+        (False, False, False),
+    ):
+        stdin_patch, stdout_patch = _streams(stdin_tty, stdout_tty)
+        with stdin_patch, stdout_patch:
+            assert _REAL_IS_INTERACTIVE() is expected
+
+
+def test_custom_setup_exits_without_a_terminal():
+    """
+    Without a tty, `curses.wrapper` prints escape sequences and then raises.
+    The menu must never be reached: a scripted run is told to use quick setup.
+    """
+    config = _later_run_config({'install_mode': 'production'})
+
+    with patch.object(CLI, 'is_interactive', return_value=False), \
+            patch.object(CLI, 'checkbox_menu') as menu:
+        with pytest.raises(SystemExit) as exc:
+            config._Config__questions_advanced_sections()
+
+    # 1, not 0: this is a failure, unlike the deliberate ESC cancellation.
+    assert exc.value.code == 1
+    menu.assert_not_called()
+
+
+def test_checkbox_menu_treats_ctrl_c_like_esc():
+    """Ctrl+C must reach the caller's cancellation path, not run.py."""
+    choices = [{'label': 'A', 'checked': True}]
+    with patch('helpers.cli.curses.wrapper', side_effect=KeyboardInterrupt):
+        assert CLI.checkbox_menu('Pick:', choices) is None
+
+
+def test_checkbox_menu_survives_a_window_too_small():
+    """
+    A terminal too short for the layout makes every `addstr` raise; the menu
+    must still answer instead of taking the whole setup down with it.
+    """
+    choices = [
+        {'separator': 'Group'},
+        {'label': 'A', 'checked': True},
+        {'label': 'B', 'checked': False},
+    ]
+
+    class _TinyScreen:
+        def getmaxyx(self):
+            return 1, 4
+
+        def erase(self):
+            pass
+
+        def refresh(self):
+            pass
+
+        def addstr(self, *args, **kwargs):
+            raise curses.error('addwstr() returned ERR')
+
+        def getch(self):
+            return ord('\n')
+
+    def _wrapper(func):
+        return func(_TinyScreen())
+
+    with patch('helpers.cli.curses.wrapper', _wrapper), \
+            patch('helpers.cli.curses.curs_set'), \
+            patch('helpers.cli.curses.start_color'), \
+            patch('helpers.cli.curses.use_default_colors'), \
+            patch('helpers.cli.curses.init_pair'), \
+            patch('helpers.cli.curses.color_pair', return_value=0):
+        assert CLI.checkbox_menu('Pick:', choices) == ['A']
