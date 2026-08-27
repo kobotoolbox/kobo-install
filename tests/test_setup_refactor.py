@@ -467,6 +467,8 @@ def test_build_simple_mode_consumes_exactly_two_inputs(_):
        new=lambda *a: None)
 @patch('helpers.config.Config._Config__auto_detect_gcloud_profile',
        new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_setup_kpi_path',
+       new=lambda *a: None)
 def test_build_simple_dev_sets_console_email_backend(_):
     config = read_config({'local_installation': True, 'dev_mode': True,
                           'install_mode': 'dev'})
@@ -889,6 +891,7 @@ def test_questions_nlp_project_defaults_to_the_detected_one():
 @patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
 @patch('helpers.config.Config._Config__auto_detect_aws_profile', new=lambda *a: None)
 @patch('helpers.config.Config._Config__auto_detect_gcloud_profile', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_setup_kpi_path', new=lambda *a: None)
 @patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
 def test_build_gives_nlp_up_to_the_custom_yml(_, tmp_path):
     """
@@ -925,6 +928,7 @@ def test_build_gives_nlp_up_to_the_custom_yml(_, tmp_path):
 @patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
 @patch('helpers.config.Config._Config__auto_detect_aws_profile', new=lambda *a: None)
 @patch('helpers.config.Config._Config__auto_detect_gcloud_profile', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_setup_kpi_path', new=lambda *a: None)
 @patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
 def test_build_warns_when_the_custom_yml_is_not_loaded(_, tmp_path):
     """
@@ -949,6 +953,124 @@ def test_build_warns_when_the_custom_yml_is_not_loaded(_, tmp_path):
         config.build()
 
     assert [m for m in printed if 'Custom YAML' in m]
+
+
+# ── __auto_setup_kpi_path (dev, quick setup) ─────────────────────────────────
+
+def _sibling_kpi_path():
+    base_dir = os.path.dirname(
+        os.path.dirname(os.path.realpath(
+            sys.modules['helpers.config'].__file__
+        ))
+    )
+    return os.path.realpath(os.path.normpath(os.path.join(base_dir, '..', 'kpi')))
+
+
+def test_auto_setup_kpi_path_settles_on_the_sibling_checkout():
+    config = read_config({'kpi_path': '', 'kpi_dev_build_id': ''})
+    with patch.object(Config, '_Config__clone_repo') as mock_clone:
+        config._Config__auto_setup_kpi_path()
+
+    d = config._Config__dict
+    assert d['kpi_path'] == _sibling_kpi_path()
+    mock_clone.assert_called_once_with(d['kpi_path'], 'kpi')
+
+
+def test_auto_setup_kpi_path_stamps_a_build_id():
+    """Without one, the front-end image is never rebuilt from the sources."""
+    config = read_config({'kpi_path': '', 'kpi_dev_build_id': ''})
+    with patch.object(Config, '_Config__clone_repo'):
+        config._Config__auto_setup_kpi_path()
+    assert config._Config__dict['kpi_dev_build_id']
+
+
+def test_auto_setup_kpi_path_keeps_an_existing_checkout():
+    """
+    A developer pointing the install at their own checkout must not have it
+    swapped for the sibling default.
+    """
+    config = read_config({
+        'kpi_path': '/home/dev/src/kpi',
+        'kpi_dev_build_id': 'frontend1735689600',
+    })
+    with patch.object(Config, '_Config__clone_repo') as mock_clone:
+        config._Config__auto_setup_kpi_path()
+
+    d = config._Config__dict
+    assert d['kpi_path'] == '/home/dev/src/kpi'
+    # Nothing moved, so the image does not need rebuilding
+    assert d['kpi_dev_build_id'] == 'frontend1735689600'
+    mock_clone.assert_called_once_with('/home/dev/src/kpi', 'kpi')
+
+
+def test_auto_setup_kpi_path_clones_a_missing_checkout(tmp_path):
+    kpi_path = tmp_path / 'kpi'
+    config = read_config({'kpi_path': str(kpi_path), 'kpi_dev_build_id': ''})
+
+    with patch.object(CLI, 'run_command') as mock_run, \
+         patch.object(CLI, 'colored_print'):
+        config._Config__auto_setup_kpi_path()
+
+    assert kpi_path.is_dir()
+    command = mock_run.call_args[0][0]
+    assert command[:2] == ['git', 'clone']
+    assert command[2].endswith('/kpi')
+    assert command[3] == str(kpi_path)
+
+
+def test_auto_setup_kpi_path_leaves_an_existing_clone_alone(tmp_path):
+    kpi_path = tmp_path / 'kpi'
+    (kpi_path / '.git').mkdir(parents=True)
+    config = read_config({'kpi_path': str(kpi_path), 'kpi_dev_build_id': 'x'})
+
+    with patch.object(CLI, 'run_command') as mock_run:
+        config._Config__auto_setup_kpi_path()
+
+    mock_run.assert_not_called()
+
+
+@patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
+@patch('helpers.config.Config._Config__setup_directory', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_network', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_aws_profile', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_gcloud_profile', new=lambda *a: None)
+@patch('helpers.config.Config._Config__questions_nlp_quick', new=lambda *a: None)
+@patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
+def test_build_quick_dev_sets_up_kpi(_):
+    config = read_config({'local_installation': True, 'dev_mode': True,
+                          'install_mode': 'dev', 'kpi_path': ''})
+    config._Config__first_time = False
+
+    with patch('helpers.cli.CLI.colored_input') as mock_ci, \
+         patch.object(Config, '_Config__clone_repo'), \
+         patch.object(CLI, 'colored_print'):
+        mock_ci.side_effect = iter([DEV, SIMPLE])
+        result = config.build()
+
+    assert result['kpi_path'] == _sibling_kpi_path()
+    assert result['kpi_dev_build_id']
+    # Still only mode and complexity are asked
+    assert mock_ci.call_count == 2
+
+
+@patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
+@patch('helpers.config.Config._Config__setup_directory', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_network', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
+@patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
+def test_build_quick_production_leaves_kpi_alone(_):
+    """Mounting a source checkout only makes sense on a workstation."""
+    config = read_config({'kpi_path': ''})
+    config._Config__first_time = False
+
+    with patch('helpers.cli.CLI.colored_input') as mock_ci, \
+         patch.object(Config, '_Config__clone_repo') as mock_clone:
+        mock_ci.side_effect = iter([PRODUCTION, SIMPLE])
+        result = config.build()
+
+    assert result['kpi_path'] == ''
+    mock_clone.assert_not_called()
 
 
 # ── __nlp_managed_by_custom_yml ──────────────────────────────────────────────

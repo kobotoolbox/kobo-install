@@ -156,6 +156,7 @@ class Config(metaclass=Singleton):
                     self.__dict['email_backend'] = (
                         'django.core.mail.backends.console.EmailBackend'
                     )
+                    self.__auto_setup_kpi_path()
                     self.__auto_detect_aws_profile()
                     self.__auto_detect_gcloud_profile()
                     self.__questions_nlp_quick()
@@ -3003,20 +3004,54 @@ class Config(metaclass=Singleton):
         )
         CLI.framed_print(message, color=CLI.COLOR_INFO)
 
-        kpi_path = self.__dict['kpi_path']
+        previous_path = self.__dict['kpi_path']
         self.__dict['kpi_path'] = CLI.colored_input(
             'KPI files location?', CLI.COLOR_QUESTION,
             self.__dict['kpi_path']
         )
+        self.__apply_kpi_path(previous_path)
+
+    def __apply_kpi_path(self, previous_path):
+        """
+        Clones the KPI repository when the location does not hold one yet, and
+        stamps a fresh dev build id whenever the checkout moved — the image
+        has to be rebuilt against the new source files.
+        """
         self.__clone_repo(self.__dict['kpi_path'], 'kpi')
 
         if (
             not self.__dict['kpi_dev_build_id']
-            or self.__dict['kpi_path'] != kpi_path
+            or self.__dict['kpi_path'] != previous_path
         ):
             prefix = self.get_prefix('frontend')
             timestamp = int(time.time())
             self.__dict['kpi_dev_build_id'] = f'{prefix}{timestamp}'
+
+    def __auto_setup_kpi_path(self):
+        """
+        Dev quick-setup convenience: settle on a sibling `kpi` checkout, the
+        same way `__setup_directory()` settles on `../kobo-docker`, and clone
+        it when it is not there yet. Editing KPI source files live is the
+        point of a development install.
+
+        An answer already on file wins: a developer pointing the install at
+        their own checkout must not have it swapped for the sibling default.
+        """
+        previous_path = self.__dict['kpi_path']
+
+        if not previous_path:
+            base_dir = os.path.dirname(
+                os.path.dirname(os.path.realpath(__file__))
+            )
+            self.__dict['kpi_path'] = os.path.realpath(
+                os.path.normpath(os.path.join(base_dir, '..', 'kpi'))
+            )
+            CLI.colored_print(
+                f'  \u2192 KPI source files: {self.__dict["kpi_path"]}',
+                CLI.COLOR_INFO,
+            )
+
+        self.__apply_kpi_path(previous_path)
 
     def __run_selected_advanced_sections(self, selected):
         """

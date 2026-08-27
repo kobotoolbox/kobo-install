@@ -105,6 +105,7 @@ Whatever you choose, `kobo-install` sets up on its own:
 |Primary network interface and IP|Always. Override it with the `Network interface` section|
 |PostgreSQL and uWSGI sizing, computed from detected CPUs and RAM <sup>3</sup>|First run, staging and production. 50% of the machine for staging, 75% for production. On a multi-server frontend, the uWSGI memory limit is raised to 75% since the databases live elsewhere|
 |`console` email backend, so messages are printed instead of sent|Development, quick|
+|KPI source files, set to `../kpi` and cloned if the directory is not there yet|Development, quick. Override it with the `KPI source files` section|
 |AWS profile authentication, if `~/.aws` exists on the host|Development, quick. The directory is mounted read-only into the front-end containers. S3 storage itself stays off|
 |Google Cloud application default credentials, if `~/.config/gcloud` exists on the host|Development, quick. The directory is mounted read-only and the active project is read from `configurations/config_default` to pre-fill the NLP questions|
 
