@@ -854,10 +854,15 @@ def test_questions_cloud_profiles_offer_default_dirs_after_previous_no():
 # ── __questions_nlp ──────────────────────────────────────────────────────────
 
 def test_questions_nlp_stores_all_values():
-    config = read_config({'use_nlp': False})
+    config = read_config({
+        'use_nlp': False,
+        'gcloud_use_profile': True,
+        'aws_use_profile': True,
+    })
     with patch('helpers.cli.CLI.colored_input') as mock_input:
+        # Google first (bucket, project), then AWS.
         mock_input.side_effect = iter([
-            'my-bucket', 'us-west-2', 'my-gcp-project',
+            'my-bucket', 'my-gcp-project', 'us-west-2',
         ])
         config._Config__questions_nlp()
     d = config._Config__dict
@@ -868,12 +873,20 @@ def test_questions_nlp_stores_all_values():
     assert d['asr_mt_google_project_id'] == 'my-gcp-project'
 
 
-def test_questions_nlp_asks_three_questions():
+def test_questions_nlp_groups_the_google_questions_together():
     """
     The AutoQA model ARNs are gone, and the two GOOGLE_CLOUD_* projects are
     derived from the single project answer instead of being asked.
+
+    The two Google questions must also sit next to each other: Bedrock is a
+    different provider serving a different feature, and used to be asked
+    between them.
     """
-    config = read_config({'use_nlp': False})
+    config = read_config({
+        'use_nlp': False,
+        'gcloud_use_profile': True,
+        'aws_use_profile': True,
+    })
     seen = []
     with patch.object(CLI, 'colored_input',
                       side_effect=lambda m, c, default='': seen.append(m)):
@@ -881,13 +894,20 @@ def test_questions_nlp_asks_three_questions():
     assert len(seen) == 3
     assert not [m for m in seen if 'ARN' in m]
     assert len([m for m in seen if 'project' in m.lower()]) == 1
+    # Google, Google, then AWS — never Google, AWS, Google.
+    assert 'Google' in seen[0]
+    assert 'Google' in seen[1]
+    assert 'Bedrock' in seen[2]
 
 
 def test_questions_nlp_project_defaults_to_the_detected_one():
     """
     The project found by __auto_detect_gcloud_profile is offered as default.
     """
-    config = read_config({'asr_mt_google_project_id': 'detected-project'})
+    config = read_config({
+        'asr_mt_google_project_id': 'detected-project',
+        'gcloud_use_profile': True,
+    })
     with patch.object(CLI, 'colored_input',
                       side_effect=lambda m, c, default='': default):
         config._Config__questions_nlp()
@@ -1146,10 +1166,13 @@ def test_questions_nlp_quick_silent_without_gcloud():
 
 
 def test_questions_nlp_quick_asks_three_questions_after_yes():
-    config = read_config({'gcloud_use_profile': True})
+    config = read_config({
+        'gcloud_use_profile': True,
+        'aws_use_profile': True,
+    })
     with patch('helpers.cli.CLI.colored_input') as mock_input:
         mock_input.side_effect = iter([
-            CHOICE_YES, 'my-bucket', 'us-west-2', 'my-gcp-project',
+            CHOICE_YES, 'my-bucket', 'my-gcp-project', 'us-west-2',
         ])
         config._Config__questions_nlp_quick()
     d = config._Config__dict
@@ -2024,3 +2047,118 @@ def test_generated_override_mounts_use_home(tmp_path):
     assert variables['GCLOUD_HOST_CONFIG_DIR'] == '$HOME/.config/gcloud'
     assert home not in variables['AWS_HOST_AWS_DIR']
     assert home not in variables['GCLOUD_HOST_CONFIG_DIR']
+
+
+# ── NLP vs AutoQA: two features, two providers ───────────────────────────────
+
+def test_questions_nlp_asks_only_google_without_aws():
+    """Bedrock powers AutoQA; without AWS credentials it cannot be reached."""
+    config = read_config({
+        'use_nlp': False,
+        'gcloud_use_profile': True,
+        'aws_use_profile': False,
+        'aws_access_key': '',
+        'aws_bedrock_region_name': '',
+    })
+    seen = []
+    with patch.object(CLI, 'colored_input',
+                      side_effect=lambda m, c, default='': seen.append(m)):
+        config._Config__questions_nlp()
+
+    assert len(seen) == 2
+    assert not [m for m in seen if 'Bedrock' in m]
+    assert config._Config__dict['use_nlp'] is True
+    assert config._Config__dict['aws_bedrock_region_name'] == ''
+
+
+def test_questions_nlp_asks_only_bedrock_without_gcloud():
+    """
+    The other half: a developer with only AWS credentials must still be able
+    to set AutoQA up. Gating the whole section on gcloud used to lock them out.
+    """
+    config = read_config({
+        'use_nlp': False,
+        'gcloud_use_profile': False,
+        'aws_use_profile': True,
+        'gs_bucket_name': '',
+    })
+    seen = []
+    with patch.object(CLI, 'colored_input',
+                      side_effect=lambda m, c, default='': seen.append(m)):
+        config._Config__questions_nlp()
+
+    assert len(seen) == 1
+    assert 'Bedrock' in seen[0]
+    assert config._Config__dict['use_nlp'] is True
+    assert config._Config__dict['gs_bucket_name'] == ''
+
+
+def test_questions_nlp_counts_aws_keys_as_credentials():
+    """boto3 reads the explicit keys too, not just a mounted ~/.aws."""
+    config = read_config({
+        'gcloud_use_profile': False,
+        'aws_use_profile': False,
+        'aws_access_key': 'AKIAEXAMPLE',
+    })
+    seen = []
+    with patch.object(CLI, 'colored_input',
+                      side_effect=lambda m, c, default='': seen.append(m)):
+        config._Config__questions_nlp()
+
+    assert [m for m in seen if 'Bedrock' in m]
+
+
+def test_questions_nlp_skips_when_no_provider_is_reachable():
+    """Ticking the section without credentials would write dead settings."""
+    config = read_config({
+        'use_nlp': False,
+        'gcloud_use_profile': False,
+        'aws_use_profile': False,
+        'aws_access_key': '',
+    })
+    printed = []
+    with patch.object(CLI, 'colored_input') as mock_input, \
+            patch.object(CLI, 'colored_print',
+                         side_effect=lambda m, *a, **k: printed.append(m)):
+        config._Config__questions_nlp()
+
+    mock_input.assert_not_called()
+    assert config._Config__dict['use_nlp'] is False
+    assert any('No cloud credentials' in m for m in printed)
+
+
+def test_questions_nlp_quick_names_what_is_actually_available():
+    """The gate must not promise transcription to an AWS-only machine."""
+    cases = [
+        ({'gcloud_use_profile': True, 'aws_use_profile': True},
+         ['transcription', 'translation', 'AutoQA']),
+        ({'gcloud_use_profile': True, 'aws_use_profile': False},
+         ['transcription', 'translation']),
+        ({'gcloud_use_profile': False, 'aws_use_profile': True},
+         ['AutoQA']),
+    ]
+    for flags, expected in cases:
+        config = read_config({'aws_access_key': '', **flags})
+        asked = []
+        with patch.object(CLI, 'yes_no_question',
+                          side_effect=lambda q, **k: asked.append(q) or False):
+            config._Config__questions_nlp_quick()
+
+        assert len(asked) == 1
+        for word in expected:
+            assert word in asked[0]
+        if not flags['gcloud_use_profile']:
+            assert 'transcription' not in asked[0]
+        if not flags['aws_use_profile']:
+            assert 'AutoQA' not in asked[0]
+
+
+def test_questions_nlp_quick_silent_without_any_credentials():
+    config = read_config({
+        'gcloud_use_profile': False,
+        'aws_use_profile': False,
+        'aws_access_key': '',
+    })
+    with patch.object(CLI, 'yes_no_question') as question:
+        config._Config__questions_nlp_quick()
+    question.assert_not_called()

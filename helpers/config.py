@@ -854,9 +854,10 @@ class Config(metaclass=Singleton):
         Mounts the gcloud configuration directory into the containers so they
         pick up the developer's application default credentials.
 
-        The active project is also read from the gcloud config so the NLP
-        questions come pre-filled, but it is only stored: NLP settings stay
-        commented out until NLP is explicitly turned on.
+        The active project is also read from the gcloud config so the
+        transcription/translation questions come pre-filled, but it is only
+        stored: those settings stay commented out until they are explicitly
+        turned on.
 
         Consent is handled once for both providers by
         `__auto_detect_cloud_profiles`.
@@ -1367,57 +1368,105 @@ class Config(metaclass=Singleton):
             CLI.COLOR_QUESTION,
             self.__dict['google_api_key'])
 
+    def __available_cloud_providers(self):
+        """
+        Which providers the containers will be able to authenticate with, as
+        `(google, aws)`.
+
+        Google needs the mounted gcloud configuration. AWS is reachable either
+        through the mounted profile or through the explicit keys the S3
+        storage section asks for, since boto3 reads both.
+
+        Returns:
+            tuple: (bool, bool)
+        """
+        google = bool(self.__dict['gcloud_use_profile'])
+        aws = bool(
+            self.__dict['aws_use_profile'] or self.__dict['aws_access_key']
+        )
+        return google, aws
+
     def __questions_nlp_quick(self):
         """
         The one question quick setup asks a developer.
 
-        NLP needs Google credentials, so it is only worth raising when
-        `~/.config/gcloud` was found on the host — `__auto_detect_gcloud_profile()`
-        has just run and turned `gcloud_use_profile` on if it was. Without it,
-        quick setup keeps its promise and stays silent.
+        Worth raising as soon as either provider can be reached: Google powers
+        transcription and translation, AWS Bedrock powers AutoQA, and a
+        machine set up for one of them can use that half on its own. With
+        neither, quick setup keeps its promise and stays silent.
 
-        `build()` has already given up on NLP when kobo-docker's custom
+        `build()` has already given up on this when kobo-docker's custom
         compose file provides the variables, so re-checking here would only
         ask a question whose answer cannot be used.
         """
-        if not self.__dict['gcloud_use_profile']:
+        google, aws = self.__available_cloud_providers()
+        if not (google or aws):
             return
 
         if self.__nlp_managed_by_custom_yml():
             return
 
-        if not CLI.yes_no_question(
-            'Configure NLP (transcription and translation)?',
-            default=True,
-        ):
+        if google and aws:
+            what = 'transcription, translation (Google) and AutoQA (Bedrock)'
+        elif google:
+            what = 'transcription and translation (Google)'
+        else:
+            what = 'AutoQA (AWS Bedrock)'
+
+        if not CLI.yes_no_question(f'Configure {what}?', default=True):
             return
 
         self.__questions_nlp()
 
     def __questions_nlp(self):
         """
-        Asks for the NLP / qualitative analysis settings.
+        Asks for the NLP and qualitative analysis settings.
 
-        Three values are enough. `GOOGLE_CLOUD_PROJECT` and
-        `GOOGLE_CLOUD_QUOTA_PROJECT` are what the Google SDK needs to work with
-        application default credentials, and they always hold the project ID
-        answered here, so they are derived rather than asked
-        (see `Template.render()`).
+        Two independent features share this section, each with its own
+        provider:
+
+        - transcription and translation run on Google — `GS_BUCKET_NAME` and
+          `ASR_MT_GOOGLE_PROJECT_ID`, read by kpi's `google_transcribe` and
+          `google_translate`;
+        - AutoQA runs on AWS Bedrock — `AWS_BEDROCK_REGION_NAME`, read by
+          kpi's `automatic_bedrock_qual`.
+
+        So the questions are grouped by provider, and each group is only
+        asked when the containers can authenticate with it. Answering for a
+        provider they cannot reach would write settings that fail at runtime.
+
+        `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_QUOTA_PROJECT` are what the
+        Google SDK needs to work with application default credentials, and
+        they always hold the project ID answered here, so they are derived
+        rather than asked (see `Template.render()`).
 
         In the section menu, ticking the section is the consent; quick setup
         gates the call with its own yes/no question.
         """
+        google, aws = self.__available_cloud_providers()
+        if not (google or aws):
+            CLI.colored_print(
+                'No cloud credentials reach the containers. Tick "Cloud '
+                'credentials (AWS & Google)", or set up AWS S3 storage, '
+                'first — skipping.',
+                CLI.COLOR_WARNING,
+            )
+            return
+
         self.__dict['use_nlp'] = True
 
-        self.__dict['gs_bucket_name'] = CLI.colored_input(
-            'Google Cloud Storage bucket name', CLI.COLOR_QUESTION,
-            self.__dict['gs_bucket_name'])
-        self.__dict['aws_bedrock_region_name'] = CLI.colored_input(
-            'AWS Bedrock region name', CLI.COLOR_QUESTION,
-            self.__dict['aws_bedrock_region_name'])
-        self.__dict['asr_mt_google_project_id'] = CLI.colored_input(
-            'Google Cloud project ID', CLI.COLOR_QUESTION,
-            self.__dict['asr_mt_google_project_id'])
+        if google:
+            self.__dict['gs_bucket_name'] = CLI.colored_input(
+                'Google Cloud Storage bucket name', CLI.COLOR_QUESTION,
+                self.__dict['gs_bucket_name'])
+            self.__dict['asr_mt_google_project_id'] = CLI.colored_input(
+                'Google Cloud project ID', CLI.COLOR_QUESTION,
+                self.__dict['asr_mt_google_project_id'])
+
+        if aws:
+            self.__dict['aws_bedrock_region_name'] = CLI.colored_input(
+                'AWS Bedrock region name (AutoQA)', CLI.COLOR_QUESTION,
+                self.__dict['aws_bedrock_region_name'])
 
     def __questions_https(self):
         """
@@ -2812,8 +2861,8 @@ class Config(metaclass=Singleton):
                     external.append({
                         'key': 'nlp',
                         'label': 'NLP and qualitative analysis',
-                        'description': 'Google Cloud bucket and project, and '
-                                       'the AWS Bedrock region.',
+                        'description': 'Transcription and translation '
+                                       '(Google), AutoQA (AWS Bedrock).',
                         'checked': d.get('use_nlp', False),
                     })
         if external:
