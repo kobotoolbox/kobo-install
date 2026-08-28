@@ -92,7 +92,7 @@ Setup starts with two questions, and everything else follows from them.
 
 **2. How do you want to configure this installation?**
 
-- `Quick setup` — accept every default, nothing else is asked. `kobo-docker` is expected next to `kobo-install` (`../kobo-docker`), and a few things are detected automatically (see below). The one exception is a development machine that already has Google Cloud credentials — see `NLP` below
+- `Quick setup` — accept every default. `kobo-docker` is expected next to `kobo-install` (`../kobo-docker`), and a few things are detected automatically (see below). Only what has no usable default is asked — see below
 - `Custom setup` — a checkbox menu opens so you pick only the sections you care about, then you are asked about those and nothing else
 
 ### Automatic configuration
@@ -109,13 +109,27 @@ Whatever you choose, `kobo-install` sets up on its own:
 |AWS profile authentication, if `~/.aws` exists on the host|Development, quick. The directory is mounted read-only into the front-end containers. S3 storage itself stays off|
 |Google Cloud application default credentials, if `~/.config/gcloud` exists on the host|Development, quick. The directory is mounted read-only and the active project is read from `configurations/config_default` to pre-fill the NLP questions|
 
-### The one question quick setup can ask
+### What quick setup still asks
+
+On a **server** (staging or production), two answers have no usable default, so
+quick setup asks for them:
+
+- `Public domain name?` — the subdomains keep `kf`, `kc` and `ee`, and the
+  internal and private domain names are derived from the answer
+- `Support email address?` — used as the `from` address of outgoing email, to
+  request the Let's Encrypt certificates, and on the maintenance page
+
+HTTPS certificates are installed with Let's Encrypt without asking, since that
+is the default. Pick `Custom setup` and its `HTTPS & certificates` section to
+use your own reverse-proxy or load balancer instead — quick setup then keeps
+that choice on the next run.
 
 On a **development** machine where `~/.config/gcloud` was found, quick setup asks
 whether to configure NLP, then collects the three values listed under
 [Sections](#sections) below. Without those credentials NLP cannot work, so the
 question is skipped and quick setup stays silent. It is also skipped when
-`kobo-docker` already carries the NLP variables — see below.
+`kobo-docker` already carries the NLP variables — see below. A workstation is
+asked nothing else: it keeps `kobo.local` and plain HTTP.
 
 ### The custom setup menu
 

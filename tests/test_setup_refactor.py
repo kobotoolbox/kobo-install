@@ -467,16 +467,39 @@ def test_uwsgi_soft_limit_multiserver_frontend_75_percent(mock_detect):
 @patch('helpers.config.Config._Config__auto_detect_network', new=lambda *a: None)
 @patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
 @patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
-def test_build_simple_mode_consumes_exactly_two_inputs(_):
-    """Mode + complexity — nothing else should be asked."""
-    config = read_config()
+def test_build_simple_dev_consumes_exactly_two_inputs(_):
+    """Mode + complexity — a workstation needs nothing else."""
+    config = read_config({'local_installation': True, 'dev_mode': True,
+                          'install_mode': 'dev'})
     config._Config__first_time = False
 
-    with patch('helpers.cli.CLI.colored_input') as mock_ci:
-        mock_ci.side_effect = iter([PRODUCTION, SIMPLE])
+    with patch('helpers.cli.CLI.colored_input') as mock_ci, \
+            patch.object(Config, '_Config__auto_setup_kpi_path'), \
+            patch.object(Config, '_Config__auto_detect_cloud_profiles'):
+        mock_ci.side_effect = iter([DEV, SIMPLE])
         config.build()
 
     assert mock_ci.call_count == 2
+
+
+@patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
+@patch('helpers.config.Config._Config__setup_directory', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_network', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
+@patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
+def test_build_simple_server_consumes_exactly_four_inputs(_):
+    """Mode + complexity + the two answers a server has no default for."""
+    config = read_config()
+    config._Config__first_time = False
+
+    with patch('helpers.cli.CLI.colored_input') as mock_ci, \
+            patch.object(Config, '_Config__clone_repo'):
+        mock_ci.side_effect = iter([
+            PRODUCTION, SIMPLE, 'kobo.example', 'support@kobo.example',
+        ])
+        config.build()
+
+    assert mock_ci.call_count == 4
 
 
 @patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
@@ -512,8 +535,11 @@ def test_build_simple_production_email_backend_empty(_):
     config = read_config()
     config._Config__first_time = False
 
-    with patch('helpers.cli.CLI.colored_input') as mock_ci:
-        mock_ci.side_effect = iter([PRODUCTION, SIMPLE])
+    with patch('helpers.cli.CLI.colored_input') as mock_ci, \
+            patch.object(Config, '_Config__clone_repo'):
+        mock_ci.side_effect = iter([
+            PRODUCTION, SIMPLE, 'kobo.example', 'support@kobo.example',
+        ])
         result = config.build()
 
     assert result['email_backend'] == ''
@@ -528,11 +554,183 @@ def test_build_simple_secures_mongo(_):
     config = read_config()
     config._Config__first_time = False
 
-    with patch('helpers.cli.CLI.colored_input') as mock_ci:
-        mock_ci.side_effect = iter([PRODUCTION, SIMPLE])
+    with patch('helpers.cli.CLI.colored_input') as mock_ci, \
+            patch.object(Config, '_Config__clone_repo'):
+        mock_ci.side_effect = iter([
+            PRODUCTION, SIMPLE, 'kobo.example', 'support@kobo.example',
+        ])
         result = config.build()
 
     assert result['mongo_secured'] is True
+
+
+# ── build() simple mode, server ──────────────────────────────────────────────
+
+def _build_quick_server(config, mode, domain='kobo.example',
+                        email='support@kobo.example'):
+    """
+    Runs a quick setup on a server, answering the two questions it asks.
+
+    Returns:
+        tuple: the resulting dict, and the `__clone_repo` mock.
+    """
+    with patch('helpers.cli.CLI.colored_input') as mock_ci, \
+            patch.object(Config, '_Config__clone_repo') as mock_clone:
+        mock_ci.side_effect = iter([mode, SIMPLE, domain, email])
+        result = config.build()
+
+    return result, mock_clone
+
+
+@patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
+@patch('helpers.config.Config._Config__setup_directory', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_network', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
+@patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
+def test_build_simple_production_asks_domain_name(_):
+    """Regression: quick setup used to leave a server on `kobo.local`."""
+    config = read_config()
+    config._Config__first_time = False
+
+    result, _clone = _build_quick_server(config, PRODUCTION)
+
+    assert result['public_domain_name'] == 'kobo.example'
+    # Derived from the domain, as the custom setup does
+    assert result['internal_domain_name'] == 'kobo.internal'
+    assert result['private_domain_name'] == 'kobo.private'
+    # Subdomains have usable defaults, so they are not asked
+    assert result['kpi_subdomain'] == 'kf'
+    assert result['kc_subdomain'] == 'kc'
+    assert result['ee_subdomain'] == 'ee'
+
+
+@patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
+@patch('helpers.config.Config._Config__setup_directory', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_network', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
+@patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
+def test_build_simple_staging_asks_domain_name(_):
+    """Staging is a server too, and needs the same two answers."""
+    config = read_config({'staging_mode': True, 'install_mode': 'staging'})
+    config._Config__first_time = False
+
+    result, _clone = _build_quick_server(config, STAGING)
+
+    assert result['public_domain_name'] == 'kobo.example'
+    assert result['letsencrypt_email'] == 'support@kobo.example'
+
+
+@patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
+@patch('helpers.config.Config._Config__setup_directory', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_network', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
+@patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
+def test_build_simple_server_support_email_used_everywhere(_):
+    """One address, for outgoing email, Let's Encrypt and the maintenance page."""
+    config = read_config()
+    config._Config__first_time = False
+
+    result, _clone = _build_quick_server(config, PRODUCTION)
+
+    assert result['default_from_email'] == 'support@kobo.example'
+    assert result['letsencrypt_email'] == 'support@kobo.example'
+    assert result['maintenance_email'] == 'support@kobo.example'
+
+
+@patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
+@patch('helpers.config.Config._Config__setup_directory', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_network', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
+@patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
+def test_build_simple_server_support_email_defaults_to_domain(_):
+    """
+    On a first run the address offered follows the domain just entered, so
+    pressing ENTER is enough.
+    """
+    config = read_config()
+    config._Config__first_time = True
+    answers = iter([PRODUCTION, SIMPLE, 'kobo.example'])
+
+    def answer(message, color=None, default=None):
+        try:
+            return next(answers)
+        except StopIteration:
+            # The support address: an empty answer makes the real
+            # `CLI.colored_input()` return the default it offered
+            return default
+
+    with patch('helpers.cli.CLI.colored_input', side_effect=answer), \
+            patch.object(Config, '_Config__clone_repo'):
+        result = config.build()
+
+    assert result['default_from_email'] == 'support@kobo.example'
+    assert result['letsencrypt_email'] == 'support@kobo.example'
+
+
+@patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
+@patch('helpers.config.Config._Config__setup_directory', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_network', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
+@patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
+def test_build_simple_server_installs_letsencrypt_without_asking(_):
+    """
+    Quick setup accepts every default: certificates are installed, and
+    `nginx-certbot` is cloned so `run.py` finds it later.
+    """
+    config = read_config()
+    config._Config__first_time = False
+
+    result, mock_clone = _build_quick_server(config, PRODUCTION)
+
+    assert result['use_letsencrypt'] is True
+    assert result['proxy'] is True
+    assert result['block_common_http_ports'] is True
+    assert result['nginx_proxy_port'] == Config.DEFAULT_PROXY_PORT
+    assert result['exposed_nginx_docker_port'] == Config.DEFAULT_NGINX_PORT
+    mock_clone.assert_called_once_with(
+        config.get_letsencrypt_repo_path(), 'nginx-certbot'
+    )
+
+
+@patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
+@patch('helpers.config.Config._Config__setup_directory', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_network', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
+@patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
+def test_build_simple_server_keeps_own_reverse_proxy(_):
+    """
+    Quick setup accepts the stored default, so an installation that chose its
+    own load balancer in custom setup does not silently get certbot back.
+    """
+    config = read_config({'use_letsencrypt': False})
+    config._Config__first_time = False
+
+    result, mock_clone = _build_quick_server(config, PRODUCTION)
+
+    assert result['use_letsencrypt'] is False
+    mock_clone.assert_not_called()
+
+
+@patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
+@patch('helpers.config.Config._Config__setup_directory', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_network', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
+@patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
+@patch('helpers.config.Config._Config__auto_detect_cloud_profiles',
+       new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_setup_kpi_path',
+       new=lambda *a: None)
+def test_build_simple_dev_keeps_local_domain(_):
+    """A workstation is never asked for a domain name."""
+    config = read_config({'local_installation': True, 'dev_mode': True,
+                          'install_mode': 'dev'})
+    config._Config__first_time = False
+
+    with patch('helpers.cli.CLI.colored_input') as mock_ci:
+        mock_ci.side_effect = iter([DEV, SIMPLE])
+        result = config.build()
+
+    assert result['public_domain_name'] == 'kobo.local'
 
 
 # ── checkbox_menu logic ───────────────────────────────────────────────────────
@@ -1063,11 +1261,16 @@ def test_build_quick_production_leaves_kpi_alone(_):
 
     with patch('helpers.cli.CLI.colored_input') as mock_ci, \
          patch.object(Config, '_Config__clone_repo') as mock_clone:
-        mock_ci.side_effect = iter([PRODUCTION, SIMPLE])
+        mock_ci.side_effect = iter([
+            PRODUCTION, SIMPLE, 'kobo.example', 'support@kobo.example',
+        ])
         result = config.build()
 
     assert result['kpi_path'] == ''
-    mock_clone.assert_not_called()
+    # Only the reverse proxy is cloned on a server
+    assert [call[0][1] for call in mock_clone.call_args_list] == [
+        'nginx-certbot'
+    ]
 
 
 # ── __nlp_managed_by_custom_yml ──────────────────────────────────────────────

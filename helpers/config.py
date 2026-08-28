@@ -153,6 +153,15 @@ class Config(metaclass=Singleton):
                     self.__auto_setup_kpi_path()
                     self.__auto_detect_cloud_profiles()
                     self.__questions_nlp_quick()
+                elif not self.local_install:
+                    # The two answers a server has no default for. Everything
+                    # else keeps its default, including HTTPS with Let's
+                    # Encrypt — `__questions_reverse_proxy()` sets the proxy
+                    # ports and clones `nginx-certbot`, which the generated
+                    # configuration then expects to find on disk.
+                    self.__questions_public_routes(subdomains=False)
+                    self.__questions_support_email()
+                    self.__questions_reverse_proxy()
                 self.__secure_mongo()
                 self.__confirm_overwrite_or_exit()
                 self.write_config()
@@ -1361,6 +1370,31 @@ class Config(metaclass=Singleton):
             CLI.COLOR_QUESTION,
             self.__dict['docker_prefix'])
 
+    def __questions_from_email(self, message):
+        """
+        Asks for the address KoboToolbox sends its email from.
+
+        Shared by the SMTP section and by quick setup, which asks it on its
+        own and reuses the answer for Let's Encrypt: on a first run the
+        default follows the public domain name, so the question must come
+        after `__questions_public_routes()` in both flows.
+
+        Args:
+            message (str): The prompt to display.
+
+        Returns:
+            str: The address entered.
+        """
+        if self.first_time:
+            domain_name = self.__dict['public_domain_name']
+            self.__dict['default_from_email'] = f'support@{domain_name}'
+
+        self.__dict['default_from_email'] = CLI.colored_input(
+            message, CLI.COLOR_QUESTION, self.__dict['default_from_email']
+        )
+
+        return self.__dict['default_from_email']
+
     def __questions_google(self):
         """
         Asks for Google's keys
@@ -1945,29 +1979,37 @@ class Config(metaclass=Singleton):
                 CLI.COLOR_QUESTION,
                 self.__dict['private_domain_name'])
 
-    def __questions_public_routes(self):
+    def __questions_public_routes(self, subdomains=True):
         """
         Asks for public domain names
+
+        Kwargs:
+            subdomains (bool): If `False`, only the public domain name is
+                asked and `kf`, `kc` and `ee` keep their current values.
+                Quick setup uses it: a server cannot be installed without a
+                domain name, but its subdomains have usable defaults.
         """
 
         self.__dict['public_domain_name'] = CLI.colored_input(
             'Public domain name?', CLI.COLOR_QUESTION,
             self.__dict['public_domain_name'])
-        self.__dict['kpi_subdomain'] = CLI.colored_input(
-            'KPI sub domain?',
-            CLI.COLOR_QUESTION,
-            self.__dict['kpi_subdomain']
-        )
-        self.__dict['kc_subdomain'] = CLI.colored_input(
-            'KoboCat sub domain?',
-            CLI.COLOR_QUESTION,
-            self.__dict['kc_subdomain']
-        )
-        self.__dict['ee_subdomain'] = CLI.colored_input(
-            'Enketo Express sub domain name?',
-            CLI.COLOR_QUESTION,
-            self.__dict['ee_subdomain']
-        )
+
+        if subdomains:
+            self.__dict['kpi_subdomain'] = CLI.colored_input(
+                'KPI sub domain?',
+                CLI.COLOR_QUESTION,
+                self.__dict['kpi_subdomain']
+            )
+            self.__dict['kc_subdomain'] = CLI.colored_input(
+                'KoboCat sub domain?',
+                CLI.COLOR_QUESTION,
+                self.__dict['kc_subdomain']
+            )
+            self.__dict['ee_subdomain'] = CLI.colored_input(
+                'Enketo Express sub domain name?',
+                CLI.COLOR_QUESTION,
+                self.__dict['ee_subdomain']
+            )
 
         parts = self.__dict['public_domain_name'].split('.')
         domain_wo_tld = '.'.join(parts[:-1])
@@ -2045,14 +2087,19 @@ class Config(metaclass=Singleton):
 
         if self.is_secure:
 
-            self.__dict['use_letsencrypt'] = CLI.yes_no_question(
-                "Auto-install HTTPS certificates with Let's Encrypt?",
-                default=self.__dict['use_letsencrypt'],
-                labels=[
-                    'Yes',
-                    'No - Use my own reverse-proxy/load-balancer',
-                ]
-            )
+            # Quick setup accepts the default, as it does everywhere else:
+            # certificates are installed automatically on a fresh install, and
+            # a `No` given in a previous custom setup is honoured.
+            if self.advanced_options:
+                self.__dict['use_letsencrypt'] = CLI.yes_no_question(
+                    "Auto-install HTTPS certificates with Let's Encrypt?",
+                    default=self.__dict['use_letsencrypt'],
+                    labels=[
+                        'Yes',
+                        'No - Use my own reverse-proxy/load-balancer',
+                    ]
+                )
+
             self.__dict['proxy'] = True
             self.__dict[
                 'exposed_nginx_docker_port'] = Config.DEFAULT_NGINX_PORT
@@ -2068,20 +2115,24 @@ class Config(metaclass=Singleton):
                 )
                 CLI.framed_print(message)
 
-                if self.first_time:
-                    email = self.__dict['default_from_email']
-                    self.__dict['letsencrypt_email'] = email
+                # Quick setup has already asked for it, once, in
+                # `__questions_support_email()`.
+                if self.advanced_options:
+                    if self.first_time:
+                        email = self.__dict['default_from_email']
+                        self.__dict['letsencrypt_email'] = email
 
-                while True:
-                    letsencrypt_email = CLI.colored_input(
-                        "Email address for Let's Encrypt?",
-                        CLI.COLOR_QUESTION,
-                        self.__dict['letsencrypt_email'])
-                    question = f'Please confirm [{letsencrypt_email}]'
-                    response = CLI.yes_no_question(question)
-                    if response is True:
-                        self.__dict['letsencrypt_email'] = letsencrypt_email
-                        break
+                    while True:
+                        letsencrypt_email = CLI.colored_input(
+                            "Email address for Let's Encrypt?",
+                            CLI.COLOR_QUESTION,
+                            self.__dict['letsencrypt_email'])
+                        question = f'Please confirm [{letsencrypt_email}]'
+                        response = CLI.yes_no_question(question)
+                        if response is True:
+                            self.__dict[
+                                'letsencrypt_email'] = letsencrypt_email
+                            break
 
                 self.__clone_repo(self.get_letsencrypt_repo_path(),
                                   'nginx-certbot')
@@ -2232,15 +2283,7 @@ class Config(metaclass=Singleton):
                 default=self.__dict['smtp_use_tls']
             )
 
-        if self.first_time:
-            domain_name = self.__dict['public_domain_name']
-            self.__dict['default_from_email'] = f'support@{domain_name}'
-
-        self.__dict['default_from_email'] = CLI.colored_input(
-            'From email address?',
-            CLI.COLOR_QUESTION,
-            self.__dict['default_from_email']
-        )
+        self.__questions_from_email('From email address?')
 
     def __questions_super_user_credentials(self):
         # Super user. Only ask for credentials the first time.
@@ -2271,6 +2314,24 @@ class Config(metaclass=Singleton):
             CLI.framed_print(message)
         self.__dict['super_user_username'] = username
         self.__dict['super_user_password'] = password
+
+    def __questions_support_email(self):
+        """
+        Asks for the address KoboToolbox writes from, and reuses it for
+        Let's Encrypt and for the maintenance page.
+
+        Quick setup only. It is the second of the two answers a server cannot
+        be installed without: certificates are requested automatically, and
+        the default `support@kobo.local` is not an address Let's Encrypt
+        accepts. Custom setup asks the same value in the SMTP section, and
+        `__questions_reverse_proxy()` and `__questions_maintenance()` ask for
+        theirs separately.
+        """
+        email = self.__questions_from_email(
+            "Support email address? (also used for Let's Encrypt)"
+        )
+        self.__dict['letsencrypt_email'] = email
+        self.__dict['maintenance_email'] = email
 
     def __questions_uwsgi(self):
         """

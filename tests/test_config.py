@@ -474,20 +474,30 @@ def test_proxy_no_letsencrypt_advanced():
         assert dict_['nginx_proxy_port'] == proxy_port
 
 
-def test_proxy_no_letsencrypt():
+def test_proxy_letsencrypt_not_asked_in_quick_setup():
+    # Quick setup accepts every default, so it is never asked whether to
+    # install certificates. Its email address comes from
+    # `__questions_support_email()`, so nothing is asked here either.
     config = read_config()
 
+    assert not config.advanced_options
     assert config.proxy
     assert config.use_letsencrypt
 
     with patch.object(CLI, 'colored_input',
-                      return_value=CHOICE_NO) as mock_ci:
+                      return_value=CHOICE_NO) as mock_ci, \
+            patch.object(Config, '_Config__clone_repo') as mock_clone:
         config._Config__questions_reverse_proxy()
         dict_ = config.get_dict()
         assert config.proxy
-        assert not config.use_letsencrypt
+        assert config.use_letsencrypt
         assert config.block_common_http_ports
         assert dict_['nginx_proxy_port'] == Config.DEFAULT_PROXY_PORT
+
+    mock_ci.assert_not_called()
+    mock_clone.assert_called_once_with(
+        config.get_letsencrypt_repo_path(), 'nginx-certbot'
+    )
 
 
 def test_proxy_no_letsencrypt_retains_custom_nginx_proxy_port():
@@ -663,11 +673,15 @@ def test_force_secure_mongo():
     # Simulate a non-first-time run to trigger __secure_mongo upsert logic
     config._Config__first_time = False
 
-    with patch('helpers.cli.CLI.colored_input') as mock_ci:
-        # Simple mode: only mode (production=3) + complexity (simple=1) are asked
+    with patch('helpers.cli.CLI.colored_input') as mock_ci, \
+            patch.object(Config, '_Config__clone_repo'):
+        # Simple mode on a server: mode, complexity, then the two answers a
+        # server has no default for
         mock_ci.side_effect = iter([
             '3',  # production mode
             '1',  # simple complexity
+            'kobo.example',  # public domain name
+            'support@kobo.example',  # support email address
         ])
         new_config = config.build()
         assert new_config['mongo_secured'] is True
