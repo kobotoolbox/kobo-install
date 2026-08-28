@@ -1375,9 +1375,12 @@ class Config(metaclass=Singleton):
         Asks for the address KoboToolbox sends its email from.
 
         Shared by the SMTP section and by quick setup, which asks it on its
-        own and reuses the answer for Let's Encrypt: on a first run the
-        default follows the public domain name, so the question must come
-        after `__questions_public_routes()` in both flows.
+        own and reuses the answer for Let's Encrypt. The default follows the
+        public domain name on a first run, and whenever the stored address is
+        still the untouched `support@kobo.local` — nobody picks that one on a
+        server, and a workstation turned into one would otherwise be offered
+        it. Either way the question must come after
+        `__questions_public_routes()`.
 
         Args:
             message (str): The prompt to display.
@@ -1385,8 +1388,9 @@ class Config(metaclass=Singleton):
         Returns:
             str: The address entered.
         """
-        if self.first_time:
-            domain_name = self.__dict['public_domain_name']
+        domain_name = self.__dict['public_domain_name']
+        untouched = self.get_template()['default_from_email']
+        if self.first_time or self.__dict['default_from_email'] == untouched:
             self.__dict['default_from_email'] = f'support@{domain_name}'
 
         self.__dict['default_from_email'] = CLI.colored_input(
@@ -2495,7 +2499,7 @@ class Config(metaclass=Singleton):
                         sys.exit(0)
                     else:
                         CLI.colored_print(
-                            'Privileges escalation is needed to prepare DB',
+                            'ePrivileges escalation is needed to prepare DB',
                             CLI.COLOR_WARNING)
                         # Write `kobo_first_run` file to run postgres
                         # container's entrypoint flawlessly.
@@ -3222,16 +3226,21 @@ class Config(metaclass=Singleton):
 
         The mirror of `__reset_development_values()`, and needed for the same
         reason: `__reset()` does not cover them, and a workstation is never
-        asked for them — quick setup skips the question, and the custom setup
-        menu does not offer the `Domain names` section on a local install.
-        The production domain would otherwise end up in the containers, and in
-        the `/etc/hosts` entries written for the machine.
+        asked for them — quick setup skips the questions, and the custom setup
+        menu offers neither the `Domain names` nor the `SMTP` section on a
+        local install. The production domain would otherwise end up in the
+        containers, in the `/etc/hosts` entries written for the machine, and
+        in the address the workstation sends its email from.
         """
         template = self.get_template()
         for key in (
             'public_domain_name',
             'internal_domain_name',
             'private_domain_name',
+            # Asked once, as the support address, and derived from the domain
+            'default_from_email',
+            'letsencrypt_email',
+            'maintenance_email',
         ):
             self.__dict[key] = template[key]
 

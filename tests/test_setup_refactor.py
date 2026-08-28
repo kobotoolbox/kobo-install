@@ -136,6 +136,23 @@ def test_questions_install_mode_dev_resets_domain_names():
     assert d['private_domain_name'] == 'kobo.private'
 
 
+def test_questions_install_mode_dev_resets_support_address():
+    """The support address follows the domain, so it goes with it."""
+    config = read_config({
+        'install_mode': 'production',
+        'public_domain_name': 'kobo.example',
+        'default_from_email': 'support@kobo.example',
+        'letsencrypt_email': 'support@kobo.example',
+        'maintenance_email': 'support@kobo.example',
+    })
+    with patch.object(CLI, 'colored_input', return_value=DEV):
+        config._Config__questions_install_mode()
+    d = config._Config__dict
+    assert d['default_from_email'] == 'support@kobo.local'
+    assert d['letsencrypt_email'] == 'support@kobo.local'
+    assert d['maintenance_email'] == 'support@kobo.local'
+
+
 def test_questions_install_mode_staging_keeps_domain_names():
     """Production and staging are both servers: the domain is theirs to keep."""
     config = read_config({
@@ -702,6 +719,35 @@ def test_build_simple_server_support_email_defaults_to_domain(_):
         except StopIteration:
             # The support address: an empty answer makes the real
             # `CLI.colored_input()` return the default it offered
+            return default
+
+    with patch('helpers.cli.CLI.colored_input', side_effect=answer), \
+            patch.object(Config, '_Config__clone_repo'):
+        result = config.build()
+
+    assert result['default_from_email'] == 'support@kobo.example'
+    assert result['letsencrypt_email'] == 'support@kobo.example'
+
+
+@patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
+@patch('helpers.config.Config._Config__setup_directory', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_network', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
+@patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
+def test_build_simple_server_support_email_follows_new_domain(_):
+    """
+    A workstation that becomes a server is not a first run, but nobody chose
+    `support@kobo.local` either: the address offered follows the new domain.
+    """
+    config = read_config({'local_installation': True, 'dev_mode': True,
+                          'install_mode': 'dev'})
+    config._Config__first_time = False
+    answers = iter([PRODUCTION, SIMPLE, 'kobo.example'])
+
+    def answer(message, color=None, default=None):
+        try:
+            return next(answers)
+        except StopIteration:
             return default
 
     with patch('helpers.cli.CLI.colored_input', side_effect=answer), \
