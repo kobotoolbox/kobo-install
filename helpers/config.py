@@ -3167,6 +3167,7 @@ class Config(metaclass=Singleton):
         if previous_mode != mode:
             if mode == 'dev':
                 self.__reset(http=True, fake_dns=True)
+                self.__reset_server_values()
             else:
                 self.__reset(
                     production=(mode == 'production'),
@@ -3211,6 +3212,26 @@ class Config(metaclass=Singleton):
             'gs_bucket_name',
             'aws_bedrock_region_name',
             'asr_mt_google_project_id',
+        ):
+            self.__dict[key] = template[key]
+
+    def __reset_server_values(self):
+        """
+        Restores the domain names to their defaults, when an existing server
+        install becomes a workstation.
+
+        The mirror of `__reset_development_values()`, and needed for the same
+        reason: `__reset()` does not cover them, and a workstation is never
+        asked for them — quick setup skips the question, and the custom setup
+        menu does not offer the `Domain names` section on a local install.
+        The production domain would otherwise end up in the containers, and in
+        the `/etc/hosts` entries written for the machine.
+        """
+        template = self.get_template()
+        for key in (
+            'public_domain_name',
+            'internal_domain_name',
+            'private_domain_name',
         ):
             self.__dict[key] = template[key]
 

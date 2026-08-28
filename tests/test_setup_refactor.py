@@ -120,6 +120,51 @@ def test_questions_install_mode_sets_production_flags():
     assert d['debug'] is False
 
 
+def test_questions_install_mode_dev_resets_domain_names():
+    """A workstation is never asked for a domain, so the server one must go."""
+    config = read_config({
+        'install_mode': 'production',
+        'public_domain_name': 'kobo.example',
+        'internal_domain_name': 'kobo.internal',
+        'private_domain_name': 'kobo.private.example',
+    })
+    with patch.object(CLI, 'colored_input', return_value=DEV):
+        config._Config__questions_install_mode()
+    d = config._Config__dict
+    assert d['public_domain_name'] == 'kobo.local'
+    assert d['internal_domain_name'] == 'docker.internal'
+    assert d['private_domain_name'] == 'kobo.private'
+
+
+def test_questions_install_mode_staging_keeps_domain_names():
+    """Production and staging are both servers: the domain is theirs to keep."""
+    config = read_config({
+        'install_mode': 'production',
+        'public_domain_name': 'kobo.example',
+    })
+    with patch.object(CLI, 'colored_input', return_value=STAGING):
+        config._Config__questions_install_mode()
+
+    assert config._Config__dict['public_domain_name'] == 'kobo.example'
+
+
+def test_questions_install_mode_dev_again_keeps_domain_names():
+    """
+    A development install that stays one keeps whatever domain it was given:
+    only a change of mode resets anything.
+    """
+    config = read_config({
+        'install_mode': 'dev',
+        'local_installation': True,
+        'dev_mode': True,
+        'public_domain_name': 'kobo.dev',
+    })
+    with patch.object(CLI, 'colored_input', return_value=DEV):
+        config._Config__questions_install_mode()
+
+    assert config._Config__dict['public_domain_name'] == 'kobo.dev'
+
+
 def test_questions_install_mode_default_reflects_existing_dev_config():
     """Existing dev config → default choice should be '1'."""
     config = read_config({'local_installation': True})
