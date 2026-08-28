@@ -856,7 +856,7 @@ def test_update_postgres_username():
 def test_update_postgres_db_name_from_single_database():
     """
     Simulate upgrade from single database to two databases.
-    With two databases, KoboCat has its own database. We ensure that
+    With two databases, KoboCAT has its own database. We ensure that
     `kc_postgres_db` gets `postgres_db` value.
     """
     config = read_config()

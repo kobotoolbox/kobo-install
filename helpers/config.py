@@ -1303,7 +1303,7 @@ class Config(metaclass=Singleton):
                         color=CLI.COLOR_WARNING
                     )
                     if self.frontend and not self.aws:
-                        CLI.colored_print('KoboCat media backup schedule?',
+                        CLI.colored_print('KoboCAT media backup schedule?',
                                           CLI.COLOR_QUESTION)
                         self.__dict[
                             'kobocat_media_backup_schedule'] = CLI.get_response(
@@ -1686,7 +1686,7 @@ class Config(metaclass=Singleton):
 
         Settings can be tweaked thanks to pgconfig.org API
         """
-        CLI.colored_print('KoboCat PostgreSQL database name?',
+        CLI.colored_print('KoboCAT PostgreSQL database name?',
                           CLI.COLOR_QUESTION)
         kc_postgres_db = CLI.get_response(
             r'~^\w+$',
@@ -2001,7 +2001,7 @@ class Config(metaclass=Singleton):
                 self.__dict['kpi_subdomain']
             )
             self.__dict['kc_subdomain'] = CLI.colored_input(
-                'KoboCat sub domain?',
+                'KoboCAT sub domain?',
                 CLI.COLOR_QUESTION,
                 self.__dict['kc_subdomain']
             )
