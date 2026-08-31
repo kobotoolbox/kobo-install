@@ -2591,3 +2591,48 @@ def test_backend_only_backup_asks_for_its_own_aws_settings():
     assert d['postgres_backup_schedule'] == '0 2 * * 0'
     assert d['mongo_backup_schedule'] == '0 2 * * 0'
     assert d['redis_backup_schedule'] == '0 2 * * 0'
+
+
+def test_cloud_profiles_no_turns_off_a_previous_yes(tmp_path):
+    """
+    Yes on one quick run, no on the next: the mounts must actually go away.
+    Returning early left the flags on and kept mounting the credentials the
+    developer had just declined.
+    """
+    expanduser, aws_dir, gcloud_dir = _cloud_dirs(tmp_path)
+    config = _later_run_config({
+        'aws_use_profile': True,
+        'aws_profile_name': 'default',
+        'aws_host_aws_dir': aws_dir,
+        'gcloud_use_profile': True,
+        'gcloud_host_config_dir': gcloud_dir,
+    })
+
+    with patch('helpers.config.os.path.expanduser', side_effect=expanduser), \
+            patch.object(CLI, 'yes_no_question', return_value=False):
+        config._Config__auto_detect_cloud_profiles()
+
+    d = config._Config__dict
+    assert d['aws_use_profile'] is False
+    assert d['aws_profile_name'] == ''
+    assert d['aws_host_aws_dir'] == ''
+    assert d['gcloud_use_profile'] is False
+    assert d['gcloud_host_config_dir'] == ''
+
+
+def test_cloud_profiles_no_then_stays_silent_about_nlp(tmp_path):
+    """Declining the mounts leaves no provider reachable, so nothing follows."""
+    expanduser, _, _ = _cloud_dirs(tmp_path)
+    config = _later_run_config({
+        'aws_use_profile': True,
+        'gcloud_use_profile': True,
+        'aws_access_key': '',
+    })
+
+    with patch('helpers.config.os.path.expanduser', side_effect=expanduser), \
+            patch.object(CLI, 'yes_no_question', return_value=False):
+        config._Config__auto_detect_cloud_profiles()
+
+    with patch.object(CLI, 'yes_no_question') as question:
+        config._Config__questions_nlp_quick()
+    question.assert_not_called()

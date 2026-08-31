@@ -106,8 +106,8 @@ Whatever you choose, `kobo-install` sets up on its own:
 |PostgreSQL and uWSGI sizing, computed from detected CPUs and RAM <sup>3</sup>|First run, staging and production. 50% of the machine for staging, 75% for production. On a multi-server frontend, the uWSGI memory limit is raised to 75% since the databases live elsewhere|
 |`console` email backend, so messages are printed instead of sent|Development, quick|
 |KPI source files, set to `../kpi` and cloned if the directory is not there yet|Development, quick. Override it with the `KPI source files` section|
-|AWS profile authentication, if `~/.aws` exists on the host|Development, quick. The directory is mounted read-only into the front-end containers. S3 storage itself stays off|
-|Google Cloud application default credentials, if `~/.config/gcloud` exists on the host|Development, quick. The directory is mounted read-only and the active project is read from `configurations/config_default` to pre-fill the NLP questions|
+|AWS profile authentication, if `~/.aws` exists on the host|Development, quick, **after confirmation**. The directory is mounted read-only into the front-end containers. S3 storage itself stays off|
+|Google Cloud application default credentials, if `~/.config/gcloud` exists on the host|Development, quick, **after confirmation**. The directory is mounted read-only and the active project is read from `configurations/config_default` to pre-fill the Google questions|
 
 ### What quick setup still asks
 
@@ -124,12 +124,31 @@ is the default. Pick `Custom setup` and its `HTTPS & certificates` section to
 use your own reverse-proxy or load balancer instead — quick setup then keeps
 that choice on the next run.
 
-On a **development** machine where `~/.config/gcloud` was found, quick setup asks
-whether to configure NLP, then collects the three values listed under
-[Sections](#sections) below. Without those credentials NLP cannot work, so the
-question is skipped and quick setup stays silent. It is also skipped when
-`kobo-docker` already carries the NLP variables — see below. A workstation is
-asked nothing else: it keeps `kobo.local` and plain HTTP.
+On a **development** machine, quick setup asks at most two questions.
+
+The first appears when `~/.aws` or `~/.config/gcloud` is found on the host:
+whether to mount them, read-only, so the containers authenticate the way you
+already do. Each directory is mounted whole, every profile in it included,
+which is why it is asked rather than assumed. Answering no turns the mounts
+off, including on a machine where a previous run had turned them on.
+
+The second follows only if credentials are in place, and covers two separate
+features: Google powers transcription and translation, AWS Bedrock powers
+qualitative analysis. The question names whichever half is reachable —
+`Configure NLP?`, `Configure Qualitative Analysis?` or both — and then asks
+only for the matching values. With no credentials at all, quick setup stays
+silent. It is also silent when `kobo-docker` already carries these variables —
+see below.
+
+A workstation is asked nothing else: it keeps `kobo.local` and plain HTTP.
+
+### Before the menu: server topology
+
+On a **server**, custom setup first asks whether the installation is split
+across several machines and, if it is, which role this one plays. That answer
+is not a section: it decides which sections exist. A back end has no domain
+names to serve, a front end has no database to tune, and the menu can only
+leave those out if it already knows the role.
 
 ### The custom setup menu
 
@@ -158,12 +177,11 @@ A section shipped by a **newer version of kobo-install** has never been offered 
 |Infrastructure|Install directory|All|
 | |Network interface|All|
 | |Docker Compose prefix, to run several instances on one host|All|
-|Server|Multi-server setup|Staging, production|
-| |Domain names|Staging, production|
-| |HTTPS & certificates <sup>2</sup>|Staging, production|
-|Application|SMTP|All|
+|Server|Domain names|Staging, production, front end|
+| |HTTPS & certificates <sup>2</sup>|Staging, production, front end|
+|Application|SMTP|All, front end|
 | |Custom YAML|All|
-|Security|Superuser credentials|All|
+|Security|Superuser credentials|All, front end|
 | |Secret keys|All, front end|
 | |Session duration|Staging, production, front end|
 |Performance|PostgreSQL tuning <sup>3</sup>|Staging, production, back end|
@@ -178,13 +196,13 @@ A section shipped by a **newer version of kobo-install** has never been offered 
 | |NLP and qualitative analysis|Development, front end|
 | |Google Analytics & Maps|Staging, production, front end|
 | |Sentry|Staging, production, front end|
-|Maintenance|Backups <sup>6</sup>|All, front end|
+|Maintenance|Backups <sup>6</sup>|All. Database schedules on the back end, media on a front end not using S3|
 
 Checking a section is the consent to configure it — there is no second "do you want to tweak this?" question once you have selected it.
 
 `Cloud credentials (AWS & Google)` mounts your host `~/.aws` and `~/.config/gcloud` into the front-end containers so they authenticate with your own credentials. Both mounts are independent of everything else: `~/.aws` does not turn S3 storage on, and `~/.config/gcloud` does not turn NLP on. Neither is offered on a server, which authenticates with its own credentials.
 
-`NLP and qualitative analysis` collects three values — `GS_BUCKET_NAME`, `AWS_BEDROCK_REGION_NAME` and `CONSTANCE_ASR_MT_GOOGLE_PROJECT_ID`. `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_QUOTA_PROJECT` are what the Google SDK needs to work with application default credentials and always hold that same project, so they are derived rather than asked. The section is offered on a development machine only: a server gets these settings from `Constance`.
+`NLP and qualitative analysis` covers two features with two providers. Google drives transcription and translation (`GS_BUCKET_NAME`, `CONSTANCE_ASR_MT_GOOGLE_PROJECT_ID`); AWS Bedrock drives qualitative analysis (`AWS_BEDROCK_REGION_NAME`). Each group is asked only when the containers can reach that provider — mounted `~/.config/gcloud` for Google, a mounted `~/.aws` or an S3 access key for AWS — so a machine set up for one of them is not asked for the other. `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_QUOTA_PROJECT` are what the Google SDK needs to work with application default credentials and always hold the same project, so they are derived rather than asked. The section is offered on a development machine only: a server gets these settings from `Constance`.
 
 If `kobo-docker/docker-compose.frontend.custom.yml` already defines any of those variables, that file wins. `kobo-install` says so, leaves the NLP block of `external_services.txt` commented out and does not ask — one variable, one source of truth. Remove them from the custom file if you would rather `kobo-install` managed them. The AutoQA model ARNs (`AUTOQA_CLAUDESONNET_MODEL_AIP_ARN`, `AUTOQA_OSS120_MODEL_AIP_ARN`) are not needed for local development; production instances that want them set them through that custom file.
 

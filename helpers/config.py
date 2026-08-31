@@ -838,10 +838,25 @@ class Config(metaclass=Singleton):
             'Each directory is mounted whole, including every profile in it.',
             default=True if self.first_time else previous_answer,
         ):
+            # "No" has to actually turn the mounts off. A previous run may
+            # have left the flags on, and returning early would keep mounting
+            # the credentials the developer just declined.
+            self.__disable_cloud_profiles()
             return
 
         self.__auto_detect_aws_profile(aws_dir)
         self.__auto_detect_gcloud_profile(gcloud_dir)
+
+    def __disable_cloud_profiles(self):
+        """
+        Turns both credential mounts off, exactly as the `else` branches of
+        `__questions_cloud_profiles()` do in custom setup.
+        """
+        self.__dict['aws_use_profile'] = False
+        self.__dict['aws_profile_name'] = ''
+        self.__dict['aws_host_aws_dir'] = ''
+        self.__dict['gcloud_use_profile'] = False
+        self.__dict['gcloud_host_config_dir'] = ''
 
     def __auto_detect_aws_profile(self, aws_dir):
         """
