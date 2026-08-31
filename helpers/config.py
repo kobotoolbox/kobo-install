@@ -828,32 +828,28 @@ class Config(metaclass=Singleton):
                 if os.path.isdir(path)]
 
     @staticmethod
-    def __warn_credential_mounts(detected, avoidable):
+    def __warn_credential_mounts(detected):
         """
         Says which host directories are about to be mounted into the
         containers, before it happens.
 
-        Mounting a whole credentials directory is worth stating plainly, but
-        it does not deserve a question of its own when the answer that
-        triggers it is right below.
+        One wording for both callers. `Ctrl+C` is a genuine way out either
+        way — nothing is written until the end of `build()`, and the run stops
+        again at `/etc/hosts` — so it is offered even when a question follows.
         """
-        listed = '\n'.join(f'{label}: {path}' for label, path in detected)
-        if avoidable:
-            message = (
-                'Answering yes below mounts these directories read-only into '
-                'the front-end containers, whole, every profile in them '
-                'included:\n'
-                f'{listed}'
-            )
-        else:
-            message = (
-                'These directories will be mounted read-only into the '
-                'front-end containers, whole, every profile in them '
-                'included:\n'
-                f'{listed}\n'
-                'Press Ctrl+C now if you would rather they were not.'
-            )
-        CLI.framed_print(message)
+        listed = '\n'.join(
+            f' \u2192 {label}: {path}' for label, path in detected
+        )
+        CLI.framed_print(
+            'Cloud profiles were detected.\n'
+            f'{listed}\n'
+            '\n'
+            'These directories will be mounted whole, read-only, into the '
+            'front-end containers by default \u2014 every profile in them '
+            'included.\n'
+            'Press Ctrl+C to cancel, then use Custom setup to choose '
+            'otherwise.'
+        )
 
     def __disable_cloud_profiles(self):
         """
@@ -1489,12 +1485,12 @@ class Config(metaclass=Singleton):
 
         if self.__nlp_managed_by_custom_yml():
             if detected:
-                self.__warn_credential_mounts(detected, avoidable=False)
+                self.__warn_credential_mounts(detected)
                 self.__auto_detect_cloud_profiles()
             return
 
         if detected:
-            self.__warn_credential_mounts(detected, avoidable=True)
+            self.__warn_credential_mounts(detected)
 
         if google and aws:
             what = 'NLP & Qualitative Analysis'

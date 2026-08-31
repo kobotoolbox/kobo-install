@@ -140,8 +140,9 @@ turned on.
 
 When `kobo-docker` already carries these variables there is nothing to ask —
 see below — but the directories are still mounted, so the warning is shown
-anyway, with a `Ctrl+C` you can still use. With no credentials at all, quick
-setup stays silent.
+anyway. Either way it offers `Ctrl+C`: nothing is written until the end of the
+setup, and `Custom setup` is where you pick something other than the default.
+With no credentials at all, quick setup stays silent.
 
 A workstation is asked nothing else: it keeps `kobo.local` and plain HTTP.
 

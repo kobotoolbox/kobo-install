@@ -2199,13 +2199,20 @@ def _cloud_dirs(tmp_path, aws=True, gcloud=True, project=None):
     return expanduser, str(aws_dir), str(gcloud_dir)
 
 
-def _run_quick(config, expanduser, answer=True):
+def _run_quick(config, expanduser, answer=True, custom_yml=False):
     """
     Runs `__questions_nlp_quick` with no real terminal, and returns
     (framed warnings, yes/no questions asked).
+
+    `__nlp_managed_by_custom_yml` is pinned rather than left to read from
+    disk: `kobodocker_path` points at the real sibling checkout, and a
+    developer's own `docker-compose.frontend.custom.yml` carrying the NLP
+    variables would otherwise decide the outcome of these tests.
     """
     framed, asked = [], []
     with patch('helpers.config.os.path.expanduser', side_effect=expanduser), \
+            patch.object(Config, '_Config__nlp_managed_by_custom_yml',
+                         return_value=custom_yml), \
             patch.object(CLI, 'framed_print',
                          side_effect=lambda m, *a, **k: framed.append(m)), \
             patch.object(CLI, 'yes_no_question',
@@ -2326,13 +2333,12 @@ def test_quick_setup_mounts_anyway_when_custom_yml_owns_nlp(tmp_path):
     mounts still happen, so say so while Ctrl+C can still stop the run.
     """
     expanduser, aws_dir, gcloud_dir = _cloud_dirs(tmp_path)
-    config = _config_with_custom_yml(tmp_path, '      - GS_BUCKET_NAME=mine')
-    config._Config__dict.update({
+    config = _first_run_config({
         'aws_use_profile': False, 'gcloud_use_profile': False,
         'aws_access_key': '',
     })
 
-    framed, asked = _run_quick(config, expanduser)
+    framed, asked = _run_quick(config, expanduser, custom_yml=True)
 
     assert asked == []
     assert len(framed) == 1
@@ -2346,17 +2352,26 @@ def test_quick_setup_mounts_anyway_when_custom_yml_owns_nlp(tmp_path):
     assert d['use_nlp'] is False
 
 
-def test_quick_setup_warning_mentions_ctrl_c_only_when_unavoidable(tmp_path):
-    """With a question below it, the answer is the way out — not Ctrl+C."""
-    expanduser, _, _ = _cloud_dirs(tmp_path)
-    config = _first_run_config({
-        'aws_use_profile': False, 'gcloud_use_profile': False,
-        'aws_access_key': '',
-    })
+def test_quick_setup_warning_always_offers_ctrl_c(tmp_path):
+    """
+    Ctrl+C is a genuine way out with or without a question below: nothing is
+    written until the end of `build()`. Both callers say so.
+    """
+    for custom_yml in (False, True):
+        home = tmp_path / str(custom_yml)
+        home.mkdir()
+        expanduser, _, _ = _cloud_dirs(home)
+        config = _first_run_config({
+            'aws_use_profile': False, 'gcloud_use_profile': False,
+            'aws_access_key': '',
+        })
 
-    framed, _ = _run_quick(config, expanduser)
+        framed, _ = _run_quick(config, expanduser, answer=False,
+                               custom_yml=custom_yml)
 
-    assert 'Ctrl+C' not in framed[0]
+        assert len(framed) == 1
+        assert 'Ctrl+C' in framed[0], custom_yml
+        assert 'Custom setup' in framed[0], custom_yml
 
 
 # ── $HOME in generated mounts ────────────────────────────────────────────────
