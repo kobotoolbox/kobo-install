@@ -871,6 +871,10 @@ class Config(metaclass=Singleton):
         file storage to S3 stays an explicit opt-in via the "AWS S3 storage"
         section of custom setup.
 
+        Nothing is printed here: the framed warning shown before the question
+        has already said these directories would be mounted, and saying it
+        again afterwards only pads the output.
+
         Consent is handled once for both providers by
         `__auto_detect_cloud_profiles`.
         """
@@ -880,10 +884,6 @@ class Config(metaclass=Singleton):
         self.__dict['aws_use_profile'] = True
         self.__dict['aws_profile_name'] = 'default'
         self.__dict['aws_host_aws_dir'] = aws_dir
-        CLI.colored_print(
-            '  → AWS profile "default" enabled (S3 storage left disabled)',
-            CLI.COLOR_INFO,
-        )
 
     def __auto_detect_gcloud_profile(self, gcloud_dir):
         """
@@ -903,10 +903,6 @@ class Config(metaclass=Singleton):
 
         self.__dict['gcloud_use_profile'] = True
         self.__dict['gcloud_host_config_dir'] = gcloud_dir
-        CLI.colored_print(
-            '  \u2192 Google Cloud application default credentials enabled',
-            CLI.COLOR_INFO,
-        )
 
         project = self.__detect_gcloud_project(gcloud_dir)
         if project:
