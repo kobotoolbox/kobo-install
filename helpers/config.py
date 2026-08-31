@@ -2514,7 +2514,7 @@ class Config(metaclass=Singleton):
                         sys.exit(0)
                     else:
                         CLI.colored_print(
-                            'ePrivileges escalation is needed to prepare DB',
+                            'Privileges escalation is needed to prepare DB',
                             CLI.COLOR_WARNING)
                         # Write `kobo_first_run` file to run postgres
                         # container's entrypoint flawlessly.
