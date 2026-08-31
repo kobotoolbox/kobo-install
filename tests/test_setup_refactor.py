@@ -537,7 +537,7 @@ def test_build_simple_dev_consumes_exactly_two_inputs(_):
 
     with patch('helpers.cli.CLI.colored_input') as mock_ci, \
             patch.object(Config, '_Config__auto_setup_kpi_path'), \
-            patch.object(Config, '_Config__auto_detect_cloud_profiles'):
+            patch.object(Config, '_Config__questions_nlp_quick'):
         mock_ci.side_effect = iter([DEV, SIMPLE])
         config.build()
 
@@ -571,6 +571,8 @@ def test_build_simple_server_consumes_exactly_four_inputs(_):
 @patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
 # The host's own ~/.aws and ~/.config/gcloud must not decide what this asks
 @patch('helpers.config.Config._Config__auto_detect_cloud_profiles',
+       new=lambda *a: None)
+@patch('helpers.config.Config._Config__questions_nlp_quick',
        new=lambda *a: None)
 @patch('helpers.config.Config._Config__auto_setup_kpi_path',
        new=lambda *a: None)
@@ -808,6 +810,8 @@ def test_build_simple_server_keeps_own_reverse_proxy(_):
 @patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
 @patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
 @patch('helpers.config.Config._Config__auto_detect_cloud_profiles',
+       new=lambda *a: None)
+@patch('helpers.config.Config._Config__questions_nlp_quick',
        new=lambda *a: None)
 @patch('helpers.config.Config._Config__auto_setup_kpi_path',
        new=lambda *a: None)
@@ -1210,6 +1214,8 @@ def test_questions_nlp_project_defaults_to_the_detected_one():
 @patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
 @patch('helpers.config.Config._Config__auto_detect_cloud_profiles',
        new=lambda *a: None)
+@patch('helpers.config.Config._Config__questions_nlp_quick',
+       new=lambda *a: None)
 @patch('helpers.config.Config._Config__auto_setup_kpi_path', new=lambda *a: None)
 @patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
 def test_build_gives_nlp_up_to_the_custom_yml(_, tmp_path):
@@ -1321,7 +1327,8 @@ def test_auto_setup_kpi_path_leaves_an_existing_clone_alone(tmp_path):
 @patch('helpers.config.Config._Config__auto_configure_resources', new=lambda *a: None)
 @patch('helpers.config.Config._Config__auto_detect_cloud_profiles',
        new=lambda *a: None)
-@patch('helpers.config.Config._Config__questions_nlp_quick', new=lambda *a: None)
+@patch('helpers.config.Config._Config__questions_nlp_quick',
+       new=lambda *a: None)
 @patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
 def test_build_quick_dev_sets_up_kpi(_):
     config = read_config({'local_installation': True, 'dev_mode': True,
@@ -1446,52 +1453,46 @@ def test_nlp_custom_yml_result_is_cached(tmp_path):
 
 
 # ── __questions_nlp_quick (dev, quick setup) ─────────────────────────────────
+#
+# What the containers can reach is decided by the directories on the host, not
+# by the stored flags: the mounts now follow this question's answer. Every test
+# below therefore builds its own `~/.aws` / `~/.config/gcloud` under tmp_path.
 
-def test_questions_nlp_quick_silent_without_gcloud():
-    """
-    Quick setup keeps its promise: no gcloud credentials on the host means NLP
-    cannot work, so nothing is asked.
-    """
-    config = read_config({'gcloud_use_profile': False})
-    with patch.object(CLI, 'colored_input') as mock_input:
-        config._Config__questions_nlp_quick()
-    mock_input.assert_not_called()
-    assert config._Config__dict['use_nlp'] is False
+def test_questions_nlp_quick_asks_three_questions_after_yes(tmp_path):
+    expanduser, _, _ = _cloud_dirs(tmp_path)
+    config = read_config({'aws_access_key': ''})
 
-
-def test_questions_nlp_quick_asks_three_questions_after_yes():
-    config = read_config({
-        'gcloud_use_profile': True,
-        'aws_use_profile': True,
-    })
-    with patch('helpers.cli.CLI.colored_input') as mock_input:
+    with patch('helpers.config.os.path.expanduser', side_effect=expanduser), \
+            patch.object(CLI, 'framed_print', new=lambda *a, **k: None), \
+            patch('helpers.cli.CLI.colored_input') as mock_input:
         mock_input.side_effect = iter([
             CHOICE_YES, 'my-bucket', 'my-gcp-project', 'us-west-2',
         ])
         config._Config__questions_nlp_quick()
+
     d = config._Config__dict
     assert mock_input.call_count == 4  # the gate, then three answers
     assert d['use_nlp'] is True
     assert d['gs_bucket_name'] == 'my-bucket'
     assert d['aws_bedrock_region_name'] == 'us-west-2'
     assert d['asr_mt_google_project_id'] == 'my-gcp-project'
+    # Saying yes is also what mounts the credentials.
+    assert d['aws_use_profile'] is True
+    assert d['gcloud_use_profile'] is True
 
 
-def test_questions_nlp_quick_stops_after_no():
-    config = read_config({'gcloud_use_profile': True})
-    with patch('helpers.cli.CLI.colored_input') as mock_input:
+def test_questions_nlp_quick_stops_after_no(tmp_path):
+    expanduser, _, _ = _cloud_dirs(tmp_path, aws=False)
+    config = read_config({'aws_access_key': ''})
+
+    with patch('helpers.config.os.path.expanduser', side_effect=expanduser), \
+            patch.object(CLI, 'framed_print', new=lambda *a, **k: None), \
+            patch('helpers.cli.CLI.colored_input') as mock_input:
         mock_input.side_effect = iter([CHOICE_NO])
         config._Config__questions_nlp_quick()
+
     assert mock_input.call_count == 1
     assert config._Config__dict['use_nlp'] is False
-
-
-def test_questions_nlp_quick_silent_when_custom_yml_owns_it(tmp_path):
-    config = _config_with_custom_yml(tmp_path, '      - GS_BUCKET_NAME=mine')
-    config._Config__dict['gcloud_use_profile'] = True
-    with patch.object(CLI, 'colored_input') as mock_input:
-        config._Config__questions_nlp_quick()
-    mock_input.assert_not_called()
 
 
 def test_questions_nlp_quick_offers_the_detected_project(tmp_path):
@@ -1499,14 +1500,18 @@ def test_questions_nlp_quick_offers_the_detected_project(tmp_path):
     __auto_detect_gcloud_profile has just filled the project in, so a bare
     ENTER keeps it.
     """
-    config = read_config({
-        'gcloud_use_profile': True,
-        'asr_mt_google_project_id': 'detected-project',
-    })
-    with patch.object(CLI, 'yes_no_question', return_value=True), \
-         patch.object(CLI, 'colored_input',
-                      side_effect=lambda m, c, default='': default):
+    expanduser, _, _ = _cloud_dirs(
+        tmp_path, aws=False, project='[core]\nproject = detected-project\n'
+    )
+    config = read_config({'aws_access_key': ''})
+
+    with patch('helpers.config.os.path.expanduser', side_effect=expanduser), \
+            patch.object(CLI, 'framed_print', new=lambda *a, **k: None), \
+            patch.object(CLI, 'yes_no_question', return_value=True), \
+            patch.object(CLI, 'colored_input',
+                         side_effect=lambda m, c, default='': default):
         config._Config__questions_nlp_quick()
+
     assert config._Config__dict['asr_mt_google_project_id'] == \
         'detected-project'
 
@@ -2171,12 +2176,16 @@ def test_auto_configure_resources_reports_a_pgconfig_failure():
     assert any('error has occurred' in message for message in printed)
 
 
-# ── Consent before mounting host credentials ─────────────────────────────────
+# ── Consent: the mounts follow the NLP answer ────────────────────────────────
+#
+# `~/.aws` and `~/.config/gcloud` used to get a question of their own, listing
+# the same paths one prompt above the NLP one. They serve nothing else in quick
+# setup, so they now follow that answer, announced by a framed warning.
 
 def _cloud_dirs(tmp_path, aws=True, gcloud=True, project=None):
     """
-    Builds the host directories `__auto_detect_cloud_profiles` looks for, and
-    returns an `expanduser` replacement that resolves ~ to them.
+    Builds the host directories quick setup looks for, and returns an
+    `expanduser` replacement that resolves ~ to them.
     """
     aws_dir = tmp_path / '.aws'
     if aws:
@@ -2190,8 +2199,26 @@ def _cloud_dirs(tmp_path, aws=True, gcloud=True, project=None):
     return expanduser, str(aws_dir), str(gcloud_dir)
 
 
-def test_cloud_profiles_asked_once_for_both_providers(tmp_path):
-    """Two providers, one decision — not two prompts in a row."""
+def _run_quick(config, expanduser, answer=True):
+    """
+    Runs `__questions_nlp_quick` with no real terminal, and returns
+    (framed warnings, yes/no questions asked).
+    """
+    framed, asked = [], []
+    with patch('helpers.config.os.path.expanduser', side_effect=expanduser), \
+            patch.object(CLI, 'framed_print',
+                         side_effect=lambda m, *a, **k: framed.append(m)), \
+            patch.object(CLI, 'yes_no_question',
+                         side_effect=lambda q, **k: (
+                             asked.append(q) or answer)), \
+            patch.object(CLI, 'colored_input',
+                         side_effect=lambda m, c, default='': default):
+        config._Config__questions_nlp_quick()
+    return framed, asked
+
+
+def test_quick_setup_asks_one_question_for_both_providers(tmp_path):
+    """One decision, one prompt — the mounts ride along with it."""
     expanduser, aws_dir, gcloud_dir = _cloud_dirs(
         tmp_path, project='[core]\nproject = my-project\n'
     )
@@ -2199,23 +2226,17 @@ def test_cloud_profiles_asked_once_for_both_providers(tmp_path):
         'aws_use_profile': False,
         'gcloud_use_profile': False,
         'asr_mt_google_project_id': '',
+        'aws_access_key': '',
     })
 
-    asked = []
-
-    def _answer(question, default=True, **kwargs):
-        asked.append(question)
-        return True
-
-    with patch('helpers.config.os.path.expanduser', side_effect=expanduser), \
-            patch.object(CLI, 'yes_no_question', side_effect=_answer):
-        config._Config__auto_detect_cloud_profiles()
+    framed, asked = _run_quick(config, expanduser)
 
     assert len(asked) == 1
-    # Both directories are named, and the scope of the mount is spelled out.
-    assert aws_dir in asked[0]
-    assert gcloud_dir in asked[0]
-    assert 'every profile' in asked[0]
+    assert asked[0] == 'Configure NLP & Qualitative Analysis?'
+    # The paths are stated once, in the warning — not again in the question.
+    assert len(framed) == 1
+    assert aws_dir in framed[0] and gcloud_dir in framed[0]
+    assert aws_dir not in asked[0] and gcloud_dir not in asked[0]
 
     d = config._Config__dict
     assert d['aws_use_profile'] is True
@@ -2223,7 +2244,7 @@ def test_cloud_profiles_asked_once_for_both_providers(tmp_path):
     assert d['asr_mt_google_project_id'] == 'my-project'
 
 
-def test_cloud_profiles_respects_a_no(tmp_path):
+def test_quick_setup_no_mounts_nothing(tmp_path):
     expanduser, _, _ = _cloud_dirs(
         tmp_path, project='[core]\nproject = my-project\n'
     )
@@ -2232,73 +2253,110 @@ def test_cloud_profiles_respects_a_no(tmp_path):
         'gcloud_use_profile': False,
         'asr_mt_google_project_id': '',
         'use_aws': False,
+        'aws_access_key': '',
     })
 
-    with patch('helpers.config.os.path.expanduser', side_effect=expanduser), \
-            patch.object(CLI, 'yes_no_question', return_value=False):
-        config._Config__auto_detect_cloud_profiles()
+    _run_quick(config, expanduser, answer=False)
 
     d = config._Config__dict
     assert d['aws_use_profile'] is False
     assert d['gcloud_use_profile'] is False
     assert d['use_aws'] is False
-    # Declining the mount must not leak the project either.
+    # Declining must not leak the project either.
     assert d['asr_mt_google_project_id'] == ''
 
 
-def test_cloud_profiles_only_lists_what_exists(tmp_path):
+def test_quick_setup_no_turns_off_a_previous_yes(tmp_path):
+    """
+    Yes on one run, no on the next: the mounts must actually go away instead
+    of surviving in `.run.conf`.
+    """
+    expanduser, aws_dir, gcloud_dir = _cloud_dirs(tmp_path)
+    config = _later_run_config({
+        'aws_use_profile': True,
+        'aws_profile_name': 'default',
+        'aws_host_aws_dir': aws_dir,
+        'gcloud_use_profile': True,
+        'gcloud_host_config_dir': gcloud_dir,
+        'aws_access_key': '',
+    })
+
+    _run_quick(config, expanduser, answer=False)
+
+    d = config._Config__dict
+    assert d['aws_use_profile'] is False
+    assert d['aws_profile_name'] == ''
+    assert d['aws_host_aws_dir'] == ''
+    assert d['gcloud_use_profile'] is False
+    assert d['gcloud_host_config_dir'] == ''
+
+
+def test_quick_setup_warning_only_lists_what_exists(tmp_path):
     """A machine with only ~/.aws must not be told about Google Cloud."""
-    expanduser, aws_dir, gcloud_dir = _cloud_dirs(tmp_path, gcloud=False)
-    config = _first_run_config({'aws_use_profile': False})
+    expanduser, aws_dir, _ = _cloud_dirs(tmp_path, gcloud=False)
+    config = _first_run_config({
+        'aws_use_profile': False, 'gcloud_use_profile': False,
+        'aws_access_key': '',
+    })
 
-    asked = []
-    with patch('helpers.config.os.path.expanduser', side_effect=expanduser), \
-            patch.object(CLI, 'yes_no_question',
-                         side_effect=lambda q, **k: asked.append(q) or True):
-        config._Config__auto_detect_cloud_profiles()
+    framed, asked = _run_quick(config, expanduser)
 
-    assert aws_dir in asked[0]
-    assert 'Google Cloud' not in asked[0]
+    assert aws_dir in framed[0]
+    assert 'Google Cloud' not in framed[0]
+    assert asked[0] == 'Configure Qualitative Analysis?'
     assert config._Config__dict['gcloud_use_profile'] is False
 
 
-def test_cloud_profiles_asks_nothing_without_credentials(tmp_path):
+def test_quick_setup_silent_without_any_credentials(tmp_path):
     expanduser, _, _ = _cloud_dirs(tmp_path, aws=False, gcloud=False)
-    config = _first_run_config()
+    config = _first_run_config({
+        'aws_use_profile': False, 'gcloud_use_profile': False,
+        'aws_access_key': '',
+    })
 
-    with patch('helpers.config.os.path.expanduser', side_effect=expanduser), \
-            patch.object(CLI, 'yes_no_question') as question:
-        config._Config__auto_detect_cloud_profiles()
+    framed, asked = _run_quick(config, expanduser)
 
-    question.assert_not_called()
+    assert framed == []
+    assert asked == []
 
 
-def test_credentials_question_defaults_to_the_previous_answer(tmp_path):
+def test_quick_setup_mounts_anyway_when_custom_yml_owns_nlp(tmp_path):
     """
-    A stored `False` means "no" only once the install exists; on a first run it
-    is just the template default, so the question opens on Yes.
+    Nothing to ask — the custom compose file owns the settings — but the
+    mounts still happen, so say so while Ctrl+C can still stop the run.
     """
+    expanduser, aws_dir, gcloud_dir = _cloud_dirs(tmp_path)
+    config = _config_with_custom_yml(tmp_path, '      - GS_BUCKET_NAME=mine')
+    config._Config__dict.update({
+        'aws_use_profile': False, 'gcloud_use_profile': False,
+        'aws_access_key': '',
+    })
+
+    framed, asked = _run_quick(config, expanduser)
+
+    assert asked == []
+    assert len(framed) == 1
+    assert 'Ctrl+C' in framed[0]
+    assert aws_dir in framed[0] and gcloud_dir in framed[0]
+
+    d = config._Config__dict
+    assert d['aws_use_profile'] is True
+    assert d['gcloud_use_profile'] is True
+    # The custom file still owns the values themselves.
+    assert d['use_nlp'] is False
+
+
+def test_quick_setup_warning_mentions_ctrl_c_only_when_unavoidable(tmp_path):
+    """With a question below it, the answer is the way out — not Ctrl+C."""
     expanduser, _, _ = _cloud_dirs(tmp_path)
-    defaults = []
+    config = _first_run_config({
+        'aws_use_profile': False, 'gcloud_use_profile': False,
+        'aws_access_key': '',
+    })
 
-    def _capture(question, default=True, **kwargs):
-        defaults.append(default)
-        return False
+    framed, _ = _run_quick(config, expanduser)
 
-    for factory, stored, expected in (
-        (_first_run_config, {}, True),
-        (_later_run_config, {}, False),
-        (_later_run_config, {'aws_use_profile': True}, True),
-        (_later_run_config, {'gcloud_use_profile': True}, True),
-    ):
-        overrides = {'aws_use_profile': False, 'gcloud_use_profile': False}
-        overrides.update(stored)
-        config = factory(overrides)
-        with patch('helpers.config.os.path.expanduser',
-                   side_effect=expanduser), \
-                patch.object(CLI, 'yes_no_question', side_effect=_capture):
-            config._Config__auto_detect_cloud_profiles()
-        assert defaults[-1] is expected
+    assert 'Ctrl+C' not in framed[0]
 
 
 # ── $HOME in generated mounts ────────────────────────────────────────────────
@@ -2422,35 +2480,24 @@ def test_questions_nlp_skips_when_no_provider_is_reachable():
     assert any('No cloud credentials' in m for m in printed)
 
 
-def test_questions_nlp_quick_names_what_is_actually_available():
+def test_quick_setup_question_names_what_is_reachable(tmp_path):
     """The gate must not promise transcription to an AWS-only machine."""
     cases = [
-        ({'gcloud_use_profile': True, 'aws_use_profile': True},
-         'Configure NLP & Qualitative Analysis?'),
-        ({'gcloud_use_profile': True, 'aws_use_profile': False},
-         'Configure NLP?'),
-        ({'gcloud_use_profile': False, 'aws_use_profile': True},
-         'Configure Qualitative Analysis?'),
+        (dict(aws=True, gcloud=True), 'Configure NLP & Qualitative Analysis?'),
+        (dict(aws=False, gcloud=True), 'Configure NLP?'),
+        (dict(aws=True, gcloud=False), 'Configure Qualitative Analysis?'),
     ]
-    for flags, expected in cases:
-        config = read_config({'aws_access_key': '', **flags})
-        asked = []
-        with patch.object(CLI, 'yes_no_question',
-                          side_effect=lambda q, **k: asked.append(q) or False):
-            config._Config__questions_nlp_quick()
+    for index, (dirs, expected) in enumerate(cases):
+        home = tmp_path / f'home{index}'
+        home.mkdir()
+        expanduser, _, _ = _cloud_dirs(home, **dirs)
+        config = _first_run_config({
+            'aws_use_profile': False, 'gcloud_use_profile': False,
+            'aws_access_key': '',
+        })
+        _, asked = _run_quick(config, expanduser, answer=False)
+        assert asked == [expected], dirs
 
-        assert asked == [expected], flags
-
-
-def test_questions_nlp_quick_silent_without_any_credentials():
-    config = read_config({
-        'gcloud_use_profile': False,
-        'aws_use_profile': False,
-        'aws_access_key': '',
-    })
-    with patch.object(CLI, 'yes_no_question') as question:
-        config._Config__questions_nlp_quick()
-    question.assert_not_called()
 
 
 # ── Server topology decides the menu, so it is asked before it ───────────────
@@ -2593,46 +2640,4 @@ def test_backend_only_backup_asks_for_its_own_aws_settings():
     assert d['redis_backup_schedule'] == '0 2 * * 0'
 
 
-def test_cloud_profiles_no_turns_off_a_previous_yes(tmp_path):
-    """
-    Yes on one quick run, no on the next: the mounts must actually go away.
-    Returning early left the flags on and kept mounting the credentials the
-    developer had just declined.
-    """
-    expanduser, aws_dir, gcloud_dir = _cloud_dirs(tmp_path)
-    config = _later_run_config({
-        'aws_use_profile': True,
-        'aws_profile_name': 'default',
-        'aws_host_aws_dir': aws_dir,
-        'gcloud_use_profile': True,
-        'gcloud_host_config_dir': gcloud_dir,
-    })
 
-    with patch('helpers.config.os.path.expanduser', side_effect=expanduser), \
-            patch.object(CLI, 'yes_no_question', return_value=False):
-        config._Config__auto_detect_cloud_profiles()
-
-    d = config._Config__dict
-    assert d['aws_use_profile'] is False
-    assert d['aws_profile_name'] == ''
-    assert d['aws_host_aws_dir'] == ''
-    assert d['gcloud_use_profile'] is False
-    assert d['gcloud_host_config_dir'] == ''
-
-
-def test_cloud_profiles_no_then_stays_silent_about_nlp(tmp_path):
-    """Declining the mounts leaves no provider reachable, so nothing follows."""
-    expanduser, _, _ = _cloud_dirs(tmp_path)
-    config = _later_run_config({
-        'aws_use_profile': True,
-        'gcloud_use_profile': True,
-        'aws_access_key': '',
-    })
-
-    with patch('helpers.config.os.path.expanduser', side_effect=expanduser), \
-            patch.object(CLI, 'yes_no_question', return_value=False):
-        config._Config__auto_detect_cloud_profiles()
-
-    with patch.object(CLI, 'yes_no_question') as question:
-        config._Config__questions_nlp_quick()
-    question.assert_not_called()

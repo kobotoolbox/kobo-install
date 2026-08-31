@@ -151,7 +151,6 @@ class Config(metaclass=Singleton):
                         'django.core.mail.backends.console.EmailBackend'
                     )
                     self.__auto_setup_kpi_path()
-                    self.__auto_detect_cloud_profiles()
                     self.__questions_nlp_quick()
                 elif not self.local_install:
                     # The two answers a server has no default for. Everything
@@ -802,50 +801,59 @@ class Config(metaclass=Singleton):
 
     def __auto_detect_cloud_profiles(self):
         """
-        Dev quick-setup convenience: mount the credential directories found on
-        the host so the containers authenticate the way the developer already
-        does.
+        Mounts whichever host credential directories exist.
 
-        One question covers both providers. They are the same decision — "may
-        the containers read my cloud credentials" — and a setup that advertises
-        no questions can afford one, not two in a row.
-
-        The directories are mounted whole, so every profile they hold becomes
-        readable from the containers. That is the part worth an explicit yes,
-        and it is what the question says.
+        No question of its own: in quick setup these mounts serve NLP &
+        Qualitative Analysis and nothing else, so `__questions_nlp_quick()`
+        owns the consent and calls this once it has it.
         """
-        aws_dir = os.path.expanduser('~/.aws')
-        gcloud_dir = os.path.expanduser('~/.config/gcloud')
-
-        detected = []
-        if os.path.isdir(aws_dir):
-            detected.append(f'  - AWS: {aws_dir}')
-        if os.path.isdir(gcloud_dir):
-            detected.append(f'  - Google Cloud: {gcloud_dir}')
-        if not detected:
-            return
-
-        listed = '\n'.join(detected)
-        # A stored `False` is only a real "no" once the install exists; on a
-        # brand new one it is just the template default.
-        previous_answer = (
-            self.__dict['aws_use_profile']
-            or self.__dict['gcloud_use_profile']
+        self.__auto_detect_aws_profile(os.path.expanduser('~/.aws'))
+        self.__auto_detect_gcloud_profile(
+            os.path.expanduser('~/.config/gcloud')
         )
-        if not CLI.yes_no_question(
-            f'Cloud credentials detected:\n{listed}\n'
-            'Mount them (read-only) so the containers can use them?\n'
-            'Each directory is mounted whole, including every profile in it.',
-            default=True if self.first_time else previous_answer,
-        ):
-            # "No" has to actually turn the mounts off. A previous run may
-            # have left the flags on, and returning early would keep mounting
-            # the credentials the developer just declined.
-            self.__disable_cloud_profiles()
-            return
 
-        self.__auto_detect_aws_profile(aws_dir)
-        self.__auto_detect_gcloud_profile(gcloud_dir)
+    @staticmethod
+    def __detected_credential_dirs():
+        """
+        Host credential directories that exist, as a list of (label, path).
+
+        Returns:
+            list
+        """
+        candidates = (
+            ('AWS', os.path.expanduser('~/.aws')),
+            ('Google Cloud', os.path.expanduser('~/.config/gcloud')),
+        )
+        return [(label, path) for label, path in candidates
+                if os.path.isdir(path)]
+
+    @staticmethod
+    def __warn_credential_mounts(detected, avoidable):
+        """
+        Says which host directories are about to be mounted into the
+        containers, before it happens.
+
+        Mounting a whole credentials directory is worth stating plainly, but
+        it does not deserve a question of its own when the answer that
+        triggers it is right below.
+        """
+        listed = '\n'.join(f'{label}: {path}' for label, path in detected)
+        if avoidable:
+            message = (
+                'Answering yes below mounts these directories read-only into '
+                'the front-end containers, whole, every profile in them '
+                'included:\n'
+                f'{listed}'
+            )
+        else:
+            message = (
+                'These directories will be mounted read-only into the '
+                'front-end containers, whole, every profile in them '
+                'included:\n'
+                f'{listed}\n'
+                'Press Ctrl+C now if you would rather they were not.'
+            )
+        CLI.framed_print(message)
 
     def __disable_cloud_profiles(self):
         """
@@ -1456,22 +1464,37 @@ class Config(metaclass=Singleton):
         """
         The one question quick setup asks a developer.
 
-        Worth raising as soon as either provider can be reached: Google
-        powers transcription and translation, AWS Bedrock powers qualitative
+        Worth raising as soon as either provider can be reached: Google powers
+        transcription and translation, AWS Bedrock powers qualitative
         analysis, and a machine set up for one of them can use that half on
-        its own. With neither, quick setup keeps its promise and stays
-        silent.
+        its own. With neither, quick setup keeps its promise and stays silent.
 
-        `build()` has already given up on this when kobo-docker's custom
-        compose file provides the variables, so re-checking here would only
-        ask a question whose answer cannot be used.
+        The host credential directories are mounted as part of saying yes.
+        They serve nothing else in quick setup, and asking for them separately
+        listed the same paths twice, one question above this one. A framed
+        warning says what will be mounted instead.
+
+        When kobo-docker's custom compose file already provides the settings
+        there is nothing to ask, but the mounts still happen — so the warning
+        is shown anyway, while `Ctrl+C` can still stop the run.
         """
-        google, aws = self.__available_cloud_providers()
+        detected = self.__detected_credential_dirs()
+        google = any(label == 'Google Cloud' for label, _ in detected)
+        aws = (
+            any(label == 'AWS' for label, _ in detected)
+            or bool(self.__dict['aws_access_key'])
+        )
         if not (google or aws):
             return
 
         if self.__nlp_managed_by_custom_yml():
+            if detected:
+                self.__warn_credential_mounts(detected, avoidable=False)
+                self.__auto_detect_cloud_profiles()
             return
+
+        if detected:
+            self.__warn_credential_mounts(detected, avoidable=True)
 
         if google and aws:
             what = 'NLP & Qualitative Analysis'
@@ -1481,8 +1504,12 @@ class Config(metaclass=Singleton):
             what = 'Qualitative Analysis'
 
         if not CLI.yes_no_question(f'Configure {what}?', default=True):
+            # Declining also declines the mounts, and clears the ones a
+            # previous run may have turned on.
+            self.__disable_cloud_profiles()
             return
 
+        self.__auto_detect_cloud_profiles()
         self.__questions_nlp()
 
     def __questions_nlp(self):

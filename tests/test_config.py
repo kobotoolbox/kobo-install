@@ -65,6 +65,7 @@ def test_build_aborts_before_writing_when_overwrite_declined():
         _Config__setup_directory=noop,
         _Config__auto_detect_network=noop,
         _Config__auto_detect_cloud_profiles=noop,
+        _Config__questions_nlp_quick=noop,
         _Config__secure_mongo=noop,
         write_config=write_config,
     ), patch(

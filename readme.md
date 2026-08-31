@@ -106,8 +106,8 @@ Whatever you choose, `kobo-install` sets up on its own:
 |PostgreSQL and uWSGI sizing, computed from detected CPUs and RAM <sup>3</sup>|First run, staging and production. 50% of the machine for staging, 75% for production. On a multi-server frontend, the uWSGI memory limit is raised to 75% since the databases live elsewhere|
 |`console` email backend, so messages are printed instead of sent|Development, quick|
 |KPI source files, set to `../kpi` and cloned if the directory is not there yet|Development, quick. Override it with the `KPI source files` section|
-|AWS profile authentication, if `~/.aws` exists on the host|Development, quick, **after confirmation**. The directory is mounted read-only into the front-end containers. S3 storage itself stays off|
-|Google Cloud application default credentials, if `~/.config/gcloud` exists on the host|Development, quick, **after confirmation**. The directory is mounted read-only and the active project is read from `configurations/config_default` to pre-fill the Google questions|
+|AWS profile authentication, if `~/.aws` exists on the host|Development, quick, when you turn NLP & Qualitative Analysis on. The directory is mounted read-only into the front-end containers. S3 storage itself stays off|
+|Google Cloud application default credentials, if `~/.config/gcloud` exists on the host|Development, quick, when you turn NLP & Qualitative Analysis on. The directory is mounted read-only and the active project is read from `configurations/config_default` to pre-fill the Google questions|
 
 ### What quick setup still asks
 
@@ -124,21 +124,24 @@ is the default. Pick `Custom setup` and its `HTTPS & certificates` section to
 use your own reverse-proxy or load balancer instead — quick setup then keeps
 that choice on the next run.
 
-On a **development** machine, quick setup asks at most two questions.
+On a **development** machine, quick setup asks one question, and only when
+`~/.aws` or `~/.config/gcloud` is found on the host.
 
-The first appears when `~/.aws` or `~/.config/gcloud` is found on the host:
-whether to mount them, read-only, so the containers authenticate the way you
-already do. Each directory is mounted whole, every profile in it included,
-which is why it is asked rather than assumed. Answering no turns the mounts
-off, including on a machine where a previous run had turned them on.
+It covers two separate features: Google powers transcription and translation,
+AWS Bedrock powers qualitative analysis. The question names whichever half
+those credentials can reach — `Configure NLP?`, `Configure Qualitative
+Analysis?` or both — and then asks only for the matching values.
 
-The second follows only if credentials are in place, and covers two separate
-features: Google powers transcription and translation, AWS Bedrock powers
-qualitative analysis. The question names whichever half is reachable —
-`Configure NLP?`, `Configure Qualitative Analysis?` or both — and then asks
-only for the matching values. With no credentials at all, quick setup stays
-silent. It is also silent when `kobo-docker` already carries these variables —
-see below.
+Saying yes is also what mounts those directories into the front-end containers,
+read-only, so they authenticate the way you already do. Each is mounted whole,
+every profile in it included, so a framed warning lists them just above the
+question. Saying no mounts nothing, and turns off the mounts a previous run had
+turned on.
+
+When `kobo-docker` already carries these variables there is nothing to ask —
+see below — but the directories are still mounted, so the warning is shown
+anyway, with a `Ctrl+C` you can still use. With no credentials at all, quick
+setup stays silent.
 
 A workstation is asked nothing else: it keeps `kobo.local` and plain HTTP.
 
