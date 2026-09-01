@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import binascii
+import configparser
 import json
 import os
 import re
@@ -32,15 +33,29 @@ class Config(metaclass=Singleton):
     DEFAULT_NGINX_PORT = '80'
     DEFAULT_NGINX_HTTPS_PORT = '443'
     KOBO_DOCKER_BRANCH = '2.026.30c'
-    KOBO_INSTALL_VERSION = '10.2.1'
+    KOBO_INSTALL_VERSION = '11.0.0'
     MAXIMUM_AWS_CREDENTIAL_ATTEMPTS = 3
     ALLOWED_PASSWORD_CHARACTERS = (
         string.ascii_letters
         + string.digits
     )
+    # Variables kobo-install writes for NLP. When kobo-docker's front-end
+    # custom compose file already defines one of them, that file owns the NLP
+    # configuration and kobo-install stays out of the way.
+    # The AutoQA model ARNs are deliberately absent: kobo-install no longer
+    # manages them, so a custom file holding only those must not hide the
+    # NLP questions.
+    NLP_CUSTOM_YML_VARS = (
+        'AWS_BEDROCK_REGION_NAME',
+        'CONSTANCE_ASR_MT_GOOGLE_PROJECT_ID',
+        'GOOGLE_CLOUD_PROJECT',
+        'GOOGLE_CLOUD_QUOTA_PROJECT',
+        'GS_BUCKET_NAME',
+    )
 
     def __init__(self):
         self.__first_time = None
+        self.__nlp_custom_yml = None
         self.__dict = self.read_config()
 
     @property
@@ -103,65 +118,95 @@ class Config(metaclass=Singleton):
             self.__welcome()
             self.__dict = self.get_upgraded_dict()
 
-            self.__create_directory()
-            self.__questions_advanced_options()
-            self.__questions_installation_type()
-            self.__detect_network()
+            # Step 1: Mode — dev / staging / production
+            self.__questions_install_mode()
 
-            if not self.local_install:
-                if self.advanced_options:
-                    self.__questions_multi_servers()
-                    if self.multi_servers:
-                        self.__questions_roles()
-                        if self.frontend:
-                            self.__questions_private_routes()
-                    else:
-                        self.__reset(fake_dns=True)
+            # Step 2: quick setup / custom setup
+            self.__questions_complexity()
 
-                if self.frontend:
-                    self.__questions_public_routes()
-                    self.__questions_https()
+            # Step 3: Auto-set directory and detect network (no questions)
+            self.__setup_directory()
+            self.__auto_detect_network()
+
+            # Step 3b: stand back when kobo-docker's custom compose file
+            # already carries the NLP variables — writing them to
+            # `external_services.txt` too would give each one two sources of
+            # truth, and the custom file wins at `docker compose` time anyway.
+            if self.frontend and self.__nlp_managed_by_custom_yml():
+                self.__dict['use_nlp'] = False
+                CLI.colored_print(
+                    '  \u2192 NLP settings come from '
+                    'docker-compose.frontend.custom.yml \u2014 skipping',
+                    CLI.COLOR_INFO,
+                )
+
+            # Step 4: Auto-configure PostgreSQL and uWSGI on first run
+            if self.first_time and not self.dev_mode:
+                self.__auto_configure_resources()
+
+            # Quick setup: all defaults, done
+            if not self.advanced_options:
+                if self.dev_mode:
+                    self.__dict['email_backend'] = (
+                        'django.core.mail.backends.console.EmailBackend'
+                    )
+                    self.__auto_setup_kpi_path()
+                    self.__questions_nlp_quick()
+                elif not self.local_install:
+                    # A KPI checkout left over from a development install
+                    # would reach the generated server configuration:
+                    # `USE_KPI_DEV_MODE` keys off `kpi_path` alone, so staging
+                    # would build from, and mount, the developer's tree.
+                    # Custom setup offers the `KPI source files` section and
+                    # may keep it; quick setup means defaults, and a local
+                    # checkout is not one.
+                    self.__dict['kpi_path'] = ''
+                    self.__dict['kpi_dev_build_id'] = ''
+
+                    # The two answers a server has no default for. Everything
+                    # else keeps its default, including HTTPS with Let's
+                    # Encrypt — `__questions_reverse_proxy()` sets the proxy
+                    # ports and clones `nginx-certbot`, which the generated
+                    # configuration then expects to find on disk.
+                    self.__questions_public_routes(subdomains=False)
+                    self.__questions_support_email()
                     self.__questions_reverse_proxy()
-
-            if self.frontend:
-                self.__questions_smtp()
-                self.__questions_super_user_credentials()
-
-            if self.advanced_options:
-                self.__questions_docker_prefix()
-                self.__questions_dev_mode()
-                self.__questions_postgres()
-                self.__questions_mongo()
-                self.__questions_redis()
-                self.__questions_ports()
-
-                if self.frontend:
-                    self.__questions_secret_keys()
-                    self.__questions_aws()
-                    self.__questions_google()
-                    self.__questions_raven()
-                    self.__questions_uwsgi()
-                    self.__questions_session_cookies()
-
-                self.__questions_custom_yml()
-
-            else:
                 self.__secure_mongo()
+                self.__confirm_overwrite_or_exit()
+                self.write_config()
+                return self.__dict
 
-            self.__questions_backup()
+            # Custom setup: the server topology first — it decides which
+            # role this machine plays, and therefore which sections the menu
+            # is even allowed to offer. Asking it from inside the menu, as a
+            # section like any other, meant the menu was built from the
+            # previous answer and a fresh multi-server install got a
+            # single-server list.
+            self.__questions_topology()
 
-            # Confirm before persisting anything. `write_config()` (below)
-            # writes `.run.conf`, and the setup flows then render the
-            # environment files with `force=True`. Asking here, after every
-            # question (including the install path) has been answered, ensures
-            # declining leaves every existing file on disk untouched.
-            from helpers.template import Template  # avoids circular import
-            if not Template.confirm_overwrite(self):
-                sys.exit(0)
+            # Then the section menu, and only the selected sections
+            selected = self.__questions_advanced_sections()
+            self.__run_selected_advanced_sections(selected)
 
+            self.__confirm_overwrite_or_exit()
             self.write_config()
 
             return self.__dict
+
+    def __confirm_overwrite_or_exit(self):
+        """
+        Confirm before persisting anything. `write_config()` writes
+        `.run.conf`, and the setup flows then render the environment files
+        with `force=True`. Asking here, once every question (including the
+        install path) has been answered, ensures declining leaves every
+        existing file on disk untouched.
+
+        Both the quick and the custom branch of `build()` must go through
+        this: they each write the configuration on their own.
+        """
+        from helpers.template import Template  # avoids circular import
+        if not Template.confirm_overwrite(self):
+            sys.exit(0)
 
     @property
     def block_common_http_ports(self):
@@ -300,6 +345,9 @@ class Config(metaclass=Singleton):
         # Keep properties sorted alphabetically
         return {
             'advanced': False,
+            'advanced_sections_seen': [],
+            'advanced_sections_selected': [],
+            'asr_mt_google_project_id': '',
             'aws_access_key': '',
             'aws_backup_bucket_deletion_rule_enabled': False,
             'aws_backup_bucket_name': '',
@@ -308,6 +356,7 @@ class Config(metaclass=Singleton):
             'aws_backup_upload_chunk_size': '15',
             'aws_backup_weekly_retention': '4',
             'aws_backup_yearly_retention': '2',
+            'aws_bedrock_region_name': '',
             'aws_bucket_name': '',
             'aws_credentials_valid': False,
             'aws_host_aws_dir': os.path.expanduser('~/.aws'),
@@ -336,9 +385,13 @@ class Config(metaclass=Singleton):
             'enketo_less_secure_encryption_key': 'this $3cr3t key is crackable',
             'expose_backend_ports': False,
             'exposed_nginx_docker_port': Config.DEFAULT_NGINX_PORT,
+            'gcloud_host_config_dir': os.path.expanduser('~/.config/gcloud'),
+            'gcloud_use_profile': False,
             'google_api_key': '',
             'google_ua': '',
+            'gs_bucket_name': '',
             'https': True,
+            'install_mode': 'production',
             'internal_domain_name': 'docker.internal',
             'kc_dev_build_id': '',
             'kc_postgres_db': 'kobocat',
@@ -384,6 +437,7 @@ class Config(metaclass=Singleton):
             'postgres_ram': '2',
             'postgres_replication_password': Config.generate_password(),
             'postgres_settings': False,
+            'postgres_settings_auto': False,
             'postgres_settings_content': '\n'.join([
                 '# Generated by PGConfig 3.1.0 (1d600ea0d1d79f13dd7ed686f9e2befc1fcf9226)',
                 '# https://api.pgconfig.org/v1/tuning/get-config?format=conf&include_pgbadger=false&max_connections=100&pg_version=14&environment_name=Mixed&total_ram=2GB&cpus=1&drive_type=SSD&os_type=linux',
@@ -442,12 +496,15 @@ class Config(metaclass=Singleton):
             'use_backup': False,
             'use_backend_custom_yml': False,
             'use_celery': True,
+            'email_backend': '',
             'use_frontend_custom_yml': False,
             'use_letsencrypt': True,
+            'use_nlp': False,
             'use_private_dns': False,
             'uwsgi_harakiri': '120',
             'uwsgi_max_requests': '1024',
             'uwsgi_settings': False,
+            'uwsgi_settings_auto': False,
             'uwsgi_soft_limit': '1024',
             'uwsgi_worker_reload_mercy': '120',
             'uwsgi_workers_max': '4',
@@ -519,6 +576,9 @@ class Config(metaclass=Singleton):
             pass
 
         self.__dict = dict_
+        # `kobodocker_path` may well have changed, so anything derived from it
+        # has to be looked up again.
+        self.__nlp_custom_yml = None
         unique_id = self.read_unique_id()
         if not unique_id:
             self.__dict['unique_id'] = int(time.time())
@@ -739,58 +799,252 @@ class Config(metaclass=Singleton):
                 CLI.run_command(git_command,
                                 cwd=os.path.dirname(full_repo_path))
 
-    def __detect_network(self):
-
+    def __auto_detect_network(self):
+        """
+        Detects primary network IP without prompting.
+        Called from build() so IP is always available before any questions.
+        """
         self.__dict['local_interface_ip'] = Network.get_primary_ip()
-
         if self.frontend:
             self.__dict['primary_backend_ip'] = self.__dict[
                 'local_interface_ip']
 
-        if self.advanced_options:
+    def __auto_detect_cloud_profiles(self):
+        """
+        Mounts whichever host credential directories exist.
+
+        No question of its own: in quick setup these mounts serve NLP &
+        Qualitative Analysis and nothing else, so `__questions_nlp_quick()`
+        owns the consent and calls this once it has it.
+        """
+        self.__auto_detect_aws_profile(os.path.expanduser('~/.aws'))
+        self.__auto_detect_gcloud_profile(
+            os.path.expanduser('~/.config/gcloud')
+        )
+
+    @staticmethod
+    def __detected_credential_dirs():
+        """
+        Host credential directories that exist, as a list of (label, path).
+
+        Returns:
+            list
+        """
+        candidates = (
+            ('AWS', os.path.expanduser('~/.aws')),
+            ('Google Cloud', os.path.expanduser('~/.config/gcloud')),
+        )
+        return [(label, path) for label, path in candidates
+                if os.path.isdir(path)]
+
+    @staticmethod
+    def __warn_credential_mounts(detected):
+        """
+        Says which host directories are about to be mounted into the
+        containers, before it happens.
+
+        One wording for both callers. `Ctrl+C` is a genuine way out either
+        way — nothing is written until the end of `build()`, and the run stops
+        again at `/etc/hosts` — so it is offered even when a question follows.
+        """
+        listed = '\n'.join(
+            f' \u2192 {label}: {path}' for label, path in detected
+        )
+        CLI.framed_print(
+            'Cloud profiles were detected.\n'
+            f'{listed}\n'
+            '\n'
+            'These directories will be mounted whole, read-only, into the '
+            'front-end containers by default \u2014 every profile in them '
+            'included.\n'
+            'Press Ctrl+C to cancel, then use Custom setup to choose '
+            'otherwise.'
+        )
+
+    def __disable_cloud_profiles(self):
+        """
+        Turns both credential mounts off, exactly as the `else` branches of
+        `__questions_cloud_profiles()` do in custom setup.
+        """
+        self.__dict['aws_use_profile'] = False
+        self.__dict['aws_profile_name'] = ''
+        self.__dict['aws_host_aws_dir'] = ''
+        self.__dict['gcloud_use_profile'] = False
+        self.__dict['gcloud_host_config_dir'] = ''
+
+    def __auto_detect_aws_profile(self, aws_dir):
+        """
+        Enables profile-based authentication so the developer's AWS
+        credentials are available inside the containers.
+
+        This does NOT enable S3 storage (`use_aws`); switching the default
+        file storage to S3 stays an explicit opt-in via the "AWS S3 storage"
+        section of custom setup.
+
+        Nothing is printed here: the framed warning shown before the question
+        has already said these directories would be mounted, and saying it
+        again afterwards only pads the output.
+
+        Consent is handled once for both providers by
+        `__auto_detect_cloud_profiles`.
+        """
+        if not os.path.isdir(aws_dir):
+            return
+
+        self.__dict['aws_use_profile'] = True
+        self.__dict['aws_profile_name'] = 'default'
+        self.__dict['aws_host_aws_dir'] = aws_dir
+
+    def __auto_detect_gcloud_profile(self, gcloud_dir):
+        """
+        Mounts the gcloud configuration directory into the containers so they
+        pick up the developer's application default credentials.
+
+        The active project is also read from the gcloud config so the
+        transcription/translation questions come pre-filled, but it is only
+        stored: those settings stay commented out until they are explicitly
+        turned on.
+
+        Consent is handled once for both providers by
+        `__auto_detect_cloud_profiles`.
+        """
+        if not os.path.isdir(gcloud_dir):
+            return
+
+        self.__dict['gcloud_use_profile'] = True
+        self.__dict['gcloud_host_config_dir'] = gcloud_dir
+
+        project = self.__detect_gcloud_project(gcloud_dir)
+        if project:
+            self.__dict['asr_mt_google_project_id'] = project
             CLI.colored_print(
-                'Please choose which network interface you want to use?',
-                CLI.COLOR_QUESTION)
-            interfaces = Network.get_local_interfaces()
-            all_interfaces = Network.get_local_interfaces(all_=True)
-            docker_interface = 'docker0'
-            interfaces.update({'other': 'Other'})
+                f'  \u2192 Active Google Cloud project: {project}',
+                CLI.COLOR_INFO,
+            )
 
-            if self.__dict['local_interface'] == docker_interface and \
-                    docker_interface in all_interfaces:
-                interfaces.update(
-                    {docker_interface: all_interfaces.get(docker_interface)})
+    @staticmethod
+    def __detect_gcloud_project(gcloud_dir):
+        """
+        Reads the active project from the default gcloud configuration.
 
+        Returns:
+            str: the project name, or '' when it cannot be determined.
+        """
+        config_file = os.path.join(
+            gcloud_dir, 'configurations', 'config_default'
+        )
+        parser = configparser.ConfigParser()
+        try:
+            parser.read(config_file)
+            return parser.get('core', 'project')
+        except (configparser.Error, OSError, UnicodeDecodeError):
+            # A missing, malformed or unreadable gcloud config must never
+            # break the setup: the project stays empty and can be typed in.
+            return ''
+
+    def __nlp_managed_by_custom_yml(self):
+        """
+        Whether kobo-docker's front-end custom compose file already defines the
+        NLP variables. Developers used to add them there by hand, and letting
+        kobo-install write them too would give the same variable two sources of
+        truth.
+
+        The file cannot exist on a first run — kobo-docker is only cloned once
+        `build()` is over (`helpers/setup.py`) — so a missing file simply means
+        "not managed", no `first_time` check needed.
+
+        Returns:
+            bool: True as soon as one of `NLP_CUSTOM_YML_VARS` carries a
+            non-empty value.
+        """
+        if self.__nlp_custom_yml is not None:
+            return self.__nlp_custom_yml
+
+        self.__nlp_custom_yml = False
+        custom_file = os.path.join(
+            self.__dict['kobodocker_path'],
+            'docker-compose.frontend.custom.yml',
+        )
+        try:
+            with open(custom_file, 'r') as f:
+                lines = f.readlines()
+        except (OSError, UnicodeDecodeError):
+            # No custom file, or one we cannot read: nothing to defer to.
+            return self.__nlp_custom_yml
+
+        # Parsed by hand rather than with a YAML library: the wizard runs
+        # before any dependency is installed. Both the list form used by
+        # `environment:` (`- NAME=value`) and the mapping form (`NAME: value`)
+        # are accepted.
+        pattern = re.compile(
+            r'^\s*-?\s*({})\s*[=:]\s*(.*?)\s*$'.format(
+                '|'.join(self.NLP_CUSTOM_YML_VARS)
+            )
+        )
+        for line in lines:
+            match = pattern.match(line)
+            if match and match.group(2):
+                self.__nlp_custom_yml = True
+                break
+
+        return self.__nlp_custom_yml
+
+    def __detect_network(self):
+        """
+        Detects network and asks for interface selection in custom setup.
+        Kept for backwards compatibility (used by auto_detect_network property).
+        """
+        self.__auto_detect_network()
+        if self.advanced_options:
+            self.__questions_network_interface()
+
+    def __questions_network_interface(self):
+        """
+        Asks the user which network interface to bind to (custom setup).
+        """
+        CLI.colored_print(
+            'Please choose which network interface you want to use?',
+            CLI.COLOR_QUESTION)
+        interfaces = Network.get_local_interfaces()
+        all_interfaces = Network.get_local_interfaces(all_=True)
+        docker_interface = 'docker0'
+        interfaces.update({'other': 'Other'})
+
+        if self.__dict['local_interface'] == docker_interface and \
+                docker_interface in all_interfaces:
+            interfaces.update(
+                {docker_interface: all_interfaces.get(docker_interface)})
+
+        for interface, ip_address in interfaces.items():
+            CLI.colored_print(f'\t{interface}) {ip_address}')
+
+        choices = [str(interface) for interface in interfaces.keys()]
+        choices.append('other')
+        response = CLI.get_response(
+            choices,
+            default=self.__dict['local_interface'],
+            to_lower=False
+        )
+
+        if response == 'other':
+            interfaces = Network.get_local_interfaces(all_=True)
             for interface, ip_address in interfaces.items():
                 CLI.colored_print(f'\t{interface}) {ip_address}')
 
             choices = [str(interface) for interface in interfaces.keys()]
-            choices.append('other')
-            response = CLI.get_response(
+            self.__dict['local_interface'] = CLI.get_response(
                 choices,
-                default=self.__dict['local_interface'],
-                to_lower=False
+                self.__dict['local_interface']
             )
+        else:
+            self.__dict['local_interface'] = response
 
-            if response == 'other':
-                interfaces = Network.get_local_interfaces(all_=True)
-                for interface, ip_address in interfaces.items():
-                    CLI.colored_print(f'\t{interface}) {ip_address}')
+        self.__dict['local_interface_ip'] = interfaces[
+            self.__dict['local_interface']]
 
-                choices = [str(interface) for interface in interfaces.keys()]
-                self.__dict['local_interface'] = CLI.get_response(
-                    choices,
-                    self.__dict['local_interface']
-                )
-            else:
-                self.__dict['local_interface'] = response
-
-            self.__dict['local_interface_ip'] = interfaces[
-                self.__dict['local_interface']]
-
-            if self.frontend:
-                self.__dict['primary_backend_ip'] = self.__dict[
-                    'local_interface_ip']
+        if self.frontend:
+            self.__dict['primary_backend_ip'] = self.__dict[
+                'local_interface_ip']
 
     def __get_password_validation_pattern(
         self, chars=8, allow_empty=False, add_prefix=True
@@ -808,14 +1062,6 @@ class Config(metaclass=Singleton):
             pattern += '|'
         return rf'{prefix}^{pattern}$'
 
-    def __questions_advanced_options(self):
-        """
-        Asks if user wants to see advanced options
-        """
-        self.__dict['advanced'] = CLI.yes_no_question(
-            'Do you want to see advanced options?',
-            default=self.__dict['advanced'])
-
     def __questions_aws(self):
         """
         Asks if user wants to see AWS option
@@ -829,25 +1075,16 @@ class Config(metaclass=Singleton):
         self.__questions_aws_validate_credentials()
 
     def __questions_aws_configuration(self):
-
+        """
+        Asks for the S3 storage settings only. Profile authentication is a
+        separate concern, handled by `__questions_cloud_profiles()`: mounting
+        the host `~/.aws` is useful without S3, and turning S3 off must not
+        take that mount away.
+        """
         if self.__dict['use_aws']:
-            self.__dict['aws_use_profile'] = CLI.yes_no_question(
-                'Use AWS profile instead of credentials (access key/secret)?',
-                default=self.__dict['aws_use_profile']
-            )
-            if self.__dict['aws_use_profile']:
-                self.__dict['aws_profile_name'] = CLI.colored_input(
-                    'AWS Profile Name', CLI.COLOR_QUESTION,
-                    self.__dict['aws_profile_name'])
-                self.__dict['aws_host_aws_dir'] = CLI.colored_input(
-                    'AWS credentials directory on host',
-                    CLI.COLOR_QUESTION,
-                    self.__dict['aws_host_aws_dir'])
-                self.__dict['aws_access_key'] = ''
-                self.__dict['aws_secret_key'] = ''
-            else:
-                self.__dict['aws_profile_name'] = ''
-                self.__dict['aws_host_aws_dir'] = ''
+            # A profile already provides the credentials; asking for a key and
+            # a secret on top of it would only add dead values.
+            if not self.__dict['aws_use_profile']:
                 self.__dict['aws_access_key'] = CLI.colored_input(
                     'AWS Access Key', CLI.COLOR_QUESTION,
                     self.__dict['aws_access_key'])
@@ -865,9 +1102,62 @@ class Config(metaclass=Singleton):
             self.__dict['aws_secret_key'] = ''
             self.__dict['aws_bucket_name'] = ''
             self.__dict['aws_s3_region_name'] = ''
-            self.__dict['aws_use_profile'] = False
+
+    def __questions_cloud_profiles(self):
+        """
+        Asks whether to mount the host AWS and gcloud credential directories
+        into the containers. Offered in development only: a server
+        authenticates with its own credentials, not with a developer's.
+
+        Both are independent of the storage and NLP sections — mounting
+        `~/.aws` does not turn S3 storage on, and mounting `~/.config/gcloud`
+        does not turn NLP on.
+
+        The auto-detection in `build()` only runs in quick setup, so nothing
+        has looked at the host yet here. Detect both directories and default to
+        "Yes" when they exist; an explicit previous answer still wins.
+        """
+        aws_dir = (
+            self.__dict['aws_host_aws_dir']
+            or os.path.expanduser('~/.aws')
+        )
+        self.__dict['aws_use_profile'] = CLI.yes_no_question(
+            'Use your AWS profile (instead of an access key and secret)?',
+            default=(
+                self.__dict['aws_use_profile'] or os.path.isdir(aws_dir)
+            )
+        )
+        if self.__dict['aws_use_profile']:
+            self.__dict['aws_profile_name'] = CLI.colored_input(
+                'AWS profile name', CLI.COLOR_QUESTION,
+                self.__dict['aws_profile_name'])
+            self.__dict['aws_host_aws_dir'] = CLI.colored_input(
+                'AWS credentials directory on host', CLI.COLOR_QUESTION,
+                aws_dir)
+            self.__dict['aws_access_key'] = ''
+            self.__dict['aws_secret_key'] = ''
+        else:
             self.__dict['aws_profile_name'] = ''
             self.__dict['aws_host_aws_dir'] = ''
+
+        gcloud_dir = (
+            self.__dict['gcloud_host_config_dir']
+            or os.path.expanduser('~/.config/gcloud')
+        )
+        self.__dict['gcloud_use_profile'] = CLI.yes_no_question(
+            'Use Google Cloud application default credentials?',
+            default=(
+                self.__dict['gcloud_use_profile']
+                or os.path.isdir(gcloud_dir)
+            )
+        )
+        if self.__dict['gcloud_use_profile']:
+            self.__dict['gcloud_host_config_dir'] = CLI.colored_input(
+                'Google Cloud credentials directory on host',
+                CLI.COLOR_QUESTION,
+                gcloud_dir)
+        else:
+            self.__dict['gcloud_host_config_dir'] = ''
 
     def __questions_aws_validate_credentials(self):
         """
@@ -878,6 +1168,8 @@ class Config(metaclass=Singleton):
         self.__dict['aws_credentials_valid'] = False
         aws_credential_attempts = 0
 
+        # Nothing to validate in profile mode: the credentials live in the
+        # host directory mounted by `__questions_cloud_profiles()`.
         if self.__dict['use_aws'] and not self.__dict['aws_use_profile']:
             self.__dict['aws_validate_credentials'] = CLI.yes_no_question(
                 'Would you like to validate your AWS credentials?',
@@ -891,7 +1183,6 @@ class Config(metaclass=Singleton):
         ):
             while (
                 not self.__dict['aws_credentials_valid']
-                and not self.__dict['aws_use_profile']
                 and aws_credential_attempts
                 <= self.MAXIMUM_AWS_CREDENTIAL_ATTEMPTS
             ):
@@ -917,9 +1208,7 @@ class Config(metaclass=Singleton):
                     )
                     self.__questions_aws_configuration()
             else:
-                if self.__dict['aws_use_profile']:
-                    pass
-                elif not self.__dict['aws_credentials_valid']:
+                if not self.__dict['aws_credentials_valid']:
                     CLI.colored_print(
                         'Please restart configuration', CLI.COLOR_ERROR
                     )
@@ -1039,7 +1328,7 @@ class Config(metaclass=Singleton):
                         color=CLI.COLOR_WARNING
                     )
                     if self.frontend and not self.aws:
-                        CLI.colored_print('KoboCat media backup schedule?',
+                        CLI.colored_print('KoboCAT media backup schedule?',
                                           CLI.COLOR_QUESTION)
                         self.__dict[
                             'kobocat_media_backup_schedule'] = CLI.get_response(
@@ -1096,83 +1385,6 @@ class Config(metaclass=Singleton):
                 default=self.__dict['use_backend_custom_yml']
             )
 
-    def __questions_dev_mode(self):
-        """
-        Asks for developer/staging mode.
-
-        Dev mode allows to modify nginx port and
-        Staging model
-
-        Reset to default in case of No
-        """
-
-        if self.frontend:
-
-            if self.local_install:
-                # NGINX different port
-                CLI.colored_print('Web server port?', CLI.COLOR_QUESTION)
-                self.__dict['exposed_nginx_docker_port'] = CLI.get_response(
-                    r'~^\d+$', self.__dict['exposed_nginx_docker_port'])
-                self.__dict['dev_mode'] = CLI.yes_no_question(
-                    'Use developer mode?',
-                    default=self.__dict['dev_mode']
-                )
-                self.__dict['staging_mode'] = False
-                if self.dev_mode:
-                    self.__dict['use_celery'] = CLI.yes_no_question(
-                        'Use Celery for background tasks?',
-                        default=self.__dict['use_celery']
-                    )
-
-            else:
-                self.__dict['staging_mode'] = CLI.yes_no_question(
-                    'Use staging mode?',
-                    default=self.__dict['staging_mode']
-                )
-                self.__dict['dev_mode'] = False
-                self.__dict['use_celery'] = True
-
-            if self.dev_mode or self.staging_mode:
-                message = (
-                    'Where are the files located locally? It can be absolute '
-                    'or relative to the directory of `kobo-docker`.\n\n'
-                    'Leave empty if you do not need to overload the repository.'
-                )
-                CLI.framed_print(message, color=CLI.COLOR_INFO)
-
-                kpi_path = self.__dict['kpi_path']
-                self.__dict['kpi_path'] = CLI.colored_input(
-                    'KPI files location?', CLI.COLOR_QUESTION,
-                    self.__dict['kpi_path'])
-                self.__clone_repo(self.__dict['kpi_path'], 'kpi')
-
-                if (
-                    not self.__dict['kpi_dev_build_id'] or
-                    self.__dict['kpi_path'] != kpi_path
-                ):
-                    prefix = self.get_prefix('frontend')
-                    timestamp = int(time.time())
-                    self.__dict['kpi_dev_build_id'] = f'{prefix}{timestamp}'
-
-                if self.dev_mode:
-                    self.__dict['debug'] = CLI.yes_no_question(
-                        'Enable DEBUG?',
-                        default=self.__dict['debug']
-                    )
-
-                    # Front-end development
-                    self.__dict['npm_container'] = CLI.yes_no_question(
-                        'How do you want to run `npm`?',
-                        default=self.__dict['npm_container'],
-                        labels=[
-                            'From within the container',
-                            'Locally',
-                        ]
-                    )
-            else:
-                # Force reset paths
-                self.__reset(production=True, nginx_default=self.staging_mode)
-
     def __questions_docker_prefix(self):
         """
         Asks for Docker compose prefix. It allows to start
@@ -1182,6 +1394,35 @@ class Config(metaclass=Singleton):
             'Docker Compose prefix? (leave empty for default)',
             CLI.COLOR_QUESTION,
             self.__dict['docker_prefix'])
+
+    def __questions_from_email(self, message):
+        """
+        Asks for the address KoboToolbox sends its email from.
+
+        Shared by the SMTP section and by quick setup, which asks it on its
+        own and reuses the answer for Let's Encrypt. The default follows the
+        public domain name on a first run, and whenever the stored address is
+        still the untouched `support@kobo.local` — nobody picks that one on a
+        server, and a workstation turned into one would otherwise be offered
+        it. Either way the question must come after
+        `__questions_public_routes()`.
+
+        Args:
+            message (str): The prompt to display.
+
+        Returns:
+            str: The address entered.
+        """
+        domain_name = self.__dict['public_domain_name']
+        untouched = self.get_template()['default_from_email']
+        if self.first_time or self.__dict['default_from_email'] == untouched:
+            self.__dict['default_from_email'] = f'support@{domain_name}'
+
+        self.__dict['default_from_email'] = CLI.colored_input(
+            message, CLI.COLOR_QUESTION, self.__dict['default_from_email']
+        )
+
+        return self.__dict['default_from_email']
 
     def __questions_google(self):
         """
@@ -1198,6 +1439,131 @@ class Config(metaclass=Singleton):
             CLI.COLOR_QUESTION,
             self.__dict['google_api_key'])
 
+    def __available_cloud_providers(self):
+        """
+        Which providers the containers will be able to authenticate with, as
+        `(google, aws)`.
+
+        Google needs the mounted gcloud configuration. AWS is reachable
+        either through the mounted profile or through the explicit keys the
+        S3 storage section asks for, since boto3 reads both.
+
+        The two AWS forms are mutually exclusive by construction:
+        `__questions_cloud_profiles` clears the keys when the profile is on,
+        and `__questions_aws` only asks for keys when it is off. So the `or`
+        below never sees both at once.
+
+        Returns:
+            tuple: (bool, bool)
+        """
+        google = bool(self.__dict['gcloud_use_profile'])
+        aws = bool(
+            self.__dict['aws_use_profile'] or self.__dict['aws_access_key']
+        )
+        return google, aws
+
+    def __questions_nlp_quick(self):
+        """
+        The one question quick setup asks a developer.
+
+        Worth raising as soon as either provider can be reached: Google powers
+        transcription and translation, AWS Bedrock powers qualitative
+        analysis, and a machine set up for one of them can use that half on
+        its own. With neither, quick setup keeps its promise and stays silent.
+
+        The host credential directories are mounted as part of saying yes.
+        They serve nothing else in quick setup, and asking for them separately
+        listed the same paths twice, one question above this one. A framed
+        warning says what will be mounted instead.
+
+        When kobo-docker's custom compose file already provides the settings
+        there is nothing to ask, but the mounts still happen — so the warning
+        is shown anyway, while `Ctrl+C` can still stop the run.
+        """
+        detected = self.__detected_credential_dirs()
+        google = any(label == 'Google Cloud' for label, _ in detected)
+        aws = (
+            any(label == 'AWS' for label, _ in detected)
+            or bool(self.__dict['aws_access_key'])
+        )
+        if not (google or aws):
+            return
+
+        if self.__nlp_managed_by_custom_yml():
+            if detected:
+                self.__warn_credential_mounts(detected)
+                self.__auto_detect_cloud_profiles()
+            return
+
+        if detected:
+            self.__warn_credential_mounts(detected)
+
+        if google and aws:
+            what = 'NLP & Qualitative Analysis'
+        elif google:
+            what = 'NLP'
+        else:
+            what = 'Qualitative Analysis'
+
+        if not CLI.yes_no_question(f'Configure {what}?', default=True):
+            # Declining also declines the mounts, and clears the ones a
+            # previous run may have turned on.
+            self.__disable_cloud_profiles()
+            return
+
+        self.__auto_detect_cloud_profiles()
+        self.__questions_nlp()
+
+    def __questions_nlp(self):
+        """
+        Asks for the NLP and qualitative analysis settings.
+
+        Two independent features share this section, each with its own
+        provider:
+
+        - transcription and translation run on Google — `GS_BUCKET_NAME` and
+          `ASR_MT_GOOGLE_PROJECT_ID`, read by kpi's `google_transcribe` and
+          `google_translate`;
+        - qualitative analysis runs on AWS Bedrock —
+          `AWS_BEDROCK_REGION_NAME`, read by kpi's `automatic_bedrock_qual`.
+
+        So the questions are grouped by provider, and each group is only
+        asked when the containers can authenticate with it. Answering for a
+        provider they cannot reach would write settings that fail at runtime.
+
+        `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_QUOTA_PROJECT` are what the
+        Google SDK needs to work with application default credentials, and
+        they always hold the project ID answered here, so they are derived
+        rather than asked (see `Template.render()`).
+
+        In the section menu, ticking the section is the consent; quick setup
+        gates the call with its own yes/no question.
+        """
+        google, aws = self.__available_cloud_providers()
+        if not (google or aws):
+            CLI.colored_print(
+                'No cloud credentials reach the containers. Tick "Cloud '
+                'credentials (AWS & Google)", or set up AWS S3 storage, '
+                'first — skipping.',
+                CLI.COLOR_WARNING,
+            )
+            return
+
+        self.__dict['use_nlp'] = True
+
+        if google:
+            self.__dict['gs_bucket_name'] = CLI.colored_input(
+                'Google Cloud Storage bucket name', CLI.COLOR_QUESTION,
+                self.__dict['gs_bucket_name'])
+            self.__dict['asr_mt_google_project_id'] = CLI.colored_input(
+                'Google Cloud project ID', CLI.COLOR_QUESTION,
+                self.__dict['asr_mt_google_project_id'])
+
+        if aws:
+            self.__dict['aws_bedrock_region_name'] = CLI.colored_input(
+                'AWS Bedrock region name', CLI.COLOR_QUESTION,
+                self.__dict['aws_bedrock_region_name'])
+
     def __questions_https(self):
         """
         Asks for HTTPS usage
@@ -1213,35 +1579,6 @@ class Config(metaclass=Singleton):
                 'kobo-install can install one, if needed.'
             )
             CLI.framed_print(message, color=CLI.COLOR_INFO)
-
-    def __questions_installation_type(self):
-        """
-        Asks for installation type
-        """
-        previous_installation_type = self.__dict['local_installation']
-
-        self.__dict['local_installation'] = CLI.yes_no_question(
-            'What kind of installation do you need?',
-            default=self.__dict['local_installation'],
-            labels=[
-                'On your workstation',
-                'On a server',
-            ]
-        )
-        if self.local_install:
-            message = (
-                'WARNING!\n\n'
-                'SSRF protection is disabled with local installation'
-            )
-            CLI.framed_print(message, color=CLI.COLOR_WARNING)
-
-        if previous_installation_type != self.__dict['local_installation']:
-            # Reset previous choices, in case server role is not the same.
-            self.__reset(
-                production=not self.local_install,
-                http=self.local_install,
-                fake_dns=self.local_install,
-            )
 
     def __questions_maintenance(self):
         if self.first_time:
@@ -1397,7 +1734,7 @@ class Config(metaclass=Singleton):
 
         Settings can be tweaked thanks to pgconfig.org API
         """
-        CLI.colored_print('KoboCat PostgreSQL database name?',
+        CLI.colored_print('KoboCAT PostgreSQL database name?',
                           CLI.COLOR_QUESTION)
         kc_postgres_db = CLI.get_response(
             r'~^\w+$',
@@ -1500,120 +1837,114 @@ class Config(metaclass=Singleton):
 
             self.__write_upsert_db_users_trigger_file(content, 'postgres')
 
-        if self.backend:
-            # Postgres settings
-            self.__dict['postgres_settings'] = CLI.yes_no_question(
-                'Do you want to tweak PostgreSQL settings?',
-                default=self.__dict['postgres_settings']
-            )
+    def __questions_postgres_tuning(self):
+        """
+        PostgreSQL performance tuning via the pgconfig.org API.
 
-            template = self.get_template()
+        Ticking this section is the consent to tweak settings, so
+        there is no extra yes/no prompt: `postgres_settings` is forced to True
+        and the tuning questions are asked directly.
+        """
+        if not self.backend:
+            return
 
-            if self.__dict['postgres_settings']:
+        self.__dict['postgres_settings'] = True
+        # The user is answering these questions now, so the values are no
+        # longer the ones auto-configured from detected hardware.
+        self.__dict['postgres_settings_auto'] = False
+        template = self.get_template()
 
-                CLI.colored_print('Launching pgconfig.org API container...',
-                                  CLI.COLOR_INFO)
+        # From https://docs.pgconfig.org/api/#available-parameters
+        # Parameters are case-sensitive, for example
+        # `environment_name` must be one these values:
+        # - `WEB`
+        # - `OLTP`,
+        # - `DW`
+        # - `Mixed`
+        # - `Desktop`
+        # It's case-sensitive.
 
-                # From https://docs.pgconfig.org/api/#available-parameters
-                # Parameters are case-sensitive, for example
-                # `environment_name` must be one these values:
-                # - `WEB`
-                # - `OLTP`,
-                # - `DW`
-                # - `Mixed`
-                # - `Desktop`
-                # It's case-sensitive.
+        CLI.colored_print('Number of CPUs?', CLI.COLOR_QUESTION)
+        self.__dict['postgres_cpus'] = CLI.get_response(
+            r'~^\d+$',
+            self.__dict['postgres_cpus'])
 
-                CLI.colored_print('Number of CPUs?', CLI.COLOR_QUESTION)
-                self.__dict['postgres_cpus'] = CLI.get_response(
-                    r'~^\d+$',
-                    self.__dict['postgres_cpus'])
+        CLI.colored_print('Total Memory in GB?', CLI.COLOR_QUESTION)
+        self.__dict['postgres_ram'] = CLI.get_response(
+            r'~^\d+$',
+            self.__dict['postgres_ram'])
 
-                CLI.colored_print('Total Memory in GB?', CLI.COLOR_QUESTION)
-                self.__dict['postgres_ram'] = CLI.get_response(
-                    r'~^\d+$',
-                    self.__dict['postgres_ram'])
+        CLI.colored_print('Storage type?', CLI.COLOR_QUESTION)
+        CLI.colored_print('\thdd) Hard Disk Drive')
+        CLI.colored_print('\tssd) Solid State Drive')
+        CLI.colored_print('\tsan) Storage Area Network')
+        self.__dict['postgres_hard_drive_type'] = CLI.get_response(
+            ['hdd', 'ssd', 'san'],
+            self.__dict['postgres_hard_drive_type'].lower())
 
-                CLI.colored_print('Storage type?', CLI.COLOR_QUESTION)
-                CLI.colored_print('\thdd) Hard Disk Drive')
-                CLI.colored_print('\tssd) Solid State Drive')
-                CLI.colored_print('\tsan) Storage Area Network')
-                self.__dict['postgres_hard_drive_type'] = CLI.get_response(
-                    ['hdd', 'ssd', 'san'],
-                    self.__dict['postgres_hard_drive_type'].lower())
+        CLI.colored_print('Number of connections?', CLI.COLOR_QUESTION)
+        self.__dict['postgres_max_connections'] = CLI.get_response(
+            r'~^\d+$',
+            self.__dict['postgres_max_connections'])
 
-                CLI.colored_print('Number of connections?', CLI.COLOR_QUESTION)
-                self.__dict['postgres_max_connections'] = CLI.get_response(
-                    r'~^\d+$',
-                    self.__dict['postgres_max_connections'])
-
-                if self.multi_servers:
-                    multi_servers_profiles = ['web', 'oltp', 'dw', 'mixed']
-                    if (
-                        self.__dict['postgres_profile'].lower()
-                        not in multi_servers_profiles
-                    ):
-                        self.__dict['postgres_profile'] = template[
-                            'postgres_profile'
-                        ]
-
-                    CLI.colored_print('Application profile?', CLI.COLOR_QUESTION)
-                    CLI.colored_print('\tweb) General Web application')
-                    CLI.colored_print(
-                        '\toltp) ERP or long transaction applications')
-                    CLI.colored_print('\tdw) DataWare house')
-                    CLI.colored_print('\tmixed) DB and APP on the same server')
-
-                    self.__dict['postgres_profile'] = CLI.get_response(
-                        ['web', 'oltp', 'dw', 'mixed'],
-                        self.__dict['postgres_profile'].lower())
-
-                    self.__dict['postgres_profile'] = self.__dict[
-                        'postgres_profile'].upper()
-
-                elif self.dev_mode:
-                    self.__dict['postgres_profile'] = 'Desktop'
-                else:
-                    self.__dict['postgres_profile'] = 'Mixed'
-
-                # Use pgconfig.org API to get the configuration
-                # Notes: It has failed several times in the past.
-                endpoint = (
-                    'https://api.pgconfig.org/v1/tuning/get-config'
-                    '?environment_name={profile}&format=conf'
-                    '&include_pgbadger=false'
-                    '&cpus={cpus}'
-                    '&max_connections={max_connections}'
-                    '&pg_version=14'
-                    '&total_ram={ram}GB'
-                    '&drive_type={drive_type}'
-                    '&os_type=linux'
-                )
-                endpoint = endpoint.format(
-                    profile=self.__dict['postgres_profile'],
-                    ram=self.__dict['postgres_ram'],
-                    cpus=self.__dict['postgres_cpus'],
-                    max_connections=self.__dict['postgres_max_connections'],
-                    drive_type=self.__dict['postgres_hard_drive_type'].upper()
-                )
-                response = Network.curl(endpoint)
-                if response:
-                    # Patch response because of https://github.com/pgconfig/api/issues/13
-                    configuration = re.sub(r'(\d+)KB', r'\1kB', response)
-                    self.__dict['postgres_settings_content'] = configuration
-                else:
-                    CLI.colored_print('\nAn error has occurred. Current '
-                                      'PostgreSQL settings will be used',
-                                      CLI.COLOR_INFO)
-
-            else:
-                # Forcing the default settings to remain even if there
-                # is an existing value in .run.conf. Without this,
-                # the value for `postgres_settings_content` would not update
-
-                self.__dict['postgres_settings_content'] = template[
-                    'postgres_settings_content'
+        if self.multi_servers:
+            multi_servers_profiles = ['web', 'oltp', 'dw', 'mixed']
+            if (
+                self.__dict['postgres_profile'].lower()
+                not in multi_servers_profiles
+            ):
+                self.__dict['postgres_profile'] = template[
+                    'postgres_profile'
                 ]
+
+            CLI.colored_print('Application profile?', CLI.COLOR_QUESTION)
+            CLI.colored_print('\tweb) General Web application')
+            CLI.colored_print(
+                '\toltp) ERP or long transaction applications')
+            CLI.colored_print('\tdw) DataWare house')
+            CLI.colored_print('\tmixed) DB and APP on the same server')
+
+            self.__dict['postgres_profile'] = CLI.get_response(
+                ['web', 'oltp', 'dw', 'mixed'],
+                self.__dict['postgres_profile'].lower())
+
+            self.__dict['postgres_profile'] = self.__dict[
+                'postgres_profile'].upper()
+
+        elif self.dev_mode:
+            self.__dict['postgres_profile'] = 'Desktop'
+        else:
+            self.__dict['postgres_profile'] = 'Mixed'
+
+        # Use pgconfig.org API to get the configuration
+        # Notes: It has failed several times in the past.
+        endpoint = (
+            'https://api.pgconfig.org/v1/tuning/get-config'
+            '?environment_name={profile}&format=conf'
+            '&include_pgbadger=false'
+            '&cpus={cpus}'
+            '&max_connections={max_connections}'
+            '&pg_version=14'
+            '&total_ram={ram}GB'
+            '&drive_type={drive_type}'
+            '&os_type=linux'
+        )
+        endpoint = endpoint.format(
+            profile=self.__dict['postgres_profile'],
+            ram=self.__dict['postgres_ram'],
+            cpus=self.__dict['postgres_cpus'],
+            max_connections=self.__dict['postgres_max_connections'],
+            drive_type=self.__dict['postgres_hard_drive_type'].upper()
+        )
+        response = Network.curl(endpoint)
+        if response:
+            # Patch response because of https://github.com/pgconfig/api/issues/13
+            configuration = re.sub(r'(\d+)KB', r'\1kB', response)
+            self.__dict['postgres_settings_content'] = configuration
+        else:
+            CLI.colored_print('\nAn error has occurred. Current '
+                              'PostgreSQL settings will be used',
+                              CLI.COLOR_INFO)
 
     def __questions_ports(self):
         """
@@ -1696,29 +2027,37 @@ class Config(metaclass=Singleton):
                 CLI.COLOR_QUESTION,
                 self.__dict['private_domain_name'])
 
-    def __questions_public_routes(self):
+    def __questions_public_routes(self, subdomains=True):
         """
         Asks for public domain names
+
+        Kwargs:
+            subdomains (bool): If `False`, only the public domain name is
+                asked and `kf`, `kc` and `ee` keep their current values.
+                Quick setup uses it: a server cannot be installed without a
+                domain name, but its subdomains have usable defaults.
         """
 
         self.__dict['public_domain_name'] = CLI.colored_input(
             'Public domain name?', CLI.COLOR_QUESTION,
             self.__dict['public_domain_name'])
-        self.__dict['kpi_subdomain'] = CLI.colored_input(
-            'KPI sub domain?',
-            CLI.COLOR_QUESTION,
-            self.__dict['kpi_subdomain']
-        )
-        self.__dict['kc_subdomain'] = CLI.colored_input(
-            'KoboCat sub domain?',
-            CLI.COLOR_QUESTION,
-            self.__dict['kc_subdomain']
-        )
-        self.__dict['ee_subdomain'] = CLI.colored_input(
-            'Enketo Express sub domain name?',
-            CLI.COLOR_QUESTION,
-            self.__dict['ee_subdomain']
-        )
+
+        if subdomains:
+            self.__dict['kpi_subdomain'] = CLI.colored_input(
+                'KPI sub domain?',
+                CLI.COLOR_QUESTION,
+                self.__dict['kpi_subdomain']
+            )
+            self.__dict['kc_subdomain'] = CLI.colored_input(
+                'KoboCAT sub domain?',
+                CLI.COLOR_QUESTION,
+                self.__dict['kc_subdomain']
+            )
+            self.__dict['ee_subdomain'] = CLI.colored_input(
+                'Enketo Express sub domain name?',
+                CLI.COLOR_QUESTION,
+                self.__dict['ee_subdomain']
+            )
 
         parts = self.__dict['public_domain_name'].split('.')
         domain_wo_tld = '.'.join(parts[:-1])
@@ -1776,27 +2115,39 @@ class Config(metaclass=Singleton):
             if response is False:
                 self.__questions_redis()
 
-        if self.backend:
-            CLI.colored_print(
-                'Max memory (MB) for Redis cache container?', CLI.COLOR_QUESTION
-            )
-            CLI.colored_print('Leave empty for no limits', CLI.COLOR_INFO)
-            self.__dict['redis_cache_max_memory'] = CLI.get_response(
-                r'~^(\d+|-)?$', self.__dict['redis_cache_max_memory']
-            )
+    def __questions_redis_tuning(self):
+        """
+        Redis cache memory limit (performance tuning, back end only).
+        """
+
+        if not self.backend:
+            return
+
+        CLI.colored_print(
+            'Max memory (MB) for Redis cache container?', CLI.COLOR_QUESTION
+        )
+        CLI.colored_print('Leave empty for no limits', CLI.COLOR_INFO)
+        self.__dict['redis_cache_max_memory'] = CLI.get_response(
+            r'~^(\d+|-)?$', self.__dict['redis_cache_max_memory']
+        )
 
     def __questions_reverse_proxy(self):
 
         if self.is_secure:
 
-            self.__dict['use_letsencrypt'] = CLI.yes_no_question(
-                "Auto-install HTTPS certificates with Let's Encrypt?",
-                default=self.__dict['use_letsencrypt'],
-                labels=[
-                    'Yes',
-                    'No - Use my own reverse-proxy/load-balancer',
-                ]
-            )
+            # Quick setup accepts the default, as it does everywhere else:
+            # certificates are installed automatically on a fresh install, and
+            # a `No` given in a previous custom setup is honoured.
+            if self.advanced_options:
+                self.__dict['use_letsencrypt'] = CLI.yes_no_question(
+                    "Auto-install HTTPS certificates with Let's Encrypt?",
+                    default=self.__dict['use_letsencrypt'],
+                    labels=[
+                        'Yes',
+                        'No - Use my own reverse-proxy/load-balancer',
+                    ]
+                )
+
             self.__dict['proxy'] = True
             self.__dict[
                 'exposed_nginx_docker_port'] = Config.DEFAULT_NGINX_PORT
@@ -1812,20 +2163,24 @@ class Config(metaclass=Singleton):
                 )
                 CLI.framed_print(message)
 
-                if self.first_time:
-                    email = self.__dict['default_from_email']
-                    self.__dict['letsencrypt_email'] = email
+                # Quick setup has already asked for it, once, in
+                # `__questions_support_email()`.
+                if self.advanced_options:
+                    if self.first_time:
+                        email = self.__dict['default_from_email']
+                        self.__dict['letsencrypt_email'] = email
 
-                while True:
-                    letsencrypt_email = CLI.colored_input(
-                        "Email address for Let's Encrypt?",
-                        CLI.COLOR_QUESTION,
-                        self.__dict['letsencrypt_email'])
-                    question = f'Please confirm [{letsencrypt_email}]'
-                    response = CLI.yes_no_question(question)
-                    if response is True:
-                        self.__dict['letsencrypt_email'] = letsencrypt_email
-                        break
+                    while True:
+                        letsencrypt_email = CLI.colored_input(
+                            "Email address for Let's Encrypt?",
+                            CLI.COLOR_QUESTION,
+                            self.__dict['letsencrypt_email'])
+                        question = f'Please confirm [{letsencrypt_email}]'
+                        response = CLI.yes_no_question(question)
+                        if response is True:
+                            self.__dict[
+                                'letsencrypt_email'] = letsencrypt_email
+                            break
 
                 self.__clone_repo(self.get_letsencrypt_repo_path(),
                                   'nginx-certbot')
@@ -1976,15 +2331,7 @@ class Config(metaclass=Singleton):
                 default=self.__dict['smtp_use_tls']
             )
 
-        if self.first_time:
-            domain_name = self.__dict['public_domain_name']
-            self.__dict['default_from_email'] = f'support@{domain_name}'
-
-        self.__dict['default_from_email'] = CLI.colored_input(
-            'From email address?',
-            CLI.COLOR_QUESTION,
-            self.__dict['default_from_email']
-        )
+        self.__questions_from_email('From email address?')
 
     def __questions_super_user_credentials(self):
         # Super user. Only ask for credentials the first time.
@@ -2016,59 +2363,73 @@ class Config(metaclass=Singleton):
         self.__dict['super_user_username'] = username
         self.__dict['super_user_password'] = password
 
+    def __questions_support_email(self):
+        """
+        Asks for the address KoboToolbox writes from, and reuses it for
+        Let's Encrypt and for the maintenance page.
+
+        Quick setup only. It is the second of the two answers a server cannot
+        be installed without: certificates are requested automatically, and
+        the default `support@kobo.local` is not an address Let's Encrypt
+        accepts. Custom setup asks the same value in the SMTP section, and
+        `__questions_reverse_proxy()` and `__questions_maintenance()` ask for
+        theirs separately.
+        """
+        email = self.__questions_from_email(
+            "Support email address? (also used for Let's Encrypt)"
+        )
+        self.__dict['letsencrypt_email'] = email
+        self.__dict['maintenance_email'] = email
+
     def __questions_uwsgi(self):
+        """
+        uWSGI performance tuning.
 
-        if not self.dev_mode:
-            self.__dict['uwsgi_settings'] = CLI.yes_no_question(
-                'Do you want to tweak uWSGI settings?',
-                default=self.__dict['uwsgi_settings']
-            )
+        Ticking this section is the consent to tweak settings, so
+        there is no extra yes/no prompt: `uwsgi_settings` is forced to True
+        and the tuning questions are asked directly. Not offered in dev mode.
+        """
+        if self.dev_mode:
+            return
 
-            if self.__dict['uwsgi_settings']:
-                CLI.colored_print('Number of uWSGI workers to start?',
-                                  CLI.COLOR_QUESTION)
-                self.__dict['uwsgi_workers_start'] = CLI.get_response(
-                    r'~^\d+$',
-                    self.__dict['uwsgi_workers_start'])
+        self.__dict['uwsgi_settings'] = True
+        self.__dict['uwsgi_settings_auto'] = False
 
-                CLI.colored_print('Maximum uWSGI workers?', CLI.COLOR_QUESTION)
-                self.__dict['uwsgi_workers_max'] = CLI.get_response(
-                    r'~^\d+$',
-                    self.__dict['uwsgi_workers_max'])
+        CLI.colored_print('Number of uWSGI workers to start?',
+                          CLI.COLOR_QUESTION)
+        self.__dict['uwsgi_workers_start'] = CLI.get_response(
+            r'~^\d+$',
+            self.__dict['uwsgi_workers_start'])
 
-                CLI.colored_print('Maximum number of requests per worker?',
-                                  CLI.COLOR_QUESTION)
-                self.__dict['uwsgi_max_requests'] = CLI.get_response(
-                    r'~^\d+$',
-                    self.__dict['uwsgi_max_requests'])
+        CLI.colored_print('Maximum uWSGI workers?', CLI.COLOR_QUESTION)
+        self.__dict['uwsgi_workers_max'] = CLI.get_response(
+            r'~^\d+$',
+            self.__dict['uwsgi_workers_max'])
 
-                CLI.colored_print('Stop spawning workers if uWSGI memory use '
-                                  'exceeds this many MB: ',
-                                  CLI.COLOR_QUESTION)
-                self.__dict['uwsgi_soft_limit'] = CLI.get_response(
-                    r'~^\d+$',
-                    self.__dict['uwsgi_soft_limit'])
+        CLI.colored_print('Maximum number of requests per worker?',
+                          CLI.COLOR_QUESTION)
+        self.__dict['uwsgi_max_requests'] = CLI.get_response(
+            r'~^\d+$',
+            self.__dict['uwsgi_max_requests'])
 
-                CLI.colored_print('Maximum time (in seconds) before killing an '
-                                  'unresponsive worker?', CLI.COLOR_QUESTION)
-                self.__dict['uwsgi_harakiri'] = CLI.get_response(
-                    r'~^\d+$',
-                    self.__dict['uwsgi_harakiri'])
+        CLI.colored_print('Stop spawning workers if uWSGI memory use '
+                          'exceeds this many MB: ',
+                          CLI.COLOR_QUESTION)
+        self.__dict['uwsgi_soft_limit'] = CLI.get_response(
+            r'~^\d+$',
+            self.__dict['uwsgi_soft_limit'])
 
-                CLI.colored_print('Maximum time (in seconds) a worker can take '
-                                  'to reload/shutdown?', CLI.COLOR_QUESTION)
-                self.__dict['uwsgi_worker_reload_mercy'] = CLI.get_response(
-                    r'~^\d+$',
-                    self.__dict['uwsgi_worker_reload_mercy'])
+        CLI.colored_print('Maximum time (in seconds) before killing an '
+                          'unresponsive worker?', CLI.COLOR_QUESTION)
+        self.__dict['uwsgi_harakiri'] = CLI.get_response(
+            r'~^\d+$',
+            self.__dict['uwsgi_harakiri'])
 
-                return
-
-        self.__dict['uwsgi_workers_start'] = '2'
-        self.__dict['uwsgi_workers_max'] = '4'
-        self.__dict['uwsgi_max_requests'] = '1024'
-        self.__dict['uwsgi_soft_limit'] = '1024'
-        self.__dict['uwsgi_harakiri'] = '120'
-        self.__dict['uwsgi_worker_reload_mercy'] = '120'
+        CLI.colored_print('Maximum time (in seconds) a worker can take '
+                          'to reload/shutdown?', CLI.COLOR_QUESTION)
+        self.__dict['uwsgi_worker_reload_mercy'] = CLI.get_response(
+            r'~^\d+$',
+            self.__dict['uwsgi_worker_reload_mercy'])
 
     def __is_port_allowed(self, port):
         return not (self.block_common_http_ports and port in [
@@ -2100,9 +2461,12 @@ class Config(metaclass=Singleton):
             self.__dict['kpi_path'] = ''
             self.__dict['debug'] = False
             self.__dict['use_celery'] = True
-            if nginx_default:
-                self.__dict[
-                    'exposed_nginx_docker_port'] = Config.DEFAULT_NGINX_PORT
+
+        # Not nested in the block above: staging is not `production`, but it
+        # is still a server and must not keep a development web server port.
+        if nginx_default or all_:
+            self.__dict[
+                'exposed_nginx_docker_port'] = Config.DEFAULT_NGINX_PORT
 
         if fake_dns or all_:
             self.__dict['use_private_dns'] = False
@@ -2164,7 +2528,7 @@ class Config(metaclass=Singleton):
                         'to a fresh installed (by kobo-install) database.\n'
                         '\n'
                         'kobo-install uses these images:\n'
-                        '    - MongoDB: mongo:5.0\n'
+                        '    - MongoDB: mongo:8.0\n'
                         '    - PostgreSQL: postgis/postgis:14-3.2\n'
                         '\n'
                         'Be sure to upgrade to these versions before going '
@@ -2192,6 +2556,917 @@ class Config(metaclass=Singleton):
                         os.system(
                             f'echo $(date) | sudo tee -a {filepath} > /dev/null'
                         )
+
+    def __auto_configure_resources(self):
+        """
+        Detects hardware resources and sets PostgreSQL and uWSGI values
+        automatically on first run. Never goes below template defaults.
+
+        CPU/RAM allocation multipliers (single-server assumption):
+          staging    → 50%  (server shared with other services)
+          production → 75%
+
+        uWSGI soft_limit (max RAM across all workers):
+          staging single-server    → 25% of total RAM
+          production single-server → 50% of total RAM
+          multi-server frontend    → 75% (DBs are on a separate machine;
+                                    recalculated in __run_selected_advanced_sections
+                                    after multi-server is confirmed)
+        """
+        mode = self.__dict.get('install_mode', 'production')
+        if mode == 'dev':
+            return
+        factor = 0.5 if mode == 'staging' else 0.75
+
+        cpus, ram_gb = self.__detect_system_resources()
+        allocated_cpus = max(1, round(cpus * factor))
+        allocated_ram = max(2, round(ram_gb * factor))
+
+        CLI.colored_print(
+            f'Auto-configuring from detected hardware: '
+            f'{cpus} vCPUs, {ram_gb} GB RAM',
+            CLI.COLOR_INFO,
+        )
+
+        # Sized per role on purpose: PostgreSQL only where it runs, uWSGI only
+        # on a front end. On a single server both properties are true and both
+        # blocks run; on a multi-server install each machine gets only its own.
+        if self.backend:
+            CLI.colored_print(
+                f'  → PostgreSQL: {allocated_cpus} CPUs, {allocated_ram} GB RAM '
+                f'({int(factor * 100)}% — {mode})',
+                CLI.COLOR_INFO,
+            )
+            self.__dict['postgres_cpus'] = str(allocated_cpus)
+            self.__dict['postgres_ram'] = str(allocated_ram)
+            self.__dict['postgres_profile'] = 'Mixed'
+            self.__dict['postgres_settings'] = True
+            # Values come from hardware detection, not from the user: the
+            # section menu must not present the section as customised.
+            self.__dict['postgres_settings_auto'] = True
+
+            endpoint = (
+                'https://api.pgconfig.org/v1/tuning/get-config'
+                '?environment_name={profile}&format=conf'
+                '&include_pgbadger=false'
+                '&cpus={cpus}'
+                '&max_connections={max_connections}'
+                '&pg_version=14'
+                '&total_ram={ram}GB'
+                '&drive_type={drive_type}'
+                '&os_type=linux'
+            ).format(
+                profile=self.__dict['postgres_profile'],
+                cpus=allocated_cpus,
+                ram=allocated_ram,
+                max_connections=self.__dict['postgres_max_connections'],
+                drive_type=self.__dict['postgres_hard_drive_type'].upper(),
+            )
+            response = Network.curl(endpoint)
+            if response:
+                self.__dict['postgres_settings_content'] = re.sub(
+                    r'(\d+)KB', r'\1kB', response
+                )
+            else:
+                CLI.colored_print('\nAn error has occurred. Current '
+                                  'PostgreSQL settings will be used',
+                                  CLI.COLOR_INFO)
+
+        if self.frontend:
+            workers_start = max(2, allocated_cpus)
+            workers_max = max(4, allocated_cpus * 2)
+            # Single-server soft_limit: staging=25%, production=50%
+            soft_pct = 0.25 if mode == 'staging' else 0.50
+            soft_limit_mb = max(1024, round(ram_gb * soft_pct * 1024))
+            CLI.colored_print(
+                f'  → uWSGI: {workers_start} workers (start), '
+                f'{workers_max} workers (max), '
+                f'{soft_limit_mb} MB soft limit '
+                f'({int(soft_pct * 100)}% RAM — single server)',
+                CLI.COLOR_INFO,
+            )
+            self.__dict['uwsgi_workers_start'] = str(workers_start)
+            self.__dict['uwsgi_workers_max'] = str(workers_max)
+            self.__dict['uwsgi_soft_limit'] = str(soft_limit_mb)
+            self.__dict['uwsgi_settings'] = True
+            self.__dict['uwsgi_settings_auto'] = True
+
+    @staticmethod
+    def __detect_system_resources():
+        """
+        Returns (cpus: int, ram_gb: int) from OS.
+        Falls back to (1, 2) if detection fails.
+        """
+        cpus = os.cpu_count() or 1
+        ram_gb = 2
+        try:
+            if sys.platform == 'darwin':
+                with os.popen('sysctl -n hw.memsize') as p:
+                    ram_gb = max(1, int(p.read().strip()) // (1024 ** 3))
+            else:
+                with open('/proc/meminfo') as f:
+                    for line in f:
+                        if line.startswith('MemTotal:'):
+                            ram_gb = max(1, int(line.split()[1]) // (1024 ** 2))
+                            break
+        except Exception:
+            pass
+        return cpus, ram_gb
+
+    def __detect_install_mode(self):
+        """
+        Derives install_mode from legacy flags for backwards compatibility
+        with existing .run.conf files that predate the install_mode key.
+        """
+        if self.__dict.get('local_installation'):
+            return 'dev'
+        if self.__dict.get('staging_mode'):
+            return 'staging'
+        return 'production'
+
+    def __questions_topology(self):
+        """
+        Asks whether this install is split across several servers, and which
+        role this machine plays.
+
+        Asked in custom setup only, before the section menu: `self.frontend`
+        and `self.backend` are derived from the answer, and the menu uses them
+        to decide which sections exist. A back end has no domain names, a
+        front end has no database tuning. Quick setup never asks — it installs
+        a single server, where both roles are true.
+
+        Skipped on a workstation, which is a single machine by definition.
+        """
+        if self.local_install:
+            return
+
+        self.__questions_multi_servers()
+        if not self.multi_servers:
+            self.__reset(fake_dns=True)
+            return
+
+        self.__questions_roles()
+        if not self.frontend:
+            return
+
+        self.__questions_private_routes()
+        # Recalculate uWSGI soft_limit: the databases live on another machine,
+        # so this one can use up to 75% of its RAM.
+        if self.first_time and self.__dict.get('uwsgi_settings'):
+            _, ram_gb = self.__detect_system_resources()
+            soft_limit_mb = max(1024, round(ram_gb * 0.75 * 1024))
+            self.__dict['uwsgi_soft_limit'] = str(soft_limit_mb)
+            CLI.colored_print(
+                f'  → uWSGI soft limit updated: {soft_limit_mb} MB '
+                f'(75% RAM — multi-server frontend)',
+                CLI.COLOR_INFO,
+            )
+
+    def __questions_advanced_sections(self):
+        """
+        Shows a curses checkbox menu so the user can select which
+        sections to configure. Sections are grouped and sorted alphabetically
+        within each group.
+
+        Pre-checking uses the previous selection when there is one: a section
+        the menu has already offered is checked if and only if it was picked
+        last time. Sections never offered before — a brand new install, or one
+        added by a later version of kobo-install — fall back to guessing from
+        the values themselves.
+
+        __run_selected_advanced_sections uses `if key in selected` checks so
+        display order is independent of execution order.
+
+        Returns:
+            list: Selected section keys.
+        """
+        d = self.__dict
+        mode = d.get('install_mode', 'production')
+
+        seen = set(d.get('advanced_sections_seen') or [])
+        previously_selected = set(d.get('advanced_sections_selected') or [])
+        # An install predating this memory has nothing to remember, so it gets
+        # the same treatment as a brand new one.
+        first_menu = self.first_time or not seen
+
+        auto_path = os.path.realpath(os.path.normpath(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.realpath(__file__))),
+            '..', 'kobo-docker'
+        )))
+
+        # Each group: (separator_label, [section_dicts])
+        # Sections within a group are sorted alphabetically before display.
+        groups = []
+
+        # ── Dev / Staging (shown first — most frequently used) ───────────────
+        dev_staging = []
+        if mode in ('dev', 'staging'):
+            dev_staging.append({
+                'key': 'kpi_path',
+                'label': 'KPI source files',
+                'description': 'Mount a local KPI checkout for live code '
+                               'editing.',
+                'checked': bool(d.get('kpi_path')),
+            })
+        if mode == 'dev':
+            dev_staging.append({
+                'key': 'celery_npm',
+                'label': 'Celery & npm',
+                'description': 'Run Celery workers and the npm/webpack '
+                               'container for development.',
+                'checked': (
+                    not d.get('use_celery', True)
+                    or not d.get('npm_container', True)
+                ),
+            })
+            dev_staging.append({
+                'key': 'web_port',
+                'label': 'Web server port',
+                'description': 'Host port the web server listens on '
+                               '(default 80).',
+                'checked': (
+                    d.get('exposed_nginx_docker_port')
+                    != Config.DEFAULT_NGINX_PORT
+                ),
+            })
+        if dev_staging:
+            groups.append(('Dev / Staging', dev_staging))
+
+        # ── Infrastructure ───────────────────────────────────────────────────
+        infra = [
+            {
+                'key': 'install_dir',
+                'label': 'Install directory',
+                'description': 'Where the kobo-docker repository lives on disk.',
+                'checked': d.get('kobodocker_path', auto_path) != auto_path,
+            },
+            {
+                'key': 'network',
+                'label': 'Network interface',
+                'description': 'Local network interface the containers bind to.',
+                'checked': d.get('local_interface', '') not in (
+                    '', Network.get_primary_interface()
+                ),
+            },
+            {
+                'key': 'docker_prefix',
+                'label': 'Docker Compose prefix',
+                'description': 'Prefix for container names to run several '
+                               'instances on one host.',
+                'checked': bool(d.get('docker_prefix')),
+            },
+        ]
+        groups.append(('Infrastructure', infra))
+
+        # ── Server (staging / production only) ───────────────────────────────
+        # Public routes and TLS belong to whatever answers on the domain, so
+        # `__questions_public_routes()` and `__questions_https()` are skipped
+        # on a back end. The menu must skip them too.
+        if mode != 'dev' and self.frontend:
+            server = [
+                {
+                    'key': 'public_routes',
+                    'label': 'Domain names',
+                    'description': 'Public domain and subdomains used to reach '
+                                   'KoboToolbox.',
+                    'checked': (
+                        first_menu
+                        or d.get('public_domain_name', 'kobo.local') != 'kobo.local'
+                    ),
+                },
+                {
+                    'key': 'https_proxy',
+                    'label': 'HTTPS & certificates',
+                    'description': 'TLS certificates and reverse-proxy / '
+                                   "Let's Encrypt settings.",
+                    'checked': first_menu or d.get('use_letsencrypt', True),
+                },
+            ]
+            groups.append(('Server', server))
+
+        # ── Application ──────────────────────────────────────────────────────
+        app = []
+        # Email is sent by the front end; `__questions_smtp()` is skipped on a
+        # back end, so offering it there only puts a dead entry in the menu.
+        if self.frontend:
+            app.append({
+                'key': 'smtp',
+                'label': 'SMTP',
+                'description': 'Outgoing email server used to send '
+                               'notifications.',
+                'checked': (
+                    (first_menu and mode != 'dev')
+                    or bool(d.get('smtp_host'))
+                ),
+            })
+        # Custom YAML covers both roles: `__questions_custom_yml()` asks about
+        # the front-end file, the back-end file, or both.
+        app.append({
+            'key': 'custom_yaml',
+            'label': 'Custom YAML',
+            'description': 'Add your own docker-compose overrides for '
+                           'frontend/backend.',
+            'checked': (
+                d.get('use_frontend_custom_yml', False)
+                or d.get('use_backend_custom_yml', False)
+            ),
+        })
+        groups.append(('Application', app))
+
+        # ── Security ─────────────────────────────────────────────────────────
+        security = []
+        if self.frontend:
+            # The Django admin account is created by the front end;
+            # `__questions_super_user_credentials()` skips a back end.
+            security.append({
+                'key': 'superuser',
+                'label': 'Superuser credentials',
+                'description': 'Username and password of the initial Django '
+                               'admin account.',
+                'checked': first_menu,
+            })
+            security.append({
+                'key': 'secret_keys',
+                'label': 'Secret keys',
+                'description': 'Provide your own Django secret and encryption '
+                               'keys.',
+                'checked': d.get('custom_secret_keys', False),
+            })
+            if mode != 'dev':
+                security.append({
+                    'key': 'session',
+                    'label': 'Session duration',
+                    'description': 'How long user login sessions stay valid.',
+                    'checked': (
+                        d.get('django_session_cookie_age', 604800) != 604800
+                    ),
+                })
+        if security:
+            groups.append(('Security', security))
+
+        # ── Performance ──────────────────────────────────────────────────────
+        performance = []
+        if self.backend and mode != 'dev':
+            performance.append({
+                'key': 'postgres_tuning',
+                'label': 'PostgreSQL tuning',
+                'description': 'CPU/RAM/connection sizing for PostgreSQL via '
+                               'pgconfig.org.',
+                'checked': (
+                    d.get('postgres_settings', False)
+                    and not d.get('postgres_settings_auto', False)
+                ),
+            })
+            performance.append({
+                'key': 'redis_tuning',
+                'label': 'Redis cache memory',
+                'description': 'Max memory (MB) for the Redis cache container.',
+                'checked': bool(d.get('redis_cache_max_memory')),
+            })
+        if self.frontend and mode != 'dev':
+            performance.append({
+                'key': 'uwsgi',
+                'label': 'uWSGI tuning',
+                'description': 'Worker, request and memory limits for the '
+                               'uWSGI app server.',
+                'checked': (
+                    d.get('uwsgi_settings', False)
+                    and not d.get('uwsgi_settings_auto', False)
+                ),
+            })
+        if performance:
+            groups.append(('Performance', performance))
+
+        # ── Databases ────────────────────────────────────────────────────────
+        databases = []
+        if self.backend:
+            databases += [
+                {
+                    'key': 'mongodb',
+                    'label': 'MongoDB',
+                    'description': 'MongoDB credentials and database name.',
+                    'checked': False,
+                },
+                {
+                    'key': 'postgresql',
+                    'label': 'PostgreSQL',
+                    'description': 'PostgreSQL database names, user and '
+                                   'password.',
+                    'checked': False,
+                },
+                {
+                    'key': 'redis',
+                    'label': 'Redis',
+                    'description': 'Redis password and cache/main instance '
+                                   'settings.',
+                    # Like MongoDB and PostgreSQL above: `redis_password`
+                    # defaults to a generated value, so there is no way to
+                    # tell a customised one from an untouched default.
+                    'checked': False,
+                },
+            ]
+        if self.backend and not self.local_install:
+            databases.append({
+                'key': 'ports',
+                'label': 'Backend service ports',
+                'description': 'Expose database ports on the host (for remote '
+                               'frontends).',
+                'checked': d.get('expose_backend_ports', False),
+            })
+        if databases:
+            groups.append(('Databases', databases))
+
+        # ── External services ────────────────────────────────────────────────
+        external = []
+        if self.frontend:
+            external.append({
+                'key': 'aws',
+                'label': 'AWS S3 storage',
+                'description': 'Store media and static files on Amazon S3.',
+                'checked': d.get('use_aws', False),
+            })
+            if mode != 'dev':
+                external += [
+                    {
+                        'key': 'google',
+                        'label': 'Google Analytics & Maps',
+                        'description': 'Google Analytics tracking ID and Maps '
+                                       'API key.',
+                        'checked': bool(
+                            d.get('google_ua') or d.get('google_api_key')
+                        ),
+                    },
+                    {
+                        'key': 'sentry',
+                        'label': 'Sentry',
+                        'description': 'Error reporting to a Sentry/Raven '
+                                       'instance.',
+                        'checked': d.get('raven_settings', False),
+                    },
+                ]
+            # Host credential directories and NLP only make sense on a
+            # workstation: a server authenticates with its own credentials and
+            # gets its NLP settings from Constance.
+            if mode == 'dev':
+                external.append({
+                    'key': 'cloud_profiles',
+                    'label': 'Cloud credentials (AWS & Google)',
+                    'description': 'Mount ~/.aws and ~/.config/gcloud so '
+                                   'containers use your host credentials.',
+                    'checked': (
+                        d.get('gcloud_use_profile', False)
+                        or d.get('aws_use_profile', False)
+                    ),
+                })
+                # Nothing to ask when kobo-docker's custom compose file
+                # already carries these variables.
+                if not self.__nlp_managed_by_custom_yml():
+                    external.append({
+                        'key': 'nlp',
+                        'label': 'NLP and qualitative analysis',
+                        'description': 'Transcription and translation '
+                                       '(Google), qualitative analysis '
+                                       '(AWS Bedrock).',
+                        'checked': d.get('use_nlp', False),
+                    })
+        if external:
+            groups.append(('External services', external))
+
+        # ── Maintenance ──────────────────────────────────────────────────────
+        maintenance = []
+        # Same condition as `__questions_backup()` itself: the database
+        # schedules are a back-end job, and a front end only has media to back
+        # up when it is not storing them on S3. Offering this to front ends
+        # only used to hide database backups from the very machine that holds
+        # the databases.
+        if self.backend or (self.frontend and not self.aws):
+            maintenance.append({
+                'key': 'backups',
+                'label': 'Backups',
+                'description': 'Scheduled backups of databases and uploaded '
+                               'files.',
+                'checked': d.get('use_backup', False),
+            })
+        if maintenance:
+            groups.append(('Maintenance', maintenance))
+
+        # A remembered answer beats any guess: once a section has been
+        # offered, its checkbox reflects the last decision, not what the
+        # values happen to look like. Keys never offered before keep the
+        # guesses computed above.
+        for _, items in groups:
+            for item in items:
+                if item['key'] in seen:
+                    item['checked'] = item['key'] in previously_selected
+
+        # Build flat choices list with separators; sort items within each group
+        all_sections = []
+        choices = []
+        for group_name, items in groups:
+            items.sort(key=lambda x: x['label'])
+            choices.append({'separator': group_name})
+            for item in items:
+                choices.append({
+                    'label': item['label'],
+                    'checked': item['checked'],
+                    'description': item.get('description', ''),
+                })
+                all_sections.append(item)
+
+        if not CLI.is_interactive():
+            CLI.colored_print(
+                'Custom setup requires an interactive terminal.\n'
+                'Run the setup from a terminal, or use quick setup.',
+                CLI.COLOR_ERROR,
+            )
+            sys.exit(1)
+
+        selected_labels = CLI.checkbox_menu(
+            'Select the sections you want to configure:',
+            choices,
+        )
+
+        if selected_labels is None:
+            CLI.colored_print(
+                'Setup cancelled. Nothing was written.', CLI.COLOR_INFO
+            )
+            sys.exit(0)
+
+        label_to_key = {s['label']: s['key'] for s in all_sections}
+        selected = [label_to_key[label] for label in selected_labels]
+
+        # Remember the answer for next time. Both lists keep the keys of
+        # sections this mode does not offer, so switching between dev and
+        # production does not erase the choices made in the other one.
+        offered = {section['key'] for section in all_sections}
+        d['advanced_sections_seen'] = sorted(seen | offered)
+        d['advanced_sections_selected'] = sorted(
+            (previously_selected - offered) | set(selected)
+        )
+
+        return selected
+
+    def __questions_celery_npm(self):
+        """
+        Asks for Celery and npm configuration (dev, custom setup).
+        """
+        self.__dict['use_celery'] = CLI.yes_no_question(
+            'Use Celery for background tasks?',
+            default=self.__dict['use_celery']
+        )
+        self.__dict['npm_container'] = CLI.yes_no_question(
+            'How do you want to run `npm`?',
+            default=self.__dict['npm_container'],
+            labels=[
+                'From within the container',
+                'Locally',
+            ]
+        )
+
+    def __questions_web_server_port(self):
+        """
+        Asks for the host port the web server is exposed on (dev, custom
+        setup). Developers who already use port 80 for something else need to
+        move the instance elsewhere.
+        """
+        CLI.colored_print('Web server port?', CLI.COLOR_QUESTION)
+        self.__dict['exposed_nginx_docker_port'] = CLI.get_response(
+            r'~^\d+$', self.__dict['exposed_nginx_docker_port'])
+
+    def __questions_complexity(self):
+        """
+        Asks whether every default applies, or whether the section menu opens.
+
+        Rendered by hand, like `__questions_install_mode()`: "Simple" and
+        "Advanced" on their own said nothing about what either one does, and
+        `CLI.yes_no_question()` prints a bare label with no room to explain.
+
+        The stored key stays `advanced` — renaming it would break existing
+        `.run.conf` files and the `use_booleans_v4` migration.
+        """
+        default = '2' if self.__dict.get('advanced', False) else '1'
+
+        CLI.colored_print(
+            'How do you want to configure this installation?',
+            CLI.COLOR_QUESTION
+        )
+        CLI.colored_print(
+            '\t1) Quick setup   (accept every default, nothing else is asked)'
+        )
+        CLI.colored_print(
+            '\t2) Custom setup  (pick the sections you want to configure)'
+        )
+
+        response = CLI.get_response(['1', '2'], default=default)
+        self.__dict['advanced'] = response == '2'
+
+    def __questions_install_mode(self):
+        """
+        Asks for install mode (dev / staging / production) and sets the
+        corresponding internal flags. Replaces the old installation-type
+        and advanced-options questions.
+        """
+        # Always derive from flags so existing .run.conf files without
+        # install_mode are detected correctly (template default 'production'
+        # would otherwise shadow dev/staging flags from old configs).
+        current_mode = self.__detect_install_mode()
+        default = {'dev': '1', 'staging': '2', 'production': '3'}.get(
+            current_mode, '3'
+        )
+
+        CLI.colored_print(
+            'What kind of installation do you need?', CLI.COLOR_QUESTION
+        )
+        CLI.colored_print(
+            '\t1) Development  \u2014 your own workstation. DEBUG on, plain '
+            'HTTP, no domain name needed'
+        )
+        CLI.colored_print(
+            '\t2) Staging      \u2014 a server running a test copy of '
+            'production'
+        )
+        CLI.colored_print(
+            '\t3) Production   \u2014 a server running the live instance'
+        )
+
+        response = CLI.get_response(['1', '2', '3'], default=default)
+        mode = {'1': 'dev', '2': 'staging', '3': 'production'}[response]
+        previous_mode = current_mode
+        self.__dict['install_mode'] = mode
+
+        if mode == 'dev':
+            self.__dict['local_installation'] = True
+            self.__dict['dev_mode'] = True
+            self.__dict['staging_mode'] = False
+            self.__dict['debug'] = True
+        elif mode == 'staging':
+            self.__dict['local_installation'] = False
+            self.__dict['dev_mode'] = False
+            self.__dict['staging_mode'] = True
+            self.__dict['debug'] = False
+            self.__dict['use_celery'] = True
+        else:
+            self.__dict['local_installation'] = False
+            self.__dict['dev_mode'] = False
+            self.__dict['staging_mode'] = False
+            self.__dict['debug'] = False
+            self.__dict['use_celery'] = True
+
+        if previous_mode != mode:
+            if mode == 'dev':
+                self.__reset(http=True, fake_dns=True)
+                self.__reset_server_values()
+            else:
+                self.__reset(
+                    production=(mode == 'production'),
+                    nginx_default=True,
+                )
+                if previous_mode == 'dev':
+                    self.__reset_development_values()
+
+        if mode == 'dev':
+            message = (
+                'WARNING!\n\n'
+                'SSRF protection is disabled with local installation'
+            )
+            CLI.framed_print(message, color=CLI.COLOR_WARNING)
+
+    def __reset_development_values(self):
+        """
+        Restores the settings that only make sense on a workstation to their
+        defaults, when an existing development install becomes a server.
+
+        `__reset()` does not cover these, and neither path of `build()` would
+        ask about them afterwards: quick setup asks nothing, and the section
+        menu only runs the sections that were ticked. Left alone they would
+        reach the generated server configuration — printing email to the
+        console, serving plain HTTP, or mounting host credential directories
+        that do not exist on a server.
+        """
+        template = self.get_template()
+        for key in (
+            'email_backend',
+            'https',
+            'use_letsencrypt',
+            'aws_use_profile',
+            'aws_profile_name',
+            'aws_host_aws_dir',
+            'gcloud_use_profile',
+            'gcloud_host_config_dir',
+            # NLP is a development-only section now; on a server the values
+            # come from Constance. Left alone they would reach the generated
+            # server configuration with no section left to correct them.
+            'use_nlp',
+            'gs_bucket_name',
+            'aws_bedrock_region_name',
+            'asr_mt_google_project_id',
+        ):
+            self.__dict[key] = template[key]
+
+    def __reset_server_values(self):
+        """
+        Restores the domain names to their defaults, when an existing server
+        install becomes a workstation.
+
+        The mirror of `__reset_development_values()`, and needed for the same
+        reason: `__reset()` does not cover them, and a workstation is never
+        asked for them — quick setup skips the questions, and the custom setup
+        menu offers neither the `Domain names` nor the `SMTP` section on a
+        local install. The production domain would otherwise end up in the
+        containers, in the `/etc/hosts` entries written for the machine, and
+        in the address the workstation sends its email from.
+        """
+        template = self.get_template()
+        for key in (
+            'public_domain_name',
+            'internal_domain_name',
+            'private_domain_name',
+            # Asked once, as the support address, and derived from the domain
+            'default_from_email',
+            'letsencrypt_email',
+            'maintenance_email',
+        ):
+            self.__dict[key] = template[key]
+
+    def __questions_kpi_path(self):
+        """
+        Asks for KPI source files location (dev/staging, custom setup).
+        """
+        message = (
+            'Where are the files located locally? It can be absolute '
+            'or relative to the directory of `kobo-docker`.\n\n'
+            'Leave empty if you do not need to overload the repository.'
+        )
+        CLI.framed_print(message, color=CLI.COLOR_INFO)
+
+        previous_path = self.__dict['kpi_path']
+        self.__dict['kpi_path'] = CLI.colored_input(
+            'KPI files location?', CLI.COLOR_QUESTION,
+            self.__dict['kpi_path']
+        )
+        self.__apply_kpi_path(previous_path)
+
+    def __apply_kpi_path(self, previous_path):
+        """
+        Clones the KPI repository when the location does not hold one yet, and
+        stamps a fresh dev build id whenever the checkout moved — the image
+        has to be rebuilt against the new source files.
+        """
+        self.__clone_repo(self.__dict['kpi_path'], 'kpi')
+
+        if (
+            not self.__dict['kpi_dev_build_id']
+            or self.__dict['kpi_path'] != previous_path
+        ):
+            prefix = self.get_prefix('frontend')
+            timestamp = int(time.time())
+            self.__dict['kpi_dev_build_id'] = f'{prefix}{timestamp}'
+
+    def __auto_setup_kpi_path(self):
+        """
+        Dev quick-setup convenience: settle on a sibling `kpi` checkout, the
+        same way `__setup_directory()` settles on `../kobo-docker`, and clone
+        it when it is not there yet. Editing KPI source files live is the
+        point of a development install.
+
+        An answer already on file wins: a developer pointing the install at
+        their own checkout must not have it swapped for the sibling default.
+        """
+        previous_path = self.__dict['kpi_path']
+
+        if not previous_path:
+            base_dir = os.path.dirname(
+                os.path.dirname(os.path.realpath(__file__))
+            )
+            self.__dict['kpi_path'] = os.path.realpath(
+                os.path.normpath(os.path.join(base_dir, '..', 'kpi'))
+            )
+            CLI.colored_print(
+                f'  \u2192 KPI source files: {self.__dict["kpi_path"]}',
+                CLI.COLOR_INFO,
+            )
+
+        self.__apply_kpi_path(previous_path)
+
+    def __run_selected_advanced_sections(self, selected):
+        """
+        Runs question methods for each section selected in custom setup.
+        Order matches the section list in __questions_advanced_sections.
+
+        Args:
+            selected (list): Section keys from __questions_advanced_sections.
+        """
+        # Infrastructure
+        if 'install_dir' in selected:
+            self.__create_directory()
+
+        if 'network' in selected:
+            self.__questions_network_interface()
+
+        # Public access
+        if 'public_routes' in selected and self.frontend and not self.local_install:
+            self.__questions_public_routes()
+
+        if 'https_proxy' in selected and self.frontend and not self.local_install:
+            self.__questions_https()
+            self.__questions_reverse_proxy()
+
+        # Application
+        if 'smtp' in selected and self.frontend:
+            self.__dict['email_backend'] = ''
+            self.__questions_smtp()
+
+        if 'superuser' in selected and self.frontend:
+            self.__questions_super_user_credentials()
+
+        if 'custom_yaml' in selected:
+            self.__questions_custom_yml()
+
+        # Dev/staging source files
+        if 'kpi_path' in selected:
+            self.__questions_kpi_path()
+
+        if 'celery_npm' in selected:
+            self.__questions_celery_npm()
+
+        if 'web_port' in selected:
+            self.__questions_web_server_port()
+
+        # Databases
+        if 'postgresql' in selected:
+            self.__questions_postgres()
+
+        if 'postgres_tuning' in selected:
+            self.__questions_postgres_tuning()
+
+        if 'mongodb' in selected:
+            self.__questions_mongo()
+        else:
+            self.__secure_mongo()
+
+        if 'redis' in selected:
+            self.__questions_redis()
+
+        if 'redis_tuning' in selected:
+            self.__questions_redis_tuning()
+
+        if 'ports' in selected:
+            self.__questions_ports()
+
+        # Storage & integrations
+        # Cloud profiles come first: the AWS S3 section skips the access
+        # key/secret prompts when profile authentication is on.
+        if 'cloud_profiles' in selected:
+            self.__questions_cloud_profiles()
+
+        if 'aws' in selected:
+            self.__questions_aws()
+
+        if 'backups' in selected:
+            self.__questions_backup()
+
+        if 'google' in selected:
+            self.__questions_google()
+
+        if 'nlp' in selected:
+            self.__questions_nlp()
+
+        if 'sentry' in selected:
+            self.__questions_raven()
+
+        if 'uwsgi' in selected:
+            self.__questions_uwsgi()
+
+        if 'secret_keys' in selected:
+            self.__questions_secret_keys()
+
+        if 'session' in selected:
+            self.__questions_session_cookies()
+
+        if 'docker_prefix' in selected:
+            self.__questions_docker_prefix()
+
+    def __setup_directory(self):
+        """
+        Auto-sets kobodocker_path to ../kobo-docker (sibling of kobo-install).
+        The 'Install directory' section of custom setup lets it be overridden.
+        """
+        base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+        kobodocker_path = os.path.realpath(
+            os.path.normpath(os.path.join(base_dir, '..', 'kobo-docker'))
+        )
+        if not os.path.isdir(kobodocker_path):
+            try:
+                os.makedirs(kobodocker_path)
+            except OSError:
+                CLI.colored_print(
+                    f'Could not create directory {kobodocker_path}!',
+                    CLI.COLOR_ERROR
+                )
+                sys.exit(1)
+        self.__dict['kobodocker_path'] = kobodocker_path
+        self.write_unique_id()
+        self.__validate_installation()
 
     @staticmethod
     def __welcome():

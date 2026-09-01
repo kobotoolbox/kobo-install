@@ -17,40 +17,30 @@ from .utils import (
 
 CHOICE_YES = '1'
 CHOICE_NO = '2'
+MODE_DEV = '1'
+MODE_STAGING = '2'
+MODE_PRODUCTION = '3'
 
 
 def test_read_config():
     read_config()
 
 
-def test_advanced_options():
+def _local_install_config():
+    """
+    Returns a config switched to dev mode, i.e. a local installation.
+    """
     config = read_config()
-    with patch.object(CLI, 'colored_input',
-                      return_value=CHOICE_YES) as mock_ci:
-        config._Config__questions_advanced_options()
-        assert config.advanced_options
-
-    with patch.object(CLI, 'colored_input',
-                      return_value=CHOICE_NO) as mock_ci:
-        config._Config__questions_advanced_options()
-        assert not config.advanced_options
-
-
-def test_installation():
-    config = read_config()
-    with patch.object(CLI, 'colored_input',
-                      return_value=CHOICE_NO) as mock_ci:
-        config._Config__questions_installation_type()
-        assert not config.local_install
-
-    with patch.object(CLI, 'colored_input',
-                      return_value=CHOICE_YES) as mock_ci:
-        config._Config__questions_installation_type()
-        assert config.local_install
-        assert not config.multi_servers
-        assert not config.use_letsencrypt
-
+    with patch.object(CLI, 'colored_input', return_value=MODE_DEV):
+        config._Config__questions_install_mode()
     return config
+
+
+def test_local_installation_disables_multi_server_and_letsencrypt():
+    config = _local_install_config()
+    assert config.local_install
+    assert not config.multi_servers
+    assert not config.use_letsencrypt
 
 
 @patch('helpers.config.Network.get_primary_ip',
@@ -70,14 +60,46 @@ def test_build_aborts_before_writing_when_overwrite_declined():
     with patch.multiple(
         'helpers.config.Config',
         _Config__welcome=noop,
-        _Config__create_directory=noop,
-        _Config__questions_advanced_options=noop,
-        _Config__questions_installation_type=noop,
-        _Config__detect_network=noop,
-        _Config__questions_smtp=noop,
-        _Config__questions_super_user_credentials=noop,
+        _Config__questions_install_mode=noop,
+        _Config__questions_complexity=noop,
+        _Config__setup_directory=noop,
+        _Config__auto_detect_network=noop,
+        _Config__auto_detect_cloud_profiles=noop,
+        _Config__questions_nlp_quick=noop,
         _Config__secure_mongo=noop,
-        _Config__questions_backup=noop,
+        write_config=write_config,
+    ), patch(
+        'helpers.template.Template.confirm_overwrite',
+        MagicMock(return_value=False),
+    ) as mock_confirm:
+        with pytest.raises(SystemExit):
+            config.build()
+
+    mock_confirm.assert_called_once()
+    write_config.assert_not_called()
+
+
+@patch('helpers.config.Network.get_primary_ip',
+       MagicMock(return_value='1.2.3.4'))
+def test_build_aborts_before_writing_in_advanced_mode():
+    # The advanced branch of `build()` writes the configuration on its own, so
+    # it must go through the same confirmation as the simple one.
+    config = read_config()
+    config._Config__dict['advanced'] = True
+
+    noop = MagicMock()
+    write_config = MagicMock()
+    with patch.multiple(
+        'helpers.config.Config',
+        _Config__welcome=noop,
+        _Config__questions_install_mode=noop,
+        _Config__questions_complexity=noop,
+        _Config__setup_directory=noop,
+        _Config__auto_detect_network=noop,
+        _Config__auto_configure_resources=noop,
+        _Config__questions_topology=noop,
+        _Config__questions_advanced_sections=MagicMock(return_value=[]),
+        _Config__run_selected_advanced_sections=noop,
         write_config=write_config,
     ), patch(
         'helpers.template.Template.confirm_overwrite',
@@ -96,50 +118,54 @@ def test_staging_mode():
     config = read_config()
     kpi_repo_path = tempfile.mkdtemp()
 
-    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
-        mock_colored_input.side_effect = iter([CHOICE_YES, kpi_repo_path])
-        config._Config__questions_dev_mode()
-        dict_ = config.get_dict()
-        assert not config.dev_mode
-        assert config.staging_mode
-        assert dict_['kpi_path'] == kpi_repo_path
+    with patch.object(CLI, 'colored_input', return_value=MODE_STAGING):
+        config._Config__questions_install_mode()
+    assert not config.dev_mode
+    assert config.staging_mode
+
+    with patch.object(CLI, 'colored_input', return_value=kpi_repo_path):
+        config._Config__questions_kpi_path()
+    assert config.get_dict()['kpi_path'] == kpi_repo_path
+
     shutil.rmtree(kpi_repo_path)
 
 
 @patch('helpers.config.Config._Config__clone_repo', MagicMock(return_value=True))
 def test_dev_mode():
-    config = test_installation()
+    config = _local_install_config()
+    assert config.dev_mode
+    assert not config.staging_mode
 
     kpi_repo_path = tempfile.mkdtemp()
 
-    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
-        mock_colored_input.side_effect = iter(
-            [
-                '8080',
-                CHOICE_YES,
-                CHOICE_NO,
-                kpi_repo_path,
-                CHOICE_YES,
-                CHOICE_NO,
-            ]
-        )
+    with patch.object(CLI, 'colored_input', return_value='8080'):
+        config._Config__questions_web_server_port()
 
-        config._Config__questions_dev_mode()
-        dict_ = config.get_dict()
-        assert config.dev_mode
-        assert not config.staging_mode
-        assert config.get_dict().get('exposed_nginx_docker_port') == '8080'
-        assert dict_['kpi_path'] == kpi_repo_path
-        assert dict_['npm_container'] is False
-        assert dict_['use_celery'] is False
+    with patch.object(CLI, 'colored_input', return_value=kpi_repo_path):
+        config._Config__questions_kpi_path()
+
+    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
+        mock_colored_input.side_effect = iter([CHOICE_NO, CHOICE_NO])
+        config._Config__questions_celery_npm()
+
+    dict_ = config.get_dict()
+    assert dict_['exposed_nginx_docker_port'] == '8080'
+    assert dict_['kpi_path'] == kpi_repo_path
+    assert dict_['npm_container'] is False
+    assert dict_['use_celery'] is False
 
     shutil.rmtree(kpi_repo_path)
 
-    with patch.object(CLI, 'colored_input', return_value=CHOICE_NO) as mock_ci:
-        config._Config__questions_dev_mode()
-        dict_ = config.get_dict()
-        assert not config.dev_mode
-        assert dict_['kpi_path'] == ''
+
+def test_switching_away_from_dev_mode_resets_kpi_path():
+    config = _local_install_config()
+    config._Config__dict['kpi_path'] = '/some/local/checkout'
+
+    with patch.object(CLI, 'colored_input', return_value=MODE_PRODUCTION):
+        config._Config__questions_install_mode()
+
+    assert not config.dev_mode
+    assert config.get_dict()['kpi_path'] == ''
 
 
 def test_server_roles_questions():
@@ -188,9 +214,8 @@ def test_use_https():
         assert not config.local_install
         assert config.is_secure
 
-    with patch.object(CLI, 'colored_input',
-                      return_value=CHOICE_YES) as mock_ci:
-        config._Config__questions_installation_type()
+    with patch.object(CLI, 'colored_input', return_value=MODE_DEV) as mock_ci:
+        config._Config__questions_install_mode()
         assert config.local_install
         assert not config.is_secure
 
@@ -220,19 +245,16 @@ def test_aws_validation_fails_with_system_exit():
         mock_colored_input.side_effect = iter(
             [
                 CHOICE_YES,  # Yes, Use AWS Storage
-                CHOICE_NO,   # No, use credentials (1st config call)
                 '',  # Empty Access Key
                 '',  # Empty Secret Key
                 '',  # Empty Bucket Name
                 '',  # Empty Region Name
                 CHOICE_YES,  # Yes, validate AWS credentials
-                CHOICE_NO,   # No, use credentials (retry config call)
                 '',  # Empty Access Key
                 '',  # Empty Secret Key
                 '',  # Empty Bucket Name
                 '',  # Empty Region Name
                 # it failed, let's try one more time
-                CHOICE_NO,   # No, use credentials (retry config call)
                 '',  # Empty Access Key
                 '',  # Empty Secret Key
                 '',  # Empty Bucket Name
@@ -250,7 +272,9 @@ def test_aws_invalid_credentials_continue_without_validation():
     config = _aws_validation_setup()
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
-        mock_colored_input.side_effect = iter([CHOICE_YES, CHOICE_NO, '', '', '', '', CHOICE_NO])
+        mock_colored_input.side_effect = iter(
+            [CHOICE_YES, '', '', '', '', CHOICE_NO]
+        )
         config._Config__questions_aws()
         assert not config._Config__dict['aws_credentials_valid']
 
@@ -265,7 +289,6 @@ def test_aws_validation_passes_with_valid_credentials():
         mock_colored_input.side_effect = iter(
             [
                 CHOICE_YES,   # Yes, use AWS storage
-                CHOICE_NO,    # No, use credentials (not profile)
                 'test_access_key',
                 'test_secret_key',
                 'test_bucket_name',
@@ -283,7 +306,6 @@ def test_aws_validation_passes_with_valid_credentials():
         mock_colored_input.side_effect = iter(
             [
                 CHOICE_YES,   # Yes, use AWS storage
-                CHOICE_NO,    # No, use credentials (not profile)
                 'test_access_key',
                 'test_secret_key',
                 'test_bucket_name',
@@ -301,13 +323,11 @@ def test_aws_validation_passes_with_valid_credentials():
         mock_colored_input.side_effect = iter(
             [
                 CHOICE_YES,   # Yes, use AWS storage
-                CHOICE_NO,    # No, use credentials (1st config call)
                 '',
                 '',
                 '',
                 '',
                 CHOICE_YES,   # Yes, validate
-                CHOICE_NO,    # No, use credentials (retry config call)
                 'test_access_key',
                 'test_secret_key',
                 'test_bucket_name',
@@ -324,18 +344,15 @@ def test_aws_validation_passes_with_valid_credentials():
         mock_colored_input.side_effect = iter(
             [
                 CHOICE_YES,   # Yes, use AWS storage
-                CHOICE_NO,    # No, use credentials (1st config call)
                 '',
                 '',
                 '',
                 '',
                 CHOICE_YES,   # Yes, validate
-                CHOICE_NO,    # No, use credentials (2nd config call)
                 '',
                 '',
                 '',
                 '',
-                CHOICE_NO,    # No, use credentials (3rd config call)
                 'test_access_key',
                 'test_secret_key',
                 'test_bucket_name',
@@ -346,15 +363,19 @@ def test_aws_validation_passes_with_valid_credentials():
         assert config._Config__dict['aws_credentials_valid']
 
 
-def test_aws_profile_mode_configuration():
+def test_aws_profile_mode_skips_credential_prompts():
+    """
+    Profile authentication is answered by `__questions_cloud_profiles()`; the
+    S3 section then only needs the bucket and the region.
+    """
     config = _aws_validation_setup()
+    config._Config__dict['aws_use_profile'] = True
+    config._Config__dict['aws_profile_name'] = 'my_profile'
+    config._Config__dict['aws_host_aws_dir'] = '/home/user/.aws'
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
         mock_colored_input.side_effect = iter([
             CHOICE_YES,        # Yes, use AWS S3 storage
-            CHOICE_YES,        # Yes, use AWS profile
-            'my_profile',      # AWS Profile Name
-            '/home/user/.aws', # AWS credentials directory on host
             'my_bucket',       # AWS Bucket Name
             'us-east-1',       # AWS Region Name
         ])
@@ -366,10 +387,12 @@ def test_aws_profile_mode_configuration():
     assert config._Config__dict['aws_access_key'] == ''
     assert config._Config__dict['aws_secret_key'] == ''
     assert config._Config__dict['aws_bucket_name'] == 'my_bucket'
+    assert config._Config__dict['aws_s3_region_name'] == 'us-east-1'
 
 
 def test_aws_profile_mode_skips_validation():
     config = _aws_validation_setup()
+    config._Config__dict['aws_use_profile'] = True
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
         with patch(
@@ -377,9 +400,6 @@ def test_aws_profile_mode_skips_validation():
         ) as mock_validate:
             mock_colored_input.side_effect = iter([
                 CHOICE_YES,        # Yes, use AWS S3 storage
-                CHOICE_YES,        # Yes, use AWS profile
-                'my_profile',      # AWS Profile Name
-                '/home/user/.aws', # AWS credentials directory on host
                 'my_bucket',       # AWS Bucket Name
                 'us-east-1',       # AWS Region Name
             ])
@@ -389,60 +409,25 @@ def test_aws_profile_mode_skips_validation():
     assert not config._Config__dict['aws_credentials_valid']
 
 
-def test_aws_credentials_mode_clears_profile():
-    config = _aws_validation_setup()
-    config._Config__dict['aws_profile_name'] = 'previously_set_profile'
-    config._Config__dict['aws_host_aws_dir'] = '/previously/set/dir'
-
-    with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
-        mock_colored_input.side_effect = iter([
-            CHOICE_YES,   # Yes, use AWS S3 storage
-            CHOICE_NO,    # No, use credentials instead
-            'my_key',     # AWS Access Key
-            'my_secret',  # AWS Secret Key
-            'my_bucket',  # AWS Bucket Name
-            'us-east-1',  # AWS Region Name
-            CHOICE_NO,    # No, skip validation
-        ])
-        config._Config__questions_aws()
-
-    assert config._Config__dict['aws_use_profile'] is False
-    assert config._Config__dict['aws_profile_name'] == ''
-    assert config._Config__dict['aws_host_aws_dir'] == ''
-    assert config._Config__dict['aws_access_key'] == 'my_key'
-    assert config._Config__dict['aws_secret_key'] == 'my_secret'
-
-
-def test_aws_switch_to_profile_during_validation_retry():
+def test_aws_storage_off_keeps_the_profile_mount():
     """
-    User starts in credentials mode, fails validation, then switches to profile
-    mode on retry. Should not loop forever or call sys.exit(1).
+    Mounting the host `~/.aws` is useful without S3 storage, so declining S3
+    must not take the mount away.
     """
     config = _aws_validation_setup()
+    config._Config__dict['aws_use_profile'] = True
+    config._Config__dict['aws_profile_name'] = 'my_profile'
+    config._Config__dict['aws_host_aws_dir'] = '/home/user/.aws'
 
     with patch('helpers.cli.CLI.colored_input') as mock_colored_input:
-        mock_colored_input.side_effect = iter([
-            CHOICE_YES,        # Yes, use AWS S3 storage
-            CHOICE_NO,         # No, use credentials (1st config call)
-            '',                # Empty Access Key
-            '',                # Empty Secret Key
-            '',                # Empty Bucket Name
-            '',                # Empty Region Name
-            CHOICE_YES,        # Yes, validate credentials
-            CHOICE_YES,        # Switch to profile on retry (aws_use_profile)
-            'my_profile',      # AWS Profile Name
-            '/home/user/.aws', # AWS credentials directory on host
-            'my_bucket',       # AWS Bucket Name
-            'us-east-1',       # AWS Region Name
-        ])
+        mock_colored_input.side_effect = iter([CHOICE_NO])
         config._Config__questions_aws()
 
+    assert config._Config__dict['use_aws'] is False
+    assert config._Config__dict['aws_bucket_name'] == ''
     assert config._Config__dict['aws_use_profile'] is True
     assert config._Config__dict['aws_profile_name'] == 'my_profile'
     assert config._Config__dict['aws_host_aws_dir'] == '/home/user/.aws'
-    assert config._Config__dict['aws_access_key'] == ''
-    assert config._Config__dict['aws_secret_key'] == ''
-    assert not config._Config__dict['aws_credentials_valid']
 
 
 @patch('helpers.config.Config._Config__clone_repo',
@@ -490,20 +475,30 @@ def test_proxy_no_letsencrypt_advanced():
         assert dict_['nginx_proxy_port'] == proxy_port
 
 
-def test_proxy_no_letsencrypt():
+def test_proxy_letsencrypt_not_asked_in_quick_setup():
+    # Quick setup accepts every default, so it is never asked whether to
+    # install certificates. Its email address comes from
+    # `__questions_support_email()`, so nothing is asked here either.
     config = read_config()
 
+    assert not config.advanced_options
     assert config.proxy
     assert config.use_letsencrypt
 
     with patch.object(CLI, 'colored_input',
-                      return_value=CHOICE_NO) as mock_ci:
+                      return_value=CHOICE_NO) as mock_ci, \
+            patch.object(Config, '_Config__clone_repo') as mock_clone:
         config._Config__questions_reverse_proxy()
         dict_ = config.get_dict()
         assert config.proxy
-        assert not config.use_letsencrypt
+        assert config.use_letsencrypt
         assert config.block_common_http_ports
         assert dict_['nginx_proxy_port'] == Config.DEFAULT_PROXY_PORT
+
+    mock_ci.assert_not_called()
+    mock_clone.assert_called_once_with(
+        config.get_letsencrypt_repo_path(), 'nginx-certbot'
+    )
 
 
 def test_proxy_no_letsencrypt_retains_custom_nginx_proxy_port():
@@ -673,33 +668,21 @@ def test_exposed_ports():
 
 
 @patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
+@patch('helpers.config.Config._Config__setup_directory', new=lambda *a, **k: None)
 def test_force_secure_mongo():
     config = read_config()
-    dict_ = config.get_dict()
+    # Simulate a non-first-time run to trigger __secure_mongo upsert logic
+    config._Config__first_time = False
 
-    with patch('helpers.cli.CLI.colored_input') as mock_ci:
-        # We need to run it like if user has already run the setup once to
-        # force MongoDB to 'upsert' users.
-        config._Config__first_time = False
-        # Run with no advanced options
-
+    with patch('helpers.cli.CLI.colored_input') as mock_ci, \
+            patch.object(Config, '_Config__clone_repo'):
+        # Simple mode on a server: mode, complexity, then the two answers a
+        # server has no default for
         mock_ci.side_effect = iter([
-            dict_['kobodocker_path'],
-            CHOICE_YES,  # Confirm path
-            CHOICE_NO,
-            CHOICE_NO,
-            dict_['public_domain_name'],
-            dict_['kpi_subdomain'],
-            dict_['kc_subdomain'],
-            dict_['ee_subdomain'],
-            CHOICE_NO,  # Do you want to use HTTPS?
-            dict_['smtp_host'],
-            dict_['smtp_port'],
-            dict_['smtp_user'],
-            'test@test.com',
-            dict_['super_user_username'],
-            dict_['super_user_password'],
-            CHOICE_NO,
+            '3',  # production mode
+            '1',  # simple complexity
+            'kobo.example',  # public domain name
+            'support@kobo.example',  # support email address
         ])
         new_config = config.build()
         assert new_config['mongo_secured'] is True
@@ -874,7 +857,7 @@ def test_update_postgres_username():
 def test_update_postgres_db_name_from_single_database():
     """
     Simulate upgrade from single database to two databases.
-    With two databases, KoboCat has its own database. We ensure that
+    With two databases, KoboCAT has its own database. We ensure that
     `kc_postgres_db` gets `postgres_db` value.
     """
     config = read_config()

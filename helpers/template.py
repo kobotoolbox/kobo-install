@@ -144,7 +144,28 @@ class Template:
         return destination_directory
 
     @staticmethod
-    def __get_template_variables(config):
+    def __host_path(path):
+        """
+        Renders a path on the host for docker compose, using `$HOME` whenever
+        it sits in the current user's home directory.
+
+        docker compose expands `$HOME` itself, so the generated override file
+        stays valid for whoever runs it instead of hard-coding the home of
+        whoever happened to run the setup. A path outside the home directory
+        is left alone: there is nothing to generalise.
+        """
+        if not path:
+            return path
+
+        home = os.path.expanduser('~').rstrip(os.sep)
+        if path == home:
+            return '$HOME'
+        if path.startswith(home + os.sep):
+            return '$HOME' + path[len(home):]
+        return path
+
+    @classmethod
+    def __get_template_variables(cls, config):
         """
         Write configuration files based on `config`
 
@@ -170,22 +191,46 @@ class Template:
         return {
             'PUBLIC_REQUEST_SCHEME': _get_value('https', 'https', 'http'),
             'USE_HTTPS': _get_value('https'),
-            'USE_AWS': _get_value('use_aws'),
+            'USE_AWS_S3': _get_value('use_aws'),
             'USE_AWS_CREDENTIALS': (
                 ''
                 if (dict_['use_aws'] and not dict_.get('aws_use_profile', False))
                 else '#'
             ),
+            # Profile-based auth is independent of S3 storage: the developer's
+            # `~/.aws` can be mounted (and AWS_PROFILE set) without switching
+            # the default file storage to S3 (`use_aws`).
             'USE_AWS_PROFILE': (
-                ''
-                if (dict_['use_aws'] and dict_.get('aws_use_profile', False))
-                else '#'
+                '' if dict_.get('aws_use_profile', False) else '#'
             ),
             'AWS_ACCESS_KEY_ID': dict_['aws_access_key'],
             'AWS_SECRET_ACCESS_KEY': dict_['aws_secret_key'],
             'AWS_PROFILE': dict_.get('aws_profile_name', ''),
-            'AWS_HOST_AWS_DIR': dict_.get('aws_host_aws_dir', ''),
+            'AWS_HOST_AWS_DIR': cls.__host_path(
+                dict_.get('aws_host_aws_dir', '')
+            ),
             'AWS_BUCKET_NAME': dict_['aws_bucket_name'],
+            # Google Cloud application default credentials: mounting the host
+            # gcloud directory is independent of the NLP settings below.
+            'USE_GCLOUD_PROFILE': (
+                '' if dict_.get('gcloud_use_profile', False) else '#'
+            ),
+            'GCLOUD_HOST_CONFIG_DIR': cls.__host_path(
+                dict_.get('gcloud_host_config_dir', '')
+            ),
+            'USE_NLP': '' if dict_.get('use_nlp', False) else '#',
+            'AWS_BEDROCK_REGION_NAME': dict_.get('aws_bedrock_region_name', ''),
+            'GS_BUCKET_NAME': dict_.get('gs_bucket_name', ''),
+            # The Google SDK needs a project to work with application default
+            # credentials, and it is always the one used for ASR/MT. Derived
+            # from the single answer rather than asked three times.
+            'GOOGLE_CLOUD_PROJECT': dict_.get('asr_mt_google_project_id', ''),
+            'GOOGLE_CLOUD_QUOTA_PROJECT': dict_.get(
+                'asr_mt_google_project_id', ''
+            ),
+            'CONSTANCE_ASR_MT_GOOGLE_PROJECT_ID': dict_.get(
+                'asr_mt_google_project_id', ''
+            ),
             'AWS_S3_REGION_NAME': dict_['aws_s3_region_name'],
             'GOOGLE_UA': dict_['google_ua'],
             'GOOGLE_API_KEY': dict_['google_api_key'],
@@ -212,6 +257,7 @@ class Template:
             'POSTGRES_USER': dict_['postgres_user'],
             'POSTGRES_PASSWORD': dict_['postgres_password'],
             'DEBUG': dict_['debug'],
+            'EMAIL_BACKEND': dict_.get('email_backend', ''),
             'SMTP_HOST': dict_['smtp_host'],
             'SMTP_PORT': dict_['smtp_port'],
             'SMTP_USER': dict_['smtp_user'],
@@ -226,7 +272,11 @@ class Template:
             ),
             'USE_CLOUD_PROFILE_VOLUMES': (
                 ''
-                if (dict_['kpi_path'] != '' or dict_.get('aws_use_profile', False))
+                if (
+                    dict_['kpi_path'] != ''
+                    or dict_.get('aws_use_profile', False)
+                    or dict_.get('gcloud_use_profile', False)
+                )
                 else '#'
             ),
             'KPI_DEV_BUILD_ID': dict_['kpi_dev_build_id'],

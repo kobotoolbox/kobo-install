@@ -186,6 +186,24 @@ def test_aws_template_tokens_aws_disabled():
     assert vars_['USE_CLOUD_PROFILE_VOLUMES'] == '#'
 
 
+def test_aws_profile_decoupled_from_s3_storage():
+    """Profile auth can be enabled (mount ~/.aws, set AWS_PROFILE) without
+    turning on S3 storage."""
+    vars_ = _get_template_vars({
+        'use_aws': False,
+        'aws_use_profile': True,
+        'aws_profile_name': 'default',
+        'aws_host_aws_dir': '/home/user/.aws',
+    })
+    # Profile auth + volume mount active
+    assert vars_['USE_AWS_PROFILE'] == ''
+    assert vars_['USE_CLOUD_PROFILE_VOLUMES'] == ''
+    assert vars_['AWS_PROFILE'] == 'default'
+    # S3 storage stays off, no static credentials
+    assert vars_['USE_AWS_S3'] == '#'
+    assert vars_['USE_AWS_CREDENTIALS'] == '#'
+
+
 def test_aws_upgrade_without_profile_keys():
     """Config loaded from old .run.conf without aws_use_profile keys should
     fall back to credentials mode without raising KeyError."""
@@ -232,3 +250,118 @@ def _copy_templates(src: str = None, dst: str = None):
         else:
             # Copy files (overwrite if exists)
             shutil.copy2(src_path, dst_path)
+
+
+# ── Google Cloud authentication ──────────────────────────────────────────────
+
+def test_gcloud_template_tokens_profile_enabled():
+    vars_ = _get_template_vars({
+        'gcloud_use_profile': True,
+        'gcloud_host_config_dir': '/home/user/.config/gcloud',
+    })
+    assert vars_['USE_GCLOUD_PROFILE'] == ''
+    assert vars_['GCLOUD_HOST_CONFIG_DIR'] == '/home/user/.config/gcloud'
+
+
+def test_gcloud_template_tokens_profile_disabled():
+    vars_ = _get_template_vars({'gcloud_use_profile': False})
+    assert vars_['USE_GCLOUD_PROFILE'] == '#'
+
+
+def test_gcloud_profile_alone_opens_volumes_key():
+    """
+    A gcloud-only mount must still uncomment the `volumes:` key, otherwise the
+    mount lines land under a key that does not exist.
+    """
+    vars_ = _get_template_vars({
+        'kpi_path': '',
+        'aws_use_profile': False,
+        'gcloud_use_profile': True,
+        'gcloud_host_config_dir': '/home/user/.config/gcloud',
+    })
+    assert vars_['USE_CLOUD_PROFILE_VOLUMES'] == ''
+    assert vars_['USE_AWS_PROFILE'] == '#'
+
+
+def test_gcloud_profile_independent_from_nlp():
+    """
+    Mounting the credentials directory must not enable the NLP settings.
+    """
+    vars_ = _get_template_vars({
+        'gcloud_use_profile': True,
+        'asr_mt_google_project_id': 'my-gcp-project',
+        'use_nlp': False,
+    })
+    assert vars_['USE_GCLOUD_PROFILE'] == ''
+    assert vars_['USE_NLP'] == '#'
+    # The detected project is still carried over, just commented out
+    assert vars_['GOOGLE_CLOUD_PROJECT'] == 'my-gcp-project'
+
+
+# ── NLP / qualitative analysis ───────────────────────────────────────────────
+
+def test_nlp_template_tokens_enabled():
+    vars_ = _get_template_vars({
+        'use_nlp': True,
+        'aws_bedrock_region_name': 'us-west-2',
+        'gs_bucket_name': 'my-bucket',
+        'asr_mt_google_project_id': 'my-asr-project',
+    })
+    assert vars_['USE_NLP'] == ''
+    assert vars_['AWS_BEDROCK_REGION_NAME'] == 'us-west-2'
+    assert vars_['GS_BUCKET_NAME'] == 'my-bucket'
+    assert vars_['CONSTANCE_ASR_MT_GOOGLE_PROJECT_ID'] == 'my-asr-project'
+    # The Google SDK needs these for the application default credentials, and
+    # they always hold the ASR/MT project, so they are derived from it.
+    assert vars_['GOOGLE_CLOUD_PROJECT'] == 'my-asr-project'
+    assert vars_['GOOGLE_CLOUD_QUOTA_PROJECT'] == 'my-asr-project'
+
+
+def test_nlp_autoqa_arn_tokens_are_gone():
+    """
+    The AutoQA model ARNs are no longer needed for local development, and
+    production instances set them through their own custom compose file.
+    Emitting them empty would override the application defaults.
+    """
+    vars_ = _get_template_vars({'use_nlp': True})
+    assert 'AUTOQA_CLAUDESONNET_MODEL_AIP_ARN' not in vars_
+    assert 'AUTOQA_OSS120_MODEL_AIP_ARN' not in vars_
+
+    tpl = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        'templates', 'kobo-env', 'envfiles', 'external_services.txt.tpl',
+    )
+    with open(tpl, 'r') as f:
+        assert 'AUTOQA_' not in f.read()
+
+
+def test_nlp_template_tokens_disabled_by_default():
+    vars_ = _get_template_vars()
+    assert vars_['USE_NLP'] == '#'
+    assert vars_['GS_BUCKET_NAME'] == ''
+
+
+def test_gcloud_and_nlp_tokens_tolerate_old_config():
+    """
+    A `.run.conf` written before these keys existed must not raise.
+    """
+    config = read_config()
+    for key in (
+        'gcloud_use_profile',
+        'gcloud_host_config_dir',
+        'gs_bucket_name',
+        'use_nlp',
+        'aws_bedrock_region_name',
+        'asr_mt_google_project_id',
+    ):
+        del config._Config__dict[key]
+
+    with patch(
+        'helpers.template.Template._Template__read_unique_id',
+        MagicMock(return_value='123456789')
+    ):
+        vars_ = Template._Template__get_template_variables(config)
+
+    assert vars_['USE_GCLOUD_PROFILE'] == '#'
+    assert vars_['USE_NLP'] == '#'
+    assert vars_['USE_CLOUD_PROFILE_VOLUMES'] == '#'

@@ -11,5 +11,8 @@ setup(
     license='',
     author='KoboToolbox',
     author_email='',
-    description='Installer for KoboToolbox'
+    description='Installer for KoboToolbox',
+    install_requires=[
+        'netifaces==0.11.0',
+    ],
 )
