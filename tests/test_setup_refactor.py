@@ -2656,3 +2656,103 @@ def test_backend_only_backup_asks_for_its_own_aws_settings():
 
 
 
+
+
+# ── A dev KPI checkout must not follow the install onto a server ─────────────
+#
+# `USE_KPI_DEV_MODE` keys off `kpi_path` alone, with no mode guard, so a value
+# left over from a development install makes the generated server compose file
+# build from — and mount — the developer's tree. `__reset()` only clears it
+# under `production=True`, which dev → staging does not pass.
+
+def _dev_install_with_kpi_path():
+    """An existing development install carrying a local KPI checkout."""
+    config = read_config({
+        'local_installation': True,
+        'dev_mode': True,
+        'install_mode': 'dev',
+        'kpi_path': '/home/dev/src/kpi',
+        'kpi_dev_build_id': 'kobodev1234',
+    })
+    config._Config__first_time = False
+    return config
+
+
+@patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
+@patch('helpers.config.Config._Config__setup_directory', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_network', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_configure_resources',
+       new=lambda *a: None)
+@patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
+def test_quick_staging_drops_a_development_kpi_path(_):
+    """
+    The case Greptile found: dev → staging never passes `production=True`.
+    """
+    config = _dev_install_with_kpi_path()
+
+    result, _clone = _build_quick_server(config, STAGING)
+
+    assert result['kpi_path'] == ''
+    assert result['kpi_dev_build_id'] == ''
+    assert result['staging_mode'] is True
+
+
+@patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
+@patch('helpers.config.Config._Config__setup_directory', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_network', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_configure_resources',
+       new=lambda *a: None)
+@patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
+def test_quick_production_drops_a_development_kpi_path(_):
+    """Already correct through `__reset(production=True)`; pin it."""
+    config = _dev_install_with_kpi_path()
+
+    result, _clone = _build_quick_server(config, PRODUCTION)
+
+    assert result['kpi_path'] == ''
+    assert result['kpi_dev_build_id'] == ''
+
+
+@patch('helpers.config.Config.write_config', new=lambda *a, **k: None)
+@patch('helpers.config.Config._Config__setup_directory', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_detect_network', new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_configure_resources',
+       new=lambda *a: None)
+@patch('helpers.config.Config._Config__auto_setup_kpi_path',
+       new=lambda *a: None)
+@patch('helpers.config.Config._Config__questions_nlp_quick',
+       new=lambda *a: None)
+@patch('helpers.network.Network.get_primary_ip', return_value='127.0.0.1')
+def test_quick_dev_keeps_its_kpi_path(_):
+    """The clearing must not spill onto the development branch."""
+    config = read_config({
+        'local_installation': True,
+        'dev_mode': True,
+        'kpi_path': '/home/dev/src/kpi',
+        'kpi_dev_build_id': 'kobodev1234',
+    })
+    config._Config__first_time = False
+
+    with patch('helpers.cli.CLI.colored_input') as mock_ci:
+        mock_ci.side_effect = iter([DEV, SIMPLE])
+        config.build()
+
+    d = config._Config__dict
+    assert d['kpi_path'] == '/home/dev/src/kpi'
+    assert d['kpi_dev_build_id'] == 'kobodev1234'
+
+
+def test_custom_staging_keeps_its_kpi_path():
+    """
+    Deliberate: custom setup offers `KPI source files` for staging, pre-checked
+    from the stored value, so the choice stays the user's. Only quick setup —
+    which asks nothing — clears it.
+    """
+    config = _later_run_config({
+        'install_mode': 'staging',
+        'staging_mode': True,
+        'kpi_path': '/home/dev/src/kpi',
+    })
+
+    assert _menu_choices(config)['KPI source files'] is True
+    assert config._Config__dict['kpi_path'] == '/home/dev/src/kpi'

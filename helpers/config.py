@@ -153,6 +153,16 @@ class Config(metaclass=Singleton):
                     self.__auto_setup_kpi_path()
                     self.__questions_nlp_quick()
                 elif not self.local_install:
+                    # A KPI checkout left over from a development install
+                    # would reach the generated server configuration:
+                    # `USE_KPI_DEV_MODE` keys off `kpi_path` alone, so staging
+                    # would build from, and mount, the developer's tree.
+                    # Custom setup offers the `KPI source files` section and
+                    # may keep it; quick setup means defaults, and a local
+                    # checkout is not one.
+                    self.__dict['kpi_path'] = ''
+                    self.__dict['kpi_dev_build_id'] = ''
+
                     # The two answers a server has no default for. Everything
                     # else keeps its default, including HTTPS with Let's
                     # Encrypt — `__questions_reverse_proxy()` sets the proxy
