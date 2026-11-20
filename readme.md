@@ -25,6 +25,17 @@ If you have already installed KoboToolbox with `kobo-docker` prior March 2019,
 you **must** complete [a manual upgrade process](https://github.com/kobotoolbox/kobo-docker/#important-notice-when-upgrading-from-commit-5c2ef02-march-4-2019-or-earlier)
 before using this repository. **If you do not, `kobo-install` will not be able to start.**
 
+## Updating NGINX
+
+We recommend you pull the latest NGINX image to get security fixes. To do so, run:
+
+```
+$kobo-install> python3 run.py --compose-frontend pull nginx
+$kobo-install> docker pull nginx:1.31-alpine   # HTTPS proxy, if kobo-install manages your certificates
+$kobo-install> python3 run.py --stop
+$kobo-install> python3 run.py
+```
+
 ## Versions
 
 Release branches `release/*` (e.g. `release/2.024.36`) are the recommended branches to use with `kobo-install` on your production environment. From the `kpi` folder run `git branch -rl 'origin/release/*'` to list release branches and then switch to a release branch of your choice.
@@ -78,7 +89,6 @@ Start maintenance mode:
 
 Stop maintenance mode:  
 `$kobo-install> python3 run.py --stop-maintenance`
-
 
 ## Build the configuration
 
