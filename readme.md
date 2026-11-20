@@ -27,7 +27,11 @@ before using this repository. **If you do not, `kobo-install` will not be able t
 
 ## Updating NGINX
 
-We recommend you pull the latest NGINX image to get security fixes. To do so, run:
+We recommend you pull the latest NGINX image to get security fixes.
+
+If kobo-install manages your certificates, first set the `nginx_ssl_proxy` service's `image` to `nginx:1.31-alpine` in the generated `nginx-certbot/docker-compose.yml`, located alongside the `kobo-docker` directory. Pulling the image alone does not update this configuration.
+
+Then run:
 
 ```
 $kobo-install> python3 run.py --compose-frontend pull nginx
