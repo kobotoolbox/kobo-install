@@ -3,7 +3,7 @@ It prompts the user to answer some questions to create configuration files autom
 
 ## :warning: You _must observe_ the following when upgrading:
 
-### …from any release older than [`2.026.37g`] (https://github.com/kobotoolbox/kobo-install/releases/tag/2.026.37g)
+### …from any release older than [`2.026.37g`](https://github.com/kobotoolbox/kobo-install/releases/tag/2.026.37g)
 
 Redis has been replaced by Valkey. Your existing data is kept but you need to **back up your Redis data before running `python3 run.py --update`**: once Valkey has saved, Redis can no longer read the data, so the backup is your only way back. Please follow [these instructions](https://github.com/kobotoolbox/kobo-docker/blob/master/doc/September-2026-Upgrade-Valkey.md).
 
